@@ -61,15 +61,7 @@ public final class BridgeCallbackCarrierLifetime {
             var function = calls.function(root.callable().linkage());
             pending.add(function);
             initialization(calls.initializers(root.callable().owner()), reachability, pending, reasons);
-            if (function.kind() == IrCallableKind.CONSTRUCTOR && !function.parameters().isEmpty()) {
-                var rollback = calls.cleanup(function.parameters().getFirst().value(), true);
-                if (!rollback.complete()) reasons.add("unresolved carrier constructor rollback");
-                pending.addAll(rollback.targets());
-                if (rollback.targets().stream().anyMatch(target ->
-                        reachability.functions().get(BridgeCallableId.of(target)).requiresContext())) {
-                    reasons.add("carrier may survive callback-capable constructor rollback");
-                }
-            }
+
         }
         var visited = new LinkedHashSet<String>();
         for (int index = 0; index < pending.size(); index++) {
@@ -86,16 +78,7 @@ public final class BridgeCallbackCarrierLifetime {
                 }
                 var edge = calls.resolve(operation);
                 boolean cleanup = false;
-                if (operation instanceof IrFreeInstruction free) {
-                    edge = calls.cleanup(free.allocation(), false);
-                    cleanup = true;
-                } else if (operation instanceof IrRollbackInstruction rollback) {
-                    edge = calls.cleanup(rollback.allocation(), true);
-                    cleanup = true;
-                } else if (operation instanceof IrDestroyArrayElementsInstruction elements && elements.array().type().elementType().isReference()) {
-                    edge = calls.cleanup(new IrNull(elements.array().type().elementType(), elements.sourceSpan()), false);
-                    cleanup = true;
-                }
+
                 if (edge == null) return;
                 if (!edge.complete()) reasons.add("unresolved carrier edge: " + function.linkageName());
                 pending.addAll(edge.targets());

@@ -44,7 +44,6 @@ class Main {
 
         ExplodingSequence.prepare();
         ExplodingSequence sequence = new ExplodingSequence();
-        long rollbackBaseline = System.liveAllocationCount();
         boolean constructionFailed = false;
         try {
             new StringBuilder(sequence);
@@ -52,9 +51,7 @@ class Main {
 
             constructionFailed = true;
         }
-        if (!constructionFailed || System.liveAllocationCount() != rollbackBaseline) return 1;
-
-        long resultBaseline = System.liveAllocationCount();
+        if (!constructionFailed) return 1;
         String text = "A😀éZ";
         String middle = text.substring(1, 4);
         String empty = text.substring(text.length());
@@ -77,14 +74,7 @@ class Main {
         if (!snapshot.equals("[😀é]")) content = false;
         if (identity.length() <= 11) content = false;
 
-        free identity;
-        free value;
-        free snapshot;
-        free builder;
-        free units;
-        free empty;
-        free middle;
-        if (!content || System.liveAllocationCount() != resultBaseline) return 2;
+        if (!content) return 2;
 
         boolean negativeBegin = false;
         boolean reversedRange = false;

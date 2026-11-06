@@ -11,14 +11,12 @@ class Main {
     public static int main(String[] args) {
 
         Path working = Path.of(args[0]);
-        defer free working;
         for (int index = 1; index + 1 < args.length; index += 2) {
             Path found = ExecutableSearch.find(args[index], args[index + 1], working);
             if (found == null) {
                 System.out.println("<none>");
             } else {
                 System.out.println(found.toString());
-                free found;
             }
         }
         return 42;

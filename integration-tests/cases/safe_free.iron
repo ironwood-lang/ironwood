@@ -24,7 +24,6 @@ class Main {
         while (next < 10000) {
             Cell cell = new Cell(next);
             observed = observe(cell);
-            free cell;
             next = next + 1;
         }
         if (observed == 9999) return 42;

@@ -19,3 +19,6 @@ target/
 /docs/**/*.zst
 /docs/**/*.zip
 /docs/**/*.tar
+
+# Local Python driver caches are generated evidence, never source.
+__pycache__/

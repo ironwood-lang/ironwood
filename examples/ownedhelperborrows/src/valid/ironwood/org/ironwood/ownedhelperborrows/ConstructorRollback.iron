@@ -8,48 +8,38 @@ class RollbackFailure extends Error {
 
 class RollbackHelper {
 
-    private static int destroyed;
+    int value = 42;
 
-    static int destroyed() {
 
-        return destroyed;
-    }
 
-    destructor {
-
-        destroyed++;
-    }
 }
 
 class FailingOwner {
 
+    static RollbackHelper published;
     private RollbackHelper helper;
 
     FailingOwner() {
 
-        this.helper = new RollbackHelper(); // Installed owned field must be rolled back.
+        this.helper = new RollbackHelper();
+        published = this.helper;
         throw new RollbackFailure();
     }
 
-    destructor {
-
-        free this.helper;
-    }
 }
 
-// Expected: compile, link, and exit 42. Failed construction destroys installed fields.
+// Exit 42 verifies that a published child survives failed managed construction.
 public class ConstructorRollback {
 
     public static int main(String[] args) {
 
         try {
             FailingOwner unexpected = new FailingOwner();
-            // Rollback is the expected path; clean up if construction unexpectedly returns.
-            free unexpected;
             return 1;
         } catch (RollbackFailure expected) {
 
-            return RollbackHelper.destroyed() == 1 ? 42 : 2;
+            ironwood.lang.Memory.collect();
+            return FailingOwner.published.value == 42 ? 42 : 2;
         }
     }
 }

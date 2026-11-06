@@ -26,39 +26,25 @@ or build contract.
 4. `ironwood.ds` utilities and primitive array/list/map structures.
 5. Generic and linked collections, then their set adapters.
 6. Character-sequence maps and heap-buffer maps.
-7. Compiler-proven deterministic reclamation for superseded private backing
-   arrays and terminal container destructors; detached-node reclamation remains
-   separate from active node reuse.
+7. Exact managed layouts and phase reclamation for superseded backing arrays,
+   independently of active node reuse.
 8. `.ironjar`, relocated-package, optimization-level, and allocation-invariant
    verification.
 
 ## Intentional differences
 
-- `SoftReference`, retention-policy selection, `discardGarbage()`, and equivalent
-  JVM garbage-collector hints are omitted. Superseded private backing arrays are
-  explicitly freed after a closed-world ownership summary and local detachment
-  proof succeed. Freeing an array never recursively frees its elements. Multi-array
-  segments remain reusable high-water capacity.
-- Reflection-based `ObjectBuilder.createBuilder(Class)` and pool constructors
-  taking `Class` are omitted. Callers supply a statically typed builder.
-- Collections borrow inserted user objects. Pools own builder-created
-  values. `get()` borrows; `release()` returns a checkout.
-  The pool destroys checked-out and available values alike. `takeRetained()` is
-  removed. Null returns fail; duplicate returns are unchecked. External objects
-  are unsupported and not recorded for destruction.
-- Container destructors reclaim proven implementation storage, reusable iterators,
-  and owned holders. Pool creation arrays also record holders that reclaim array segments.
-  Compiler lifetime and escape proofs reject dangling uses and uncertain owner
-  reclamation. Collection element APIs do not recursively destroy user values.
-- Direct native `ByteBuffer` storage is deferred until Ironwood has a deliberate
-  unsafe/native ownership boundary; the heap-buffer API is the first target.
-- `ByteBufferMap` semantically copies every supported key, but the current
-  interprocedural safe-`free` summaries may conservatively reject a subsequent
-  `free` of a locally allocated key passed through the nested copy routine.
-  Removing that `free` is safe and does not change map key ownership; the
-  compiler is not permitted to accept it until the copy can be proven.
-- The libraries remain deliberately single-threaded and preserve their reused,
-  non-reentrant iterator contracts.
+The library remains single-threaded with reused nonreentrant iterators. Pools
+retain builder-created values and capacity, including checkouts. Return a checkout
+at most once to its originating pool and stop using it until reacquired. Builders
+remain explicit and must return fresh unescaped objects or null. There is no
+runtime membership registry or implicit resource closure.
+
+Containers, arrays, copied keys, helpers and user elements form ordinary shared
+managed graphs. Copied-key maps preserve copying; direct native ByteBuffer storage
+remains deferred. Stale slots can intentionally retain values until reuse or a
+named cold cleanup. Collection is explicit and never invoked by library operations.
+Native resources have separate explicit lifecycle and failure-cleanup contracts.
+The former manual teardown/ownership proof descriptions are superseded by GC5-GC7.
 
 ## Completion accounting
 
@@ -80,9 +66,9 @@ counted.
 | Deterministic `.ironjar` packaging and lazy class-path loading | Complete; package smoke tests |
 | `ironwood.lang.Object` root for classes, interfaces, and arrays | Complete; native `-O0` through `-O3` tests |
 | Java-shaped standard exception hierarchy | Complete; native `-O0` through `-O3` tests |
-| `AutoCloseable`, explicit `finally` cleanup, and ordered secondary failures | Complete; checked-close, archive, safe-free, and native `-O0` through `-O3` tests |
-| Invariant reference-sharing generics | Complete; native/archive/safe-free tests |
-| Reifiable unbounded wildcard views and casts | Complete; read-only capture, archive/tree-shaking, safe-free, and native `-O0` through `-O3` tests |
+| `AutoCloseable`, explicit `finally` cleanup, and ordered secondary failures | Complete; checked-close, archive, managed lifetime, and native `-O0` through `-O3` tests |
+| Invariant reference-sharing generics | Complete; native/archive/managed lifetime tests |
+| Reifiable unbounded wildcard views and casts | Complete; read-only capture, archive/tree-shaking, managed lifetime, and native `-O0` through `-O3` tests |
 | Object-bound unbounded type parameters | Complete; `equals`, `hashCode`, `toString`, reference equality, virtual dispatch, and native collection tests |
 | Java expression/control-flow and numeric model required by the library | Complete for the current pool tranche; native and archive tests |
 | `ironwood.lang.Iterable<T>` and `ironwood.util.Iterator<E>` | Complete; reusable generic dispatch, source/class/archive, tree-shaking, and native `-O0` through `-O3` tests |
@@ -111,9 +97,9 @@ not boxed primitive implementations.
 | Target type | Visibility | Status |
 | --- | --- | --- |
 | `ObjectBuilder<E>` | public | Complete; explicit builder, generic interface dispatch, archive/native tests |
-| `ObjectPool<E>` | public | Complete; owning `get`/`release` contract, checked-out destruction, generic interface dispatch, transfer and safe-free tests |
-| `ArrayObjectPool<E>` | public | Complete except numeric interpolation in validation messages; builder constructors, preload/order, left/right exact growth, deterministic backing-array replacement and destructor cleanup, null/builder errors, safe-free, archive, and native `-O0` through `-O3` tests |
-| `MultiArrayObjectPool<E>` | public | Complete; builder constructors, preload/LIFO traversal, flattened package-private holder, geometric/capped segments, null/builder errors, safe-free, archive, and native `-O0` through `-O3` tests |
+| `ObjectPool<E>` | public | Complete; owning `get`/`release` contract, intentional checked-out retention, generic interface dispatch, transfer and managed lifetime tests |
+| `ArrayObjectPool<E>` | public | Complete except numeric interpolation in validation messages; builder constructors, preload/order, left/right exact growth, backing-array replacement and managed storage, null/builder errors, managed lifetime, archive, and native `-O0` through `-O3` tests |
+| `MultiArrayObjectPool<E>` | public | Complete; builder constructors, preload/LIFO traversal, flattened package-private holder, geometric/capped segments, null/builder errors, managed lifetime, archive, and native `-O0` through `-O3` tests |
 | `ArraySizing` | package-private | Complete; double-precision exact/minimum/clamped growth, maximum-length error, and native boundary tests |
 | `MultiArrayObjectPool.ArrayHolder<E>` | private nested | Owns one linked array-segment container |
 
@@ -133,12 +119,12 @@ perform arbitrary work.
 | `IntHolder` | Complete; primitive `int get()` interface dispatch, loose/archive and native `-O0` through `-O3` tests |
 | `LongHolder` | Complete; primitive `long get()` interface dispatch and signed boundary tests at `-O0` through `-O3` |
 | `MathUtils` | Complete except numeric interpolation in the validation message; long power-of-two boundaries, exception behavior, archive, tree-shaking, and native `-O0` through `-O3` tests |
-| `ArrayList<E>` | Complete; growth, indexed insertion/access/replacement/removal, forward/reverse value lookup, deterministic backing-array free, reusable iterator removal, value semantics, and native `-O0` through `-O3` tests |
+| `ArrayList<E>` | Complete; growth, indexed insertion/access/replacement/removal, forward/reverse value lookup, managed backing-array replacement, reusable iterator removal, value semantics, and native `-O0` through `-O3` tests |
 | `ArrayLinkedList<E>` | Complete; fixed array plus pooled linked overflow, reusable composite iterator/removal, value semantics, and native `-O0` through `-O3` tests |
 | `LinkedList<E>` | Complete; pooled links, head/tail/middle removal, reusable iterator, value semantics, and native `-O0` through `-O3` tests |
-| `IntArrayList` | Complete; primitive growth, indexed replacement/removal, forward/reverse value lookup, deterministic backing-array free, reusable holder iterator, value semantics, and native `-O0` through `-O3` tests |
+| `IntArrayList` | Complete; primitive growth, indexed replacement/removal, forward/reverse value lookup, managed backing-array replacement, reusable holder iterator, value semantics, and native `-O0` through `-O3` tests |
 | `IntLinkedList` | Complete; pooled primitive links, reusable holder iterator/removal, value semantics, and native `-O0` through `-O3` tests |
-| `LongArrayList` | Complete; signed-extreme primitive growth, indexed replacement/removal, forward/reverse value lookup, deterministic backing-array free, reusable holder iterator, value semantics, and native `-O0` through `-O3` tests |
+| `LongArrayList` | Complete; signed-extreme primitive growth, indexed replacement/removal, forward/reverse value lookup, managed backing-array replacement, reusable holder iterator, value semantics, and native `-O0` through `-O3` tests |
 | `LongLinkedList` | Complete; pooled primitive links, signed-extreme reusable holder iterator/removal, value semantics, and native `-O0` through `-O3` tests |
 | `HashMap<K, V>` | Complete; value keys, collisions/rehash, pooled entries, reusable iterator/key/removal, value semantics, and native `-O0` through `-O3` tests |
 | `IdentityHashMap<K, V>` | Complete; identity keys/hash, collisions/rehash, pooled entries, reusable iterator/key/removal, identity mapping semantics, and native `-O0` through `-O3` tests |

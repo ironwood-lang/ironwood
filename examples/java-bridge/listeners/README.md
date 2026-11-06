@@ -5,7 +5,7 @@
 `ResultProcessor` is native Ironwood code. Its generated `ResultListener` is an
 ordinary Java interface, implemented by the application. Calls are synchronous
 on the invoking thread. A registration stays alive until replacement, clearing
-or processor `free()`. A suspended `process()` keeps its original registration
+or registration closure. A suspended `process()` keeps its original registration
 even if the listener replaces it during a reentrant call.
 
 Use the same JDK 21 to 25 and LLVM 23 setup as the [value example](../README.md).
@@ -31,7 +31,7 @@ paired JAR can also run on supported Java 22 and 23 on its recorded native targe
 The separate benchmark compares the same stateful arithmetic and exactly one
 listener event per result in three scenarios: native processor/native listener,
 Java processor/Java listener, and native processor/Java listener. The native-only
-driver uses one static process-lifetime listener and reclaims its processor.
+driver scopes one listener registration and processor anchor independently.
 Setup and registration are outside timing. It does not modify OrderBook.
 
 From the repository root, on Linux x86-64 with the existing pinned JDK directories:

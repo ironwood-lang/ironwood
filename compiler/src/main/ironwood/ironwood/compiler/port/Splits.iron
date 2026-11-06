@@ -55,7 +55,6 @@ public final class Splits {
         }
         if (kept == fields) return all;
         // Only trailing empty fields were removed; copy the kept prefix.
-        defer free all;
         int[] result = new int[kept * 2];
         for (int index = 0; index < kept * 2; index++) result[index] = all[index];
         return result;

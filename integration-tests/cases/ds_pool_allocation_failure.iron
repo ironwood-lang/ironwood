@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-// Fail allocations during copied-key map construction and growth. Rollback and
-// finally cleanup must reclaim the pool, entries, copied keys, and backing arrays.
+// Fail allocations during copied-key map construction and growth.
+// Collect the completed failed/successful phase, including partial graphs.
 // Exit 42 after injected OOM, or 43 when the operation succeeds without OOM.
 import ironwood.ds.ByteBufferMap;
 import ironwood.nio.ByteBuffer;
@@ -25,15 +25,14 @@ class Main {
                 }
                 container.clear();
             } finally {
-                free container;
             }
         } finally {
-            free key;
         }
     }
 
     public static int main(String[] args) {
 
+        ironwood.lang.Memory.collect();
         long baseline = System.liveAllocationCount();
         try {
             checkByteBufferMap();
@@ -41,8 +40,10 @@ class Main {
             failed = true;
         }
         if (attempts != 1) return 1;
+        ironwood.lang.Memory.collect();
         long remaining = System.liveAllocationCount() - baseline;
         if (remaining != 0) return 3;
+
         return failed ? 42 : 43;
     }
 }

@@ -16,19 +16,8 @@ final class BridgeDistributionTests {
     private BridgeDistributionTests() {}
 
     static void inputs() throws Exception {
-        var compiler = new CompilerPipeline(UnfreedMode.OFF);
-        var source = SourceFile.of("Engine.iron", """
-                package distribution;
-                public final class Engine {
-                    private Engine() {}
-                    public static long value(String input) {
-                        ironwood.time.Instant instant = ironwood.time.Instant.parse(input);
-                        long result = instant.getEpochSecond();
-                        free instant;
-                        return result;
-                    }
-                }
-                """);
+        var compiler = new CompilerPipeline();
+        var source = SourceFile.of("Engine.iron", "package distribution;\npublic final class Engine {\n    private Engine() {}\n    public static long value(String input) {\n        ironwood.time.Instant instant = ironwood.time.Instant.parse(input);\n        long result = instant.getEpochSecond();\n        ;\n        return result;\n    }\n}\n");
         var artifact = compiler.analyzeForBridge(List.of(source));
         check(artifact.valid(), artifact.diagnostics().toString());
         var actual = BridgeDistributionInputs.discover(artifact);
@@ -97,7 +86,7 @@ final class BridgeDistributionTests {
             Files.copy(archive, unused);
             var loaded = new SourceSetLoader(List.of(), List.of(archive)).loadBridge(List.of(), List.of("notices"));
             check(loaded.diagnostics().isEmpty(), loaded.diagnostics().toString());
-            var artifact = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(loaded.sources());
+            var artifact = new CompilerPipeline().analyzeForBridge(loaded.sources());
             check(artifact.valid(), artifact.diagnostics().toString());
             var options = new BridgeDistributionInputs.Options(List.of(archive, unused), List.of(first, second, second));
             var inputs = BridgeDistributionInputs.discover(artifact, options);

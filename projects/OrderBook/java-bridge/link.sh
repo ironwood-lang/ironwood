@@ -22,15 +22,17 @@ printf ' %q' "${COMMAND[@]}"
 printf '\n'
 "${COMMAND[@]}"
 
-# Reuse the Java drivers verbatim, but resolve their engine types from the JAR.
+# Compile the managed drivers against the generated API and lifetime helper.
 # An empty source path prevents javac from silently compiling the Java engine.
 rm -rf target/consumer-classes target/empty-source
 mkdir -p target/consumer-classes target/empty-source
-JAVA_SOURCES=../java/src/main/java/org/ironwood/orderbook
+JAVA_SOURCES=src/main/java/org/ironwood/orderbook
 COMMAND=(javac --release 21 -encoding UTF-8 -Xlint:all -Werror
     -sourcepath target/empty-source -cp target/orderbook.jar -d target/consumer-classes
     "$JAVA_SOURCES/Main.java" "$JAVA_SOURCES/Bench.java"
-    "$JAVA_SOURCES/LatencyBench.java" "$JAVA_SOURCES/LatencyReport.java")
+    "$JAVA_SOURCES/LatencyBench.java"
+    ../java/src/main/java/org/ironwood/orderbook/LatencyReport.java
+    "$REPO_ROOT/examples/java-bridge/support/BridgeLifetime.java")
 printf '+'
 printf ' %q' "${COMMAND[@]}"
 printf '\n'

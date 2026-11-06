@@ -17,16 +17,11 @@ class Main {
     static void launch(String helper, String scratch) throws IOException {
 
         Path directory = Path.of(scratch);
-        defer free directory;
         Path output = directory.resolve("launch.log");
-        defer free output;
         String[] command = {helper, "argv", "value"};
-        defer free command;
         try {
             ProcessResult result = ProcessRunner.runToFile(command, directory, output);
-            defer free result;
             String text = Files.readString(output);
-            defer free text;
             if (result.exitValue() != 0 || !text.equals("[value]\n")) throw new IllegalStateException();
         } finally {
             Files.deleteIfExists(output);
@@ -34,8 +29,6 @@ class Main {
     }
 
     public static int main(String[] args) {
-
-        long baseline = System.liveAllocationCount();
         boolean failed = false;
         try {
             launch(args[0], args[1]);
@@ -44,7 +37,7 @@ class Main {
         } catch (IOException unexpected) {
             return 2;
         }
-        if (System.liveAllocationCount() != baseline) return 1;
+
         return failed ? 42 : 43;
     }
 }

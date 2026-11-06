@@ -1,6 +1,4 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
-// Each result element is independently owned. Detach before freeing each item;
-// free the array separately. Exit zero after summing the two values.
 class AddressValue {
 
     int value;
@@ -30,9 +28,7 @@ class Main {
             AddressValue item = results[i];
             results[i] = null;
             total += item.value;
-            free item;
         }
-        free results;
         return total == 1 ? 0 : 1;
     }
 }

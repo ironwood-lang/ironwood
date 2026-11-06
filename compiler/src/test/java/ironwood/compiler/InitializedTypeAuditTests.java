@@ -44,8 +44,7 @@ final class InitializedTypeAuditTests {
         require(fast.stream().anyMatch(b -> b.terminator() instanceof IrInvokeTerminator), "missing fast invoke");
         require(fast.stream().flatMap(b -> b.instructions().stream()).anyMatch(IrPhiInstruction.class::isInstance),
                 "missing fast phi joins");
-        require(fast.stream().flatMap(b -> b.instructions().stream()).anyMatch(IrFreeInstruction.class::isInstance),
-                "missing fast deferred free");
+
         require(fast.stream().flatMap(InitializedTypeAuditTests::operations)
                 .anyMatch(i -> i instanceof IrStaticFieldLoadInstruction l && l.field().ownerClass().equals("Mutable")),
                 "mutable alias reload was substituted");
@@ -77,15 +76,8 @@ final class InitializedTypeAuditTests {
         require(!guards(renamedRoot).isEmpty(), "collision case was skipped");
         checkCfg(renamedRoot);
 
-        String safe = fixture("control");
-        String unsafe = safe.replace("defer free value;", "defer free value; free value;");
-        require(!unsafe.equals(safe), "unsafe mutation missed its cleanup");
-        for (UnfreedMode mode : UnfreedMode.values()) {
-            var positive = new CompilerPipeline(mode).compile(SourceFile.of("control.iron", safe));
-            require(positive.successful(), mode + " safe cleanup: " + positive.diagnostics());
-            var negative = new CompilerPipeline(mode).compile(SourceFile.of("control.iron", unsafe));
-            require(!negative.valid() && negative.program().isEmpty(), mode + " accepted double cleanup");
-        }
+        var managed = new CompilerPipeline().compile(SourceFile.of("control.iron", fixture("control")));
+        require(managed.successful(), managed.diagnostics().toString());
     }
 
     static void groups() throws Exception {
@@ -192,11 +184,11 @@ final class InitializedTypeAuditTests {
         Path root = Path.of("integration-tests/target/initialized-audit", fixture).toAbsolutePath();
         Files.createDirectories(root);
         Path classes = root.resolve("classes");
-        cli("--unfreed=error", source.toString(), "-d", classes.toString());
+        cli(source.toString(), "-d", classes.toString());
         for (int level : levels) {
             Path binary = root.resolve("program-O" + level);
             Path llvm = root.resolve("program-O" + level + ".ll");
-            cli("--link", "--unfreed=error", "-cp", classes.toString(), "--main-class", "Main", "-O" + level,
+            cli("--link", "-cp", classes.toString(), "--main-class", "Main", "-O" + level,
                     "--emit-llvm", llvm.toString(), "-o", binary.toString());
             require(Files.readString(llvm).contains("$initialized"), fixture + " lost specialization on reconstruction");
             Path stdout = root.resolve("O" + level + ".stdout");
@@ -249,7 +241,7 @@ final class InitializedTypeAuditTests {
     }
 
     private static IrProgram analyze(String source) {
-        var result = new CompilerPipeline(UnfreedMode.OFF).analyze(List.of(SourceFile.of("audit.iron", source)));
+        var result = new CompilerPipeline().analyze(List.of(SourceFile.of("audit.iron", source)));
         require(result.valid(), "analysis failed: " + result.diagnostics());
         return result.program().orElseThrow();
     }

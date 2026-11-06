@@ -5,27 +5,23 @@ package ironwood.compiler.bridge;
 import ironwood.compiler.CompilationArtifact;
 import ironwood.compiler.semantic.BridgeArrayInputs;
 
-/** Proved array ownership drives copy-back, Java identity, and result destruction. */
+/** Admitted array effects drive copy-back and Java result identity. */
 final class BridgeArrayValueSources {
     private BridgeArrayValueSources() {}
 
     static BridgeArrayInputs.Contract contract(CompilationArtifact artifact, BridgeCallableId callable) {
-        return contract(artifact, callable, false);
+        return contract(artifact, callable, null);
     }
 
-    static BridgeArrayInputs.Contract contract(CompilationArtifact artifact, BridgeCallableId callable, boolean managed) {
-        return contract(artifact, callable, managed, null);
-    }
-
-    static BridgeArrayInputs.Contract contract(CompilationArtifact artifact, BridgeCallableId callable, boolean managed, BridgeListenerProxies listeners) {
+    static BridgeArrayInputs.Contract contract(CompilationArtifact artifact, BridgeCallableId callable, BridgeListenerProxies listeners) {
         if (!callable.result().isArray() && BridgeArrayInputSources.indices(callable.parameters()).isEmpty()) return null;
-        var proof = managed ? BridgeArrayInputs.managedValues(artifact, callable, listeners) : BridgeArrayInputs.values(artifact, callable);
+        var proof = BridgeArrayInputs.managedValues(artifact, callable, listeners);
         if (proof.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(proof.reason());
         return proof.contract().orElseThrow();
     }
 
     static void finish(StringBuilder text, BridgeArrayInputs.Contract contract, String frame, String failure,
-                       String exit, boolean pendingCommit, boolean ownedStringResult) {
+                       String exit, boolean pendingCommit) {
         if (contract == null || !contract.mutable() || contract.inputs().isEmpty()) {
             text.append("    if (status != 0) { ").append(failure).append("(env, status, status == 1 ? ").append(frame)
                     .append(".exception : NULL);\n");

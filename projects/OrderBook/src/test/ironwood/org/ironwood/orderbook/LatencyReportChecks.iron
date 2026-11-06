@@ -9,7 +9,6 @@ public final class LatencyReportChecks {
     private static void report(long[] samples, int warmup) {
 
         ironwood.bench.Bench bench = new ironwood.bench.Bench(warmup);
-        defer free bench;
         for (int index = 0; index < samples.length; index++) bench.measure(samples[index]);
         bench.printResults();
     }
@@ -21,7 +20,6 @@ public final class LatencyReportChecks {
         long[] units = {Long.MAX_VALUE, Long.MAX_VALUE,
                 0, 999, 1000, 1000, 1999, 2000, 1000000, 1000000000};
         report(units, 2);
-        free units;
         report(new long[] {100, 42}, 1);
         report(new long[] {99, 88}, 2);
         return 0;

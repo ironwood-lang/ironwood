@@ -45,7 +45,6 @@ class Scope {
             value.hashCode();
             return 7;
         } finally {
-            free value;
         }
     }
 
@@ -55,7 +54,6 @@ class Scope {
         try {
             FailureSource.fail();
         } finally {
-            free value;
         }
     }
 
@@ -69,7 +67,6 @@ class Scope {
 
             return 9;
         } finally {
-            free value;
         }
     }
 
@@ -82,7 +79,6 @@ class Scope {
             try {
                 resource.close();
             } finally {
-                free resource;
             }
         }
     }
@@ -94,10 +90,8 @@ class Main {
 
         FailureSource.prepare();
         ClosingResource.prepare();
-        long baseline = System.liveAllocationCount();
 
-        if (Scope.returnThroughFinally() != 7
-                || System.liveAllocationCount() != baseline) {
+        if (Scope.returnThroughFinally() != 7) {
 
             return 1;
         }
@@ -109,10 +103,9 @@ class Main {
 
             throwFailed = true;
         }
-        if (!throwFailed || System.liveAllocationCount() != baseline) return 2;
+        if (!throwFailed) return 2;
 
-        if (Scope.catchThenReturnThroughFinally() != 9
-                || System.liveAllocationCount() != baseline) {
+        if (Scope.catchThenReturnThroughFinally() != 9) {
 
             return 3;
         }
@@ -124,7 +117,7 @@ class Main {
 
             closeFailed = true;
         }
-        if (!closeFailed || System.liveAllocationCount() != baseline) return 4;
+        if (!closeFailed) return 4;
         return 42;
     }
 }

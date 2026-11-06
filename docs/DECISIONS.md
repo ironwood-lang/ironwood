@@ -12703,3 +12703,40 @@ occurrence order. If no
   old bridge paths and broad repository/test migration remain in the ledger.
   Focused successful controls do not complete that closure. GC8-GC10 and
   self-hosting remain gated.
+
+## D324 - Retire managed reclamation proofs and complete GC7 consumer migration
+
+- **Status:** Implemented. See [GC7](GC7_IMPLEMENTATION.md), its
+  [disposition ledger](GC7_DISPOSITION.md), and compact verification.
+- **Supersession:** Completes D323's checkpoint and supersedes remaining
+  managed-free, destructor, rollback, exclusive-field, detached-element and
+  missing-free premises in D083, D084, D278, D282, D289/D290 and D296/D297.
+  Their historical reports/hashes remain unchanged. D320/D322 define the one
+  implemented memory model; D051, D132/D133 and actual resource/pool/foreign
+  contracts remain mandatory.
+- **Decision:** Delete obsolete AST/IR records, dispatch/ownership metadata,
+  lowering builders, diagnostics/witnesses and private managed-release helpers.
+  Remove exclusive-field and detached/copy/temporary reclamation passes, not
+  merely their outer convergence loop. Keep real dispatch/value-flow,
+  escape/return origins, MayCollect, initialization, native acquisition,
+  pool-origin and foreign-confinement analyses conservative.
+- **Narrow facts:** Exact final instance-reference fields after definite
+  initialization and known array slots preserve actual value/pool origins.
+  These facts grant neither exclusive ownership nor nonretention. Unknown
+  effects remain conservative. Constructor receiver publication, including
+  superclass calls, invalidates unescaped fresh pool-builder results through
+  the existing escape summaries. Managed file-tree callbacks may retain paths
+  and attributes; traversal still explicitly closes native directory handles.
+- **Consumers:** Maintained source, tests, Java bridge drivers, generators, IDE,
+  launch/packaging inputs and current documentation use managed roots and
+  explicit resource operations. RootHandle, registration closure, source close
+  and collection remain independent. Historical evidence and intentional
+  migration-negative fixtures are classified with hashes in the ledger.
+- **ABI:** Removed semantic descriptor fields become compiler-emitted reserved null/false
+  physical padding. Ordinary root ABI 2 / owner ABI 1 and managed schema 2 /
+  objects-gc-v1, root ABI 3 / owner ABI 2 stay unchanged. Changed verified runtime
+  inputs receive new SDK configuration identities and rebuilt payloads.
+  BDWGC remains 8.2.12 with USE_MARK_BYTES=1.
+- **Boundary:** Focused guarded checks establish GC7, not GC8 capacity/performance
+  acceptance, GC9 distribution acceptance or self-hosting readiness. Linux
+  arm64, arm64e and unsupported asynchronous/foreign lifetimes remain gated.

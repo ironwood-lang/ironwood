@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-// Runs unchanged on Java after removing explicit free statements and adapting main.
 // Polymorphic helper inputs live for the process; ownership is tested separately.
 // Print UTF-16 units so lone surrogates cannot hide differences during UTF-8 output.
 class Text implements CharSequence {
@@ -82,12 +81,10 @@ class Main {
                             case 11:
                                 String slice = builder.substring(start, end);
                                 show(slice);
-                                free slice;
                                 break;
                             case 12:
                                 String suffix = builder.substring(start);
                                 show(suffix);
-                                free suffix;
                                 break;
                         }
                         System.out.print(0);
@@ -102,8 +99,6 @@ class Main {
                 }
             }
         }
-        free bounds;
-        free characters;
     }
 
     public static int main(String[] args) {
@@ -160,7 +155,6 @@ class Main {
         builder.setCharAt(2, 'Q');
         show(snapshot);
         show(builder);
-        free snapshot;
         String high = String.valueOf((char) 0xd83c);
         String low = String.valueOf((char) 0xdf32);
         String[] needles = {"", "a", "cd", high, low, "🌲", "abcdabcd", "missing"};
@@ -195,11 +189,6 @@ class Main {
             combinations *= alphabet.length;
         }
         System.out.println(signature);
-        free alphabet;
-        free offsets;
-        free needles;
-        free high;
-        free low;
         return 42;
     }
 }

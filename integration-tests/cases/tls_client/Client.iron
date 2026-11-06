@@ -35,9 +35,6 @@ class Client {
             return 42;
         } finally {
             try { client.close(); } finally {
-                free bytes;
-                free endpoint;
-                free client;
             }
         }
     }

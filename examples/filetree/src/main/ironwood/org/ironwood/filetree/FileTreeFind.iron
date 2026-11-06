@@ -39,10 +39,6 @@ final class SuffixVisitor extends SimpleFileVisitor<Path> {
         return this.matches;
     }
 
-    destructor {
-
-        free this.suffix;
-    }
 }
 
 public class FileTreeFind {
@@ -55,8 +51,6 @@ public class FileTreeFind {
         SuffixVisitor visitor = new SuffixVisitor(suffix);
         Files.walkFileTree(root, visitor);
         int matches = visitor.matches();
-        free visitor;
-        free root;
         return matches > 0 ? 42 : 1;
     }
 }

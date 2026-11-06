@@ -52,9 +52,6 @@ def main():
         for variant in samples:
             directory = out / case / variant; directory.mkdir(parents=True)
             source = perf.fixture(case, variant)
-            if case == 'pool':
-                assert source.count('free pool;') == 1 and source.count('free builder;') == 1
-                source = source.replace('free pool;', '').replace('free builder;', '')
             assert 'free ' not in source and 'destructor {' not in source
             path = directory / 'Main.iron'; path.write_text(source)
             run(*command, path, '-d', directory / 'classes')

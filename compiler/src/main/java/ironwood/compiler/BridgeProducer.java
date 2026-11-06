@@ -23,12 +23,6 @@ import java.util.stream.Collectors;
 final class BridgeProducer {
     private BridgeProducer() {}
 
-    static void build(CompilationArtifact artifact, BridgeExportSurface surface, Path output,
-            LlvmToolchain toolchain, OptimizationLevel optimization, BridgeDistributionInputs.Options packaging,
-            PrintStream diagnostics) throws IOException {
-        build(artifact, surface, null, null, null, false, output, toolchain, optimization, packaging, diagnostics);
-    }
-
     static void build(CompilationArtifact artifact, BridgeObjectAdmission objects, Path output,
             LlvmToolchain toolchain, OptimizationLevel optimization, BridgeDistributionInputs.Options packaging,
             PrintStream diagnostics) throws IOException {
@@ -41,21 +35,11 @@ final class BridgeProducer {
         if (!objects.matches(artifact, objects.surface())) {
             throw new IOException("Java Bridge objects require exact final object admission");
         }
-        build(artifact, objects.surface(), objects, null, null, criticalCalls, output, toolchain, optimization, packaging, diagnostics);
-    }
-
-    static void build(BridgeCallbackAdmission callbacks, Path output, LlvmToolchain toolchain,
-            OptimizationLevel optimization, BridgeDistributionInputs.Options packaging, PrintStream diagnostics) throws IOException {
-        build(callbacks.artifact(), callbacks.surface(), null, callbacks, null, false, output, toolchain, optimization, packaging, diagnostics);
-    }
-
-    static void build(BridgeOwnedCallbackAdmission callbacks, Path output, LlvmToolchain toolchain,
-            OptimizationLevel optimization, BridgeDistributionInputs.Options packaging, PrintStream diagnostics) throws IOException {
-        build(callbacks.artifact(), callbacks.surface(), null, null, callbacks, false, output, toolchain, optimization, packaging, diagnostics);
+        build(artifact, objects.surface(), objects, criticalCalls, output, toolchain, optimization, packaging, diagnostics);
     }
 
     private static void build(CompilationArtifact artifact, BridgeExportSurface surface, BridgeObjectAdmission objects,
-            BridgeCallbackAdmission callbacks, BridgeOwnedCallbackAdmission owners, boolean criticalCalls, Path output,
+            boolean criticalCalls, Path output,
             LlvmToolchain toolchain, OptimizationLevel optimization, BridgeDistributionInputs.Options packaging,
             PrintStream diagnostics) throws IOException {
         String host = hostTarget(); boolean macos = host.equals("macos-arm64");
@@ -67,9 +51,9 @@ final class BridgeProducer {
         var producer = BridgeProducerInputs.discover();
         var support = macos ? null : BridgeNativeSupport.discover(toolchain);
         var macTools = macos ? MacNativeTools.discover() : null;
-        if (objects == null || !objects.managedHeap()) throw new IOException("native bridge production requires complete managed admission");
+        if (objects == null || !true) throw new IOException("native bridge production requires complete managed admission");
         var distribution = BridgeDistributionInputs.discover(artifact, packaging).withGc(toolchain);
-        var projection = projection(artifact, surface, objects, callbacks, owners, criticalCalls, destination.getFileName().toString(), producer);
+        var projection = projection(artifact, surface, objects, criticalCalls, destination.getFileName().toString(), producer);
         var generation = projection.generation(); var java = projection.java();
         if (criticalCalls) {
             long selected = java.bindings().stream().filter(binding -> binding.critical() >= 0).count();
@@ -197,55 +181,14 @@ final class BridgeProducer {
                               String adapters, java.util.function.Function<BridgeGeneration.NativeBuild, String> bootstrap) {}
 
     private static Projection projection(CompilationArtifact artifact, BridgeExportSurface surface, BridgeObjectAdmission objects,
-            BridgeCallbackAdmission callbacks, BridgeOwnedCallbackAdmission owners, boolean criticalCalls,
+            boolean criticalCalls,
             String artifactName, BridgeProducerInputs producer) throws IOException {
-        if (objects != null && objects.managedHeap()) {
-            var generation = BridgeGeneration.createObjects(artifactName, artifact, objects,
-                    producer.compilerVersion(), producer.compilerIdentity(), producer.runtimeIdentity(), criticalCalls);
-            var java = BridgePermanentJavaSources.generateRoots(artifact, objects, generation);
-            var nativeSources = BridgePermanentNativeSources.generateRoots(artifact, objects, generation, java);
-            return new Projection(objects.emissionProgram(), generation, java.declarations(), nativeSources.source(),
-                    build -> BridgeBootstrapSources.generate(generation, build, java.declarations(), nativeSources));
-        }
-        if (owners != null) {
-            if (!owners.matches(artifact, surface)) throw new IOException("owner callback projection identity mismatch");
-            var generation = BridgeGeneration.createOwnedCallbacks(artifactName, owners,
-                    producer.compilerVersion(), producer.compilerIdentity(), producer.runtimeIdentity());
-            var java = BridgeOwnedCallbackJavaSources.generate(owners, generation);
-            var adapters = BridgeOwnedCallbackNativeSources.generate(owners, generation, java);
-            return new Projection(java.batching().program(), generation, java.declarations(), adapters.source(),
-                    build -> BridgeBootstrapSources.generate(generation, build, java.declarations(), adapters));
-        }
-        if (callbacks != null) {
-            if (!callbacks.matches(artifact, surface)) throw new IOException("callback projection identity mismatch");
-            var generation = BridgeGeneration.createCallbacks(artifactName, callbacks,
-                    producer.compilerVersion(), producer.compilerIdentity(), producer.runtimeIdentity());
-            var java = BridgeJavaSources.generateCallbacks(callbacks, generation);
-            var adapters = BridgeSynchronousCallbackNativeSources.generate(callbacks, generation, java);
-            return new Projection(callbacks.program(), generation, java, adapters.source(),
-                    build -> BridgeBootstrapSources.generate(generation, build, java, adapters));
-        }
-        if (objects != null) {
-            var generation = BridgeGeneration.createObjects(artifactName, artifact, objects,
-                    producer.compilerVersion(), producer.compilerIdentity(), producer.runtimeIdentity(), criticalCalls);
-            var projected = objects.roots().isPresent() ? BridgePermanentJavaSources.generateRoots(artifact, objects, generation)
-                    : BridgePermanentJavaSources.generate(artifact, objects, generation);
-            var adapters = objects.roots().isPresent() ? BridgePermanentNativeSources.generateRoots(artifact, objects, generation, projected)
-                    : BridgePermanentNativeSources.generate(artifact, objects, generation, projected);
-            // The final proof owns this exact already transformed program.
-            return new Projection(objects.program(), generation, projected.declarations(), adapters.source(),
-                    build -> BridgeBootstrapSources.generate(generation, build, projected.declarations(), adapters));
-        }
-        var module = BridgeEntryModule.stringValues(artifact, surface.roots());
-        var closure = BridgeExceptionClosure.builtins(artifact, module);
-        if (closure.status() != BridgeProof.Status.PROVED) throw new IOException(closure.reason());
-        var snapshot = closure.contract().orElseThrow();
-        var generation = BridgeGeneration.create(artifactName, artifact, surface,
-                producer.compilerVersion(), producer.compilerIdentity(), producer.runtimeIdentity());
-        var java = BridgeJavaSources.generate(artifact, surface, generation, module, snapshot.projection());
-        var values = BridgeValueNativeSources.generate(artifact, module, snapshot.projection(), snapshot.entries());
-        return new Projection(NativeLinkPipeline.finish(NativeLinkPipeline.optimize(snapshot.entries().program())), generation, java, values.source(),
-                build -> BridgeBootstrapSources.generate(generation, build, java, values));
+        var generation = BridgeGeneration.createObjects(artifactName, artifact, objects,
+                producer.compilerVersion(), producer.compilerIdentity(), producer.runtimeIdentity(), criticalCalls);
+        var java = BridgeFacadeSources.generateRoots(artifact, objects, generation);
+        var nativeSources = BridgeFacadeNativeSources.generateRoots(artifact, objects, generation, java);
+        return new Projection(objects.emissionProgram(), generation, java.declarations(), nativeSources.source(),
+                build -> BridgeBootstrapSources.generate(generation, build, java.declarations(), nativeSources));
     }
 
     private static Map<String, String> nativeInputs(Path stage, LlvmToolchain toolchain, OptimizationLevel optimization,
@@ -267,7 +210,7 @@ final class BridgeProducer {
         inputs.put("target.triple", target.triple()); inputs.put("target.layout", target.dataLayout());
         inputs.put("llvm.version", toolchain.version()); inputs.put("clang.version", toolchain.clangVersion());
         inputs.put("optimization", optimization.toString()); inputs.put("cpu", "default-baseline");
-        if (generation.managedHeap()) inputs.putAll(BridgeGcBuildInputs.discover(toolchain));
+        inputs.putAll(BridgeGcBuildInputs.discover(toolchain));
         var tuning = NativeBackend.portableTuning(target.triple());
         if (!tuning.isEmpty()) inputs.put("cpu.tuning", String.join(" ", tuning));
         inputs.put("adapter.flags", "-std=c11 -Wall -Wextra -Werror -fPIC -fexceptions -fvisibility=hidden " + optimization.clangArgument());

@@ -31,21 +31,14 @@ class Main {
             dump(upper);
             System.out.println(texts[index].equalsIgnoreCase(lower));
             System.out.println(texts[index].equalsIgnoreCase(upper));
-            free upper;
-            free lower;
             index++;
         }
-        free texts;
         char[] units = {(char) 55296, 'I', (char) 56320, (char) 55297, (char) 56360};
         String lone = new String(units);
-        free units;
         String lower = lone.toLowerCase();
         String upper = lone.toUpperCase();
         dump(lower);
         dump(upper);
-        free upper;
-        free lower;
-        free lone;
         System.out.println("İ".equalsIgnoreCase("ı"));
         System.out.println("ſ".equalsIgnoreCase("S"));
         System.out.println("ß".equalsIgnoreCase("SS"));
@@ -54,7 +47,6 @@ class Main {
         char[] isolated = {(char) 55297, (char) 56360};
         String high = String.valueOf(isolated, 0, 1);
         String low = String.valueOf(isolated, 1, 1);
-        free isolated;
         String[] parts = {"", "A", "Σ", " ", "-", "_", "'", ".", "́", "1", "中", "ก", "￿", "😀", "𐐀", "𐐨", high, low};
         long fingerprint = 1;
         int a = 0;
@@ -66,17 +58,12 @@ class Main {
                     String source = parts[a] + parts[b] + "Σ" + parts[c];
                     String converted = source.toLowerCase();
                     fingerprint = mix(fingerprint, converted);
-                    free converted;
-                    free source;
                     c++;
                 }
                 b++;
             }
             a++;
         }
-        free parts;
-        free high;
-        free low;
         System.out.println(fingerprint);
         return 42;
     }

@@ -26,6 +26,7 @@ Exit codes are 0 for success,
 64 for usage, and 74 for I/O failure. Error messages go to stderr. `run.sh`
 preserves the caller's working directory and emits no binary-corrupting banner.
 
-Byte and character copy buffers are retained for the operation and reclaimed
-by explicit `defer free` actions. Resource close and object free are separate, with cleanup ordered
-outside-in for borrowing wrappers. Standard streams remain process-owned.
+Byte/character buffers are retained for each copy operation. Deferred calls
+close native streams on success and failure; managed buffers and wrappers use
+ordinary reachability. Resource closure is separate from collection, including
+when stream setup or close throws.

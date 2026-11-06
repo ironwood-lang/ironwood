@@ -6,7 +6,6 @@ import ironwood.ds.IntArrayList;
 import ironwood.ds.IntHolder;
 import ironwood.util.Iterator;
 
-// Expected: compile, link, and exit 42. The holder borrow is dead before owner destruction.
 public class PrimitiveNestedHolder {
 
     public static int main(String[] args) {
@@ -16,7 +15,6 @@ public class PrimitiveNestedHolder {
         Iterator<IntHolder> iterator = list.iterator();
         IntHolder holder = iterator.next();
         int result = holder.get(); // Last observation of the nested holder borrow.
-        free list; // Valid: destroys holder, iterator, backing array, and list.
         return result;
     }
 }

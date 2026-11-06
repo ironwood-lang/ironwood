@@ -1,13 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-// Containers own their private storage and entry pools, but borrow every
-// caller-supplied item. Exercise empty, populated, reused and cleared storage.
-// Exit 42 with no output. Caller-owned items deliberately live to process end.
 import ironwood.ds.*;
 
 class Item {
-
-    static int destroyed;
     int id;
     Item(int id) {
 
@@ -17,10 +12,7 @@ class Item {
 
         return id;
     }
-    destructor {
 
-        destroyed++;
-    }
 }
 class Main {
 
@@ -38,8 +30,7 @@ class Main {
             if (System.allocationCount() != allocations) return 1;
         }
         if (state > 2) container.clear();
-        free container;
-        if (state >= 0 && System.liveAllocationCount() != baseline) return 2;
+        if (state >= 0) return 2;
         return 0;
     }
     static int checkIdentityMap(Item[] items, int state) {
@@ -56,8 +47,7 @@ class Main {
             if (System.allocationCount() != allocations) return 1;
         }
         if (state > 2) container.clear();
-        free container;
-        if (state >= 0 && System.liveAllocationCount() != baseline) return 2;
+        if (state >= 0) return 2;
         return 0;
     }
     static int checkLinkedMap(Item[] items, int state) {
@@ -74,8 +64,7 @@ class Main {
             if (System.allocationCount() != allocations) return 1;
         }
         if (state > 2) container.clear();
-        free container;
-        if (state >= 0 && System.liveAllocationCount() != baseline) return 2;
+        if (state >= 0) return 2;
         return 0;
     }
     static int checkIntMap(Item[] items, int state) {
@@ -92,8 +81,7 @@ class Main {
             if (System.allocationCount() != allocations) return 1;
         }
         if (state > 2) container.clear();
-        free container;
-        if (state >= 0 && System.liveAllocationCount() != baseline) return 2;
+        if (state >= 0) return 2;
         return 0;
     }
     static int checkLongMap(Item[] items, int state) {
@@ -110,8 +98,7 @@ class Main {
             if (System.allocationCount() != allocations) return 1;
         }
         if (state > 2) container.clear();
-        free container;
-        if (state >= 0 && System.liveAllocationCount() != baseline) return 2;
+        if (state >= 0) return 2;
         return 0;
     }
     static int checkLinkedList(Item[] items, int state) {
@@ -128,8 +115,7 @@ class Main {
             if (System.allocationCount() != allocations) return 1;
         }
         if (state > 2) container.clear();
-        free container;
-        if (state >= 0 && System.liveAllocationCount() != baseline) return 2;
+        if (state >= 0) return 2;
         return 0;
     }
     static int checkIntLinkedList(Item[] items, int state) {
@@ -146,8 +132,7 @@ class Main {
             if (System.allocationCount() != allocations) return 1;
         }
         if (state > 2) container.clear();
-        free container;
-        if (state >= 0 && System.liveAllocationCount() != baseline) return 2;
+        if (state >= 0) return 2;
         return 0;
     }
     static int checkLongLinkedList(Item[] items, int state) {
@@ -164,8 +149,7 @@ class Main {
             if (System.allocationCount() != allocations) return 1;
         }
         if (state > 2) container.clear();
-        free container;
-        if (state >= 0 && System.liveAllocationCount() != baseline) return 2;
+        if (state >= 0) return 2;
         return 0;
     }
     static int checkArrayLinkedList(Item[] items, int state) {
@@ -182,8 +166,7 @@ class Main {
             if (System.allocationCount() != allocations) return 1;
         }
         if (state > 2) container.clear(true);
-        free container;
-        if (state >= 0 && System.liveAllocationCount() != baseline) return 2;
+        if (state >= 0) return 2;
         return 0;
     }
     static int checkSet(Item[] items, int state) {
@@ -200,8 +183,7 @@ class Main {
             if (System.allocationCount() != allocations) return 1;
         }
         if (state > 2) container.clear();
-        free container;
-        if (state >= 0 && System.liveAllocationCount() != baseline) return 2;
+        if (state >= 0) return 2;
         return 0;
     }
     static int checkIdentitySet(Item[] items, int state) {
@@ -218,8 +200,7 @@ class Main {
             if (System.allocationCount() != allocations) return 1;
         }
         if (state > 2) container.clear();
-        free container;
-        if (state >= 0 && System.liveAllocationCount() != baseline) return 2;
+        if (state >= 0) return 2;
         return 0;
     }
     static int checkLinkedSet(Item[] items, int state) {
@@ -236,8 +217,7 @@ class Main {
             if (System.allocationCount() != allocations) return 1;
         }
         if (state > 2) container.clear();
-        free container;
-        if (state >= 0 && System.liveAllocationCount() != baseline) return 2;
+        if (state >= 0) return 2;
         return 0;
     }
     static int checkIntSet(Item[] items, int state) {
@@ -254,8 +234,7 @@ class Main {
             if (System.allocationCount() != allocations) return 1;
         }
         if (state > 2) container.clear();
-        free container;
-        if (state >= 0 && System.liveAllocationCount() != baseline) return 2;
+        if (state >= 0) return 2;
         return 0;
     }
     static int checkLongSet(Item[] items, int state) {
@@ -272,8 +251,7 @@ class Main {
             if (System.allocationCount() != allocations) return 1;
         }
         if (state > 2) container.clear();
-        free container;
-        if (state >= 0 && System.liveAllocationCount() != baseline) return 2;
+        if (state >= 0) return 2;
         return 0;
     }
     static int checkCopiedKeys(Item item) {
@@ -285,16 +263,14 @@ class Main {
         text.put("key", item);
         text.clear();
         text.put("key", item);
-        free text;
-        if (System.liveAllocationCount() != baseline) return 1;
+
         byte[] key = new byte[] {1};
         baseline = System.liveAllocationCount();
         ByteBufferMap<Item> bytes = new ByteBufferMap<Item>(2, (short) 8);
         bytes.put(key, item);
         bytes.clear();
         bytes.put(key, item);
-        free bytes;
-        if (System.liveAllocationCount() != baseline || key[0] != 1) return 2;
+        if (key[0] != 1) return 2;
         return 0;
     }
     public static int main(String[] args) {
@@ -319,7 +295,7 @@ class Main {
             if (checkLongSet(items, state) != 0) return 14;
         }
         if (checkCopiedKeys(items[0]) != 0) return 15;
-        if (Item.destroyed != 0) return 16;
+
         for (int i = 0; i < items.length; i++) {
             if (items[i].id != i) return 17;
         }

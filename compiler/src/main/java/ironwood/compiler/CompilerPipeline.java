@@ -18,24 +18,7 @@ import java.util.Optional;
 import java.util.Set;
 
 public final class CompilerPipeline {
-    private final UnfreedMode unfreedMode;
-    private final boolean explainRejectedFree;
-    private final SemanticAnalyzerFactory analyzerFactory;
-
-    public CompilerPipeline() {
-        this(UnfreedMode.WARN);
-    }
-
-    public CompilerPipeline(UnfreedMode unfreedMode) {
-        this(unfreedMode, false, null);
-    }
-
-    CompilerPipeline(UnfreedMode unfreedMode, boolean explainRejectedFree,
-                     SemanticAnalyzerFactory analyzerFactory) {
-        this.unfreedMode = java.util.Objects.requireNonNull(unfreedMode);
-        this.explainRejectedFree = explainRejectedFree;
-        this.analyzerFactory = analyzerFactory;
-    }
+    public CompilerPipeline() {}
 
     public CompilationArtifact compile(SourceFile source) {
         return compile(List.of(source));
@@ -72,27 +55,6 @@ public final class CompilerPipeline {
     }
 
     /** Final-link scalar library entry; package discovery and Java/JNI generation are separate. */
-    public CompilationArtifact compileBridge(CompilationArtifact analyzed,
-            ironwood.compiler.bridge.BridgeRootSet roots) {
-        if (!analyzed.valid()) return analyzed;
-        try {
-            var module = ironwood.compiler.bridge.BridgeEntryModule.scalars(analyzed, roots);
-            var entryIds = module.entries().stream().map(entry ->
-                    ironwood.compiler.bridge.BridgeCallableId.of(entry.function())).toList();
-            var program = NativeLinkPipeline.finish(NativeLinkPipeline.optimize(module.program()));
-            var resolved = ironwood.compiler.bridge.BridgeRootSet.resolve(program, entryIds);
-            if (!resolved.resolved() || !program.exportRoots().equals(module.entrySymbols())) {
-                throw new IllegalArgumentException("native optimization changed an admitted bridge entry signature");
-            }
-            // Source semantic facts stay bound to their original analysis. Do not
-            // attach them to transformed IR as if fresh ownership had been proved.
-            return new CompilationArtifact(Optional.of(program), Optional.of(new LlvmEmitter().emit(program)), analyzed.diagnostics());
-        } catch (IllegalArgumentException exception) {
-            var diagnostics = new ArrayList<>(analyzed.diagnostics());
-            diagnostics.add(Diagnostic.global("cannot build bridge library: " + exception.getMessage()));
-            return new CompilationArtifact(Optional.empty(), Optional.empty(), diagnostics);
-        }
-    }
 
     private CompilationArtifact compile(List<SourceFile> sources, boolean requireMain,
                                         Optional<String> mainClass) {
@@ -140,9 +102,7 @@ public final class CompilerPipeline {
             return new CompilationArtifact(Optional.empty(), Optional.empty(), diagnostics);
         }
 
-        SemanticAnalyzer analyzer = analyzerFactory == null
-                ? new SemanticAnalyzer(unfreedMode, explainRejectedFree)
-                : analyzerFactory.create(unfreedMode, explainRejectedFree);
+        SemanticAnalyzer analyzer = new SemanticAnalyzer();
         SemanticResult semanticResult = proxies != null ? analyzer.analyzeForBridge(units, proxies)
                 : bridgeAnalysis ? analyzer.analyzeForBridge(units) : mainClass.isPresent()
                 ? analyzer.analyze(units, mainClass.orElseThrow())

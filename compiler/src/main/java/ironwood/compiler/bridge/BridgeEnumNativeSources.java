@@ -6,7 +6,7 @@ package ironwood.compiler.bridge;
 final class BridgeEnumNativeSources {
     private BridgeEnumNativeSources() {}
 
-    static void metadata(StringBuilder text, BridgePermanentJavaSources.Sources java) {
+    static void metadata(StringBuilder text, BridgeFacadeSources.Sources java) {
         int count = java.enums().size();
         if (count == 0) return;
         text.append("static jclass iw_enum_types[").append(count).append("];\n")

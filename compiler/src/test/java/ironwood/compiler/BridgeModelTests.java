@@ -144,7 +144,7 @@ final class BridgeModelTests {
     }
 
     private static IrProgram analyze(List<SourceFile> sources) {
-        var artifact = new CompilerPipeline(UnfreedMode.OFF).analyze(sources);
+        var artifact = new CompilerPipeline().analyze(sources);
         check(artifact.valid(), artifact.diagnostics().toString());
         return artifact.program().orElseThrow();
     }

@@ -119,8 +119,6 @@ class Main {
                 if (superseded == 1) continue supersedingLoop;
             }
         }
-        ;
-        return result == 42 && nested == 12 && superseded == 2
-                && transferFromCrossedCleanup() == 20 ? 42 : result;
+        return result == 42 && nested == 12 && superseded == 2 && transferFromCrossedCleanup() == 20 ? 42 : result;
     }
 }

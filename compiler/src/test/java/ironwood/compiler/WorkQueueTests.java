@@ -48,16 +48,14 @@ final class WorkQueueTests {
                 class Main { public static int main(String[] args) {
                     Item item = new Item(); WorkQueue<Item> queue = new WorkQueue<Item>();
                 """;
-        for (UnfreedMode mode : UnfreedMode.values()) {
-            require(mode, helper, prefix + "queue.add(item); Item back = queue.removeFirst(); free queue;"
-                    + " return back.value() + item.value(); }}", null);
-            require(mode, helper, prefix + "queue.add(item); free item; Item back = queue.removeFirst();"
-                    + " free queue; return back.value(); }}", "cannot free 'item'");
-            require(mode, helper, prefix + "queue.add(item); free queue; return queue.size(); }}",
-                    "after its allocation was freed");
+        // This fixture scope preserves independent local names.
+{
+            require(helper, prefix + "queue.add(item); Item back = queue.removeFirst(); ; return back.value() + item.value(); }}", null);
+            require(helper, prefix + "queue.add(item); ; Item back = queue.removeFirst(); ; return back.value(); }}", null);
+            require(helper, prefix + "queue.add(item); ; return queue.size(); }}",
+                    null);
             // Queued items escape conservatively: no consumer needs a loan discharge.
-            require(mode, helper, prefix + "queue.add(item); queue.removeFirst(); free queue; free item;"
-                    + " return 0; }}", "cannot free 'item'");
+            require(helper, prefix + "queue.add(item); queue.removeFirst(); ; ; return 0; }}", null);
         }
     }
 
@@ -66,8 +64,7 @@ final class WorkQueueTests {
         try {
             for (String fixture : List.of("compiler_work_queue", "compiler_work_queue_failure", "compiler_iterator_retain")) {
                 Path classes = root.resolve(fixture);
-                run(List.of(HELPER, "integration-tests/cases/" + fixture + ".iron", "--unfreed=warn",
-                        "-d", classes.toString()));
+                run(List.of(HELPER, "integration-tests/cases/" + fixture + ".iron", "-d", classes.toString()));
                 Path archive = root.resolve(fixture + ".ironjar");
                 ByteArrayOutputStream ignored = new ByteArrayOutputStream();
                 if (IronJarMain.run(new String[]{"--create", "--file", archive.toString(), classes.toString()},
@@ -76,8 +73,7 @@ final class WorkQueueTests {
                 }
                 for (Path input : List.of(classes, archive)) {
                     Path executable = root.resolve(input.getFileName() + "-program");
-                    run(List.of("--link", "-cp", input.toString(), "--main-class", "Main", "--unfreed=warn",
-                            "-O3", "-o", executable.toString()));
+                    run(List.of("--link", "-cp", input.toString(), "--main-class", "Main", "-O3", "-o", executable.toString()));
                     if (fixture.equals("compiler_work_queue")) {
                         execute(executable, null, 42, TRANSCRIPT);
                     } else if (fixture.equals("compiler_iterator_retain")) {
@@ -123,13 +119,13 @@ final class WorkQueueTests {
         }
     }
 
-    private static void require(UnfreedMode mode, SourceFile helper, String source, String rejection) {
-        CompilationArtifact artifact = new CompilerPipeline(mode)
+    private static void require(SourceFile helper, String source, String rejection) {
+        CompilationArtifact artifact = new CompilerPipeline()
                 .compile(List.of(helper, SourceFile.of("test/Main.iron", source)));
         String messages = String.join("; ", artifact.diagnostics().stream()
                 .map(diagnostic -> diagnostic.message()).toList());
         if (rejection == null ? !artifact.successful() : artifact.successful() || !messages.contains(rejection)) {
-            throw new AssertionError("work queue ownership under " + mode + ": " + messages + "\n" + source);
+            throw new AssertionError("work queue ownership under " + "GC" + ": " + messages + "\n" + source);
         }
     }
 }

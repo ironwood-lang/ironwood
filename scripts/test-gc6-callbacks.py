@@ -45,13 +45,19 @@ def main():
              'Gc6Callbacks', folder / 'support.txt'], level + '-consumer')
         stdout = (raw / (level + '-consumer.stdout')).read_text()
         stderr = (raw / (level + '-consumer.stderr')).read_text()
-        if stdout != 'GC6 generated callbacks passed\n' or stderr:
+        diagnostic_lines = stderr.splitlines() if args.diagnostics else []
+        unexpected = [line for line in stderr.splitlines() if line not in diagnostic_lines
+                      or not line.startswith(('GC3 frame pc=', 'GC6 capture step='))]
+        if stdout != 'GC6 generated callbacks passed\n' or unexpected:
             raise RuntimeError('unexpected JNI diagnostics in ' + level)
         if args.batch_fallback:
             run([java / 'bin/java', '-Dironwood.bridge.batch.disable=true', '-Xcheck:jni', '-Xbatch', '-XX:-TieredCompilation',
                  '-cp', ':'.join(map(str, [out, folder / 'permanent.jar', folder / 'ironwood-bridge-values.jar'])),
                  'Gc6Callbacks', folder / 'support.txt'], level + '-batch-fallback')
-            if (raw / (level + '-batch-fallback.stdout')).read_text() != 'GC6 generated callbacks passed\n' or (raw / (level + '-batch-fallback.stderr')).read_text():
+            fallback_error = (raw / (level + '-batch-fallback.stderr')).read_text().splitlines()
+            if args.diagnostics:
+                fallback_error = [line for line in fallback_error if not line.startswith(('GC3 frame pc=', 'GC6 capture step='))]
+            if (raw / (level + '-batch-fallback.stdout')).read_text() != 'GC6 generated callbacks passed\n' or fallback_error:
                 raise RuntimeError('unexpected JNI fallback diagnostics in ' + level)
     (out / 'results.json').write_text(json.dumps({'format': 1, 'gc6_complete': False, 'target': engine.gc.host_target(),
         'sdk_configuration': manifest['gc.config.sha256'], 'guard_kib': engine.GUARD_KIB,

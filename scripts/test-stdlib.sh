@@ -35,11 +35,11 @@ compile_suites() {
     mkdir -p "$classes"
     java -jar "$IRONWOOD_TEST_COMPILER" "$IRONWOOD_TEST_ROOT/ironwood/testing/StandardLibraryTests.iron" \
         -d "$classes" --source-path "$IRONWOOD_TEST_ROOT" \
-        -cp "$IRONWOOD_TESTING_ARCHIVE" --unfreed=error >/dev/null
+        -cp "$IRONWOOD_TESTING_ARCHIVE" >/dev/null
     java -jar "$IRONWOOD_TEST_COMPILER" --link \
         -cp "$IRONWOOD_TESTING_ARCHIVE:$classes" \
         --main-class ironwood.testing.StandardLibraryTests -o "$IRONWOOD_TEST_EXECUTABLE" \
-        -O3 --unfreed=error >/dev/null
+        -O3 >/dev/null
 }
 
 verify_message_order() {
@@ -116,13 +116,13 @@ if [[ $IRONWOOD_TEST_CAPTURED_STATUS -ne 0 || "$IRONWOOD_TEST_POOL_SUMMARY" != "
     exit 1
 fi
 
-printf 'RUN - Pool destruction\n'
-capture_suite_output pool-destruction
-IRONWOOD_TEST_POOL_DESTRUCTION_OUTPUT=$IRONWOOD_TEST_CAPTURED_OUTPUT
-IRONWOOD_TEST_POOL_DESTRUCTION_SUMMARY=${IRONWOOD_TEST_POOL_DESTRUCTION_OUTPUT##*$'\n'}
-if [[ $IRONWOOD_TEST_CAPTURED_STATUS -ne 0 || "$IRONWOOD_TEST_POOL_DESTRUCTION_SUMMARY" != "PASS: 10 passed, 0 skipped, 10 total" ]]; then
-    echo "error: pool destruction suite failed" >&2
-    printf '%s\n' "$IRONWOOD_TEST_POOL_DESTRUCTION_OUTPUT" >&2
+printf 'RUN - Pool retention\n'
+capture_suite_output pool-retention
+IRONWOOD_TEST_POOL_RETENTION_OUTPUT=$IRONWOOD_TEST_CAPTURED_OUTPUT
+IRONWOOD_TEST_POOL_RETENTION_SUMMARY=${IRONWOOD_TEST_POOL_RETENTION_OUTPUT##*$'\n'}
+if [[ $IRONWOOD_TEST_CAPTURED_STATUS -ne 0 || "$IRONWOOD_TEST_POOL_RETENTION_SUMMARY" != "PASS: 11 passed, 0 skipped, 11 total" ]]; then
+    echo "error: pool retention suite failed" >&2
+    printf '%s\n' "$IRONWOOD_TEST_POOL_RETENTION_OUTPUT" >&2
     exit 1
 fi
 
@@ -136,13 +136,13 @@ if [[ $IRONWOOD_TEST_CAPTURED_STATUS -ne 0 || "$IRONWOOD_TEST_DS_SUMMARY" != "PA
     exit 1
 fi
 
-printf 'RUN - Data-structure destruction\n'
-capture_suite_output data-structure-destruction
-IRONWOOD_TEST_DS_DESTRUCTION_OUTPUT=$IRONWOOD_TEST_CAPTURED_OUTPUT
-IRONWOOD_TEST_DS_DESTRUCTION_SUMMARY=${IRONWOOD_TEST_DS_DESTRUCTION_OUTPUT##*$'\n'}
-if [[ $IRONWOOD_TEST_CAPTURED_STATUS -ne 0 || "$IRONWOOD_TEST_DS_DESTRUCTION_SUMMARY" != "PASS: 24 passed, 0 skipped, 24 total" ]]; then
-    echo "error: data-structure destruction suite failed" >&2
-    printf '%s\n' "$IRONWOOD_TEST_DS_DESTRUCTION_OUTPUT" >&2
+printf 'RUN - Collection retention\n'
+capture_suite_output collection-retention
+IRONWOOD_TEST_DS_RETENTION_OUTPUT=$IRONWOOD_TEST_CAPTURED_OUTPUT
+IRONWOOD_TEST_DS_RETENTION_SUMMARY=${IRONWOOD_TEST_DS_RETENTION_OUTPUT##*$'\n'}
+if [[ $IRONWOOD_TEST_CAPTURED_STATUS -ne 0 || "$IRONWOOD_TEST_DS_RETENTION_SUMMARY" != "PASS: 25 passed, 0 skipped, 25 total" ]]; then
+    echo "error: collection retention suite failed" >&2
+    printf '%s\n' "$IRONWOOD_TEST_DS_RETENTION_OUTPUT" >&2
     exit 1
 fi
 
@@ -173,7 +173,7 @@ fi
 printf 'RUN - Networking Milestone 2\n'
 capture_suite_output networking-m2
 IRONWOOD_TEST_NET_M2_SUMMARY=${IRONWOOD_TEST_CAPTURED_OUTPUT##*$'\n'}
-if [[ $IRONWOOD_TEST_CAPTURED_STATUS -ne 0 || "$IRONWOOD_TEST_NET_M2_SUMMARY" != "PASS: 10 passed, 0 skipped, 10 total" ]]; then
+if [[ $IRONWOOD_TEST_CAPTURED_STATUS -ne 0 || "$IRONWOOD_TEST_NET_M2_SUMMARY" != "PASS: 11 passed, 0 skipped, 11 total" ]]; then
     printf 'error: networking Milestone 2 suite failed\n%s\n' "$IRONWOOD_TEST_CAPTURED_OUTPUT" >&2
     exit 1
 fi
@@ -189,7 +189,7 @@ fi
 printf 'RUN - Networking Milestone 4\n'
 capture_suite_output networking-m4
 IRONWOOD_TEST_NET_M4_SUMMARY=${IRONWOOD_TEST_CAPTURED_OUTPUT##*$'\n'}
-if [[ $IRONWOOD_TEST_CAPTURED_STATUS -ne 0 || "$IRONWOOD_TEST_NET_M4_SUMMARY" != "PASS: 10 passed, 0 skipped, 10 total" ]]; then
+if [[ $IRONWOOD_TEST_CAPTURED_STATUS -ne 0 || "$IRONWOOD_TEST_NET_M4_SUMMARY" != "PASS: 11 passed, 0 skipped, 11 total" ]]; then
     printf 'error: networking Milestone 4 suite failed\n%s\n' "$IRONWOOD_TEST_CAPTURED_OUTPUT" >&2
     exit 1
 fi
@@ -206,9 +206,9 @@ printf '\nStandard library test summary\n'
 printf 'ok - Testing framework: %s\n' "${IRONWOOD_TEST_PASS_SUMMARY#PASS: }"
 printf 'ok - Testing framework expected failures: intentional failure reporting verified\n'
 printf 'ok - Pool behavior: %s\n' "${IRONWOOD_TEST_POOL_SUMMARY#PASS: }"
-printf 'ok - Pool destruction: %s\n' "${IRONWOOD_TEST_POOL_DESTRUCTION_SUMMARY#PASS: }"
+printf 'ok - Pool retention: %s\n' "${IRONWOOD_TEST_POOL_RETENTION_SUMMARY#PASS: }"
 printf 'ok - Data-structure behavior: %s\n' "${IRONWOOD_TEST_DS_SUMMARY#PASS: }"
-printf 'ok - Data-structure destruction: %s\n' "${IRONWOOD_TEST_DS_DESTRUCTION_SUMMARY#PASS: }"
+printf 'ok - Collection retention: %s\n' "${IRONWOOD_TEST_DS_RETENTION_SUMMARY#PASS: }"
 printf 'ok - Bench behavior: %s\n' "${IRONWOOD_TEST_BENCH_SUMMARY#PASS: }"
 printf 'ok - NanoBench behavior: %s\n' "${IRONWOOD_TEST_NANO_SUMMARY#PASS: }"
 printf 'ok - Networking Milestone 1: %s\n' "${IRONWOOD_TEST_NET_M1_SUMMARY#PASS: }"

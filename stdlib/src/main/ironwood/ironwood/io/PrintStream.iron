@@ -179,9 +179,6 @@ public class PrintStream extends OutputStream {
         }
         String rendered = value.toString();
         print(rendered);
-        // The compiler releases rendered only when closed-world analysis proves
-        // that the concrete toString override returned fresh, unescaped text.
-        releaseRenderedString(value, rendered);
     }
     /** Performs the print operation. */
 
@@ -299,7 +296,6 @@ public class PrintStream extends OutputStream {
         }
         String rendered = value.toString();
         println(rendered);
-        releaseRenderedString(value, rendered);
     }
     /** Performs the println operation. */
 
@@ -531,8 +527,4 @@ public class PrintStream extends OutputStream {
         return false;
     }
 
-    private static void releaseRenderedString(Object value, String rendered) {
-
-        return;
-    }
 }

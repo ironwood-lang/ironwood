@@ -5,9 +5,6 @@ package org.ironwood.streaming;
 import ironwood.io.*;
 import ironwood.nio.file.*;
 
-// This adapter borrows its input. Closing cascades, freeing never consumes the
-// borrowed object. Count measures bytes supplied to the decoder, including invalid
-// sequences; wc reads through EOF so all supplied bytes belong to its totals.
 final class CountingInput extends InputStream {
 
     private InputStream input;

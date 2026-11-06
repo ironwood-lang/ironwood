@@ -56,11 +56,7 @@ public final class BridgeCallbackReachability {
             for (var initializer : initialization.targets()) {
                 effect = effect.merge(functions.get(BridgeCallableId.of(initializer)));
             }
-            if (id.kind() == IrCallableKind.CONSTRUCTOR && !id.parameters().isEmpty()) {
-                var rollback = targets.cleanup(new IrNull(id.parameters().getFirst(), root.span()), true);
-                if (!rollback.complete()) effect = effect.merge(unknown("entry rollback: " + id.linkage()));
-                for (var cleanup : rollback.targets()) effect = effect.merge(functions.get(BridgeCallableId.of(cleanup)));
-            }
+
             entries.put(id, effect);
         }
         return Map.copyOf(entries);
@@ -110,13 +106,7 @@ public final class BridgeCallbackReachability {
                                 IrInstruction instruction, Set<String> callees) {
         if (instruction instanceof IrForeignCallInstruction) return FOREIGN;
         var call = targets.resolve(instruction);
-        if (instruction instanceof IrFreeInstruction free) call = targets.cleanup(free.allocation(), false);
-        else if (instruction instanceof IrRollbackInstruction rollback) call = targets.cleanup(rollback.allocation(), true);
-        else if (instruction instanceof IrDestroyArrayElementsInstruction elements) {
-            IrType element = elements.array().type().elementType();
-            if (!element.isReference()) return NONE;
-            call = targets.cleanup(new IrNull(element, elements.sourceSpan()), false);
-        }
+
         String site = function.linkageName() + ":" + instruction.sourceSpan().start().line()
                 + ":" + instruction.getClass().getSimpleName();
         if (call != null) {
@@ -172,13 +162,12 @@ public final class BridgeCallbackReachability {
             // user dispatch. It can retain and allocate; this classifies only
             // callback reachability, not lifetime, purity or destructor effects.
             case IrAddSecondaryExceptionInstruction ignored -> true;
-            case IrRawDeallocateInstruction ignored -> true;
+
             case IrBridgeResultStoreInstruction ignored -> true;
             case IrBridgeSlotStoreInstruction ignored -> true;
             case IrBridgeStringCopyInstruction ignored -> true;
             case IrBridgeArrayCopyInstruction ignored -> true;
             case IrThrowableTraceInstruction trace -> trace.operation() == IrThrowableTraceInstruction.Operation.CAPTURE
-                    || trace.operation() == IrThrowableTraceInstruction.Operation.RELEASE
                     || trace.operation() == IrThrowableTraceInstruction.Operation.COMMON;
             // Other runtime operations need an explicit callback/dispatch audit.
             default -> false;

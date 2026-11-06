@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 // Exhaustive Unicode 15.0 single-code-point fixed en_US casing fingerprints, pinned to Java 21.
-// Reuse the input array and free every result so memory remains bounded.
 class Main {
 
     static long mix(long hash, String text) {
@@ -19,7 +18,6 @@ class Main {
         long upperHash = 1;
         long comparisonHash = 1;
         long whitespaceHash = 1;
-        long baseline = System.liveAllocationCount();
         int point = 0;
         while (point <= 1114111) {
             int length = 1;
@@ -38,13 +36,9 @@ class Main {
             comparisonHash = comparisonHash * 31 + (text.equalsIgnoreCase(lower) ? 1 : 0);
             comparisonHash = comparisonHash * 31 + (text.equalsIgnoreCase(upper) ? 1 : 0);
             whitespaceHash = whitespaceHash * 31 + (Character.isWhitespace(point) ? 1 : 0);
-            free upper;
-            free lower;
-            free text;
             point++;
         }
-        if (System.liveAllocationCount() != baseline) return 1;
-        free units;
+
         System.out.println(lowerHash);
         System.out.println(upperHash);
         System.out.println(comparisonHash);

@@ -50,11 +50,11 @@ reflection, or runtime discovery. The compiler generates the suite's
 Tests run in source order on one suite instance. The runner continues after a
 failure or skip, exits with status `0` when no test failed, and exits with
 status `1` otherwise. After printing the summary, the generated entry point
-frees its `TestRunner` before returning that status. Reporting strings are
-freed after printing. The suite instance may escape through user callbacks
-and remains process-lived; its generated allocation carries the same omission
-annotation as `@FreeIgnore`, including for a suite that does not escape.
-Tests manage their own allocations explicitly, and their missing-free checks
+keeps its managed TestRunner through finish() and returns that status. The
+suite and reporting Strings follow managed reachability. The suite may escape through callbacks
+and follows ordinary managed reachability. No generated omission annotation or
+managed-reclamation obligation remains.
+Tests choose explicit collection phase boundaries, and their semantic checks
 and all mandatory safety checks remain active.
 
 ## Assertions and assumptions
@@ -135,7 +135,7 @@ From the Ironwood repository root, run the standard-library tests with:
 ./scripts/test-stdlib.sh
 ```
 
-The runner compiles the suites with `--unfreed=error`, links once at `-O3`,
+The runner compiles the suites with ``, links once at `-O3`,
 and runs each suite in a fresh process. Alongside testing, pool, data-structure
 and benchmark coverage, it includes five networking suites. Their final link requires the optional TLS
 SDK; prepare it or set `IRONWOOD_TLS_HOME` as described in [TLS.md](TLS.md):
@@ -153,7 +153,7 @@ SDK; prepare it or set `IRONWOOD_TLS_HOME` as described in [TLS.md](TLS.md):
 
 Networking tests use ephemeral loopback sockets and read-only host interface
 queries. They do not send live reachability probes. Controlled native errors,
-resolver/probe injection, allocation-failure sweeps, unsafe-free rejection,
+resolver/probe injection, allocation-failure sweeps, removed-syntax and native/protocol rejection,
 benchmarks and machine-code checks remain in the focused
 [networking compiler/integration drivers](LOCAL_TESTING.md#networking-milestone-1).
 
@@ -172,8 +172,8 @@ For benchmark-library development, select its native behavior, reporting, and
 allocation-failure checks without running unrelated suites:
 
 ```sh
-./scripts/test.sh --test 'benchmark library reports and reclaims native results'
+./scripts/test.sh --test 'benchmark library preserves reports and managed results'
 ```
 
 The direct runner is `./scripts/test-bench.sh`. It uses `ironwood.testing` and
-strict `--unfreed=error` compilation. See [the benchmark guide](BENCH.md).
+managed compilation. See [the benchmark guide](BENCH.md).

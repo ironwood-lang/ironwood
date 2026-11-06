@@ -1,0 +1,3833 @@
+{
+  "classes": [
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeBoundedGenericTests.java",
+      "before.sha256": "68cf714d1559e5934921ea4694077acf303c6f34bc3f8d224d8a0cf7385935c9",
+      "family": "legacy-bridge-projection",
+      "disposition": "generic-bridge-boundaries",
+      "coverage_family": "generic-bridge-boundaries"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeLoaderTests.java",
+      "before.sha256": "9267cc124259986366e708e24cbfbd129f427eaa02fce9efabb9d654001f4be6",
+      "family": "legacy-bridge-projection",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeRootRetentionTests.java",
+      "before.sha256": "b5c13c628e3279eba6427adec83c29a7688f83647d3f3c9219cf80ae71981904",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeMixedLifetimeTests.java",
+      "before.sha256": "06d39a4a846d5f8c8e76e71b50f62669ebeaaa2f6e09eee95384168e64201ed5",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-bridge-admission",
+      "coverage_family": "managed-bridge-admission"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeRootEnumNativeTests.java",
+      "before.sha256": "575ee5b1a40c94722f6b2ec03ac72c7226d97bc57273783c044b59afb3d4f56b",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeDestructionTests.java",
+      "before.sha256": "f571f7cfe1b74b9e29ac7a059656f39ef77a426c778372fa618fd828cfc9169f",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/ReceiverPublicationTests.java",
+      "before.sha256": "fbb45b591e20ce3d8695007e08e0ff54fb1557b1626a7bc3e7626c766947e643",
+      "family": "managed-free-proof",
+      "disposition": "construction-and-publication",
+      "coverage_family": "construction-and-publication"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/FreeCallExplanationTests.java",
+      "before.sha256": "4f537d4a73b56214d500b39a8118af12d94366ae40c0eb02ad4739d0cdcacbcb",
+      "family": "managed-free-proof",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeIdentityTests.java",
+      "before.sha256": "16494cba989b0a15bc5c3683fadbe5041f245eba1c572771a39c289b0297d7dd",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeRootRetentionNativeTests.java",
+      "before.sha256": "4014a3948099519d03aaa3558993c6550fc8a52a9a85972d7abfdec0bcd760ba",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeLibraryTests.java",
+      "before.sha256": "1bf75825f78bba80f415dd38f14a12bdc99cf32eb7c4e29548da50c3a9a8e53c",
+      "family": "legacy-bridge-projection",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeObjectCollisionTests.java",
+      "before.sha256": "ded733de8dd3b505514ded817a512f489438c1434a2dda94dd6ec958d92beef6",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgePermanentEnumNativeTests.java",
+      "before.sha256": "4de660af575adea464e310893dac1cab05009c3461490b36f0574a003f3af55d",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeRootFacadeFailureTests.java",
+      "before.sha256": "fe7e083f8269a05df65ef28b467daba2a4b4913b72e748beccd85dfd95104ed2",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeBootstrapNativeTests.java",
+      "before.sha256": "80736f4da300449808d70513e0abb076d7e42bd4565f78a62e622c7fdfb1fea7",
+      "family": "legacy-bridge-projection",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeOwnedCallbackTests.java",
+      "before.sha256": "5dfcb4fa6f42a3198eaa3426687dcb98eea24a3a88175f7d4a3f289bcdbe25e9",
+      "family": "legacy-bridge-projection",
+      "disposition": "foreign-callback-lifetimes",
+      "coverage_family": "foreign-callback-lifetimes"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeRootRetentionFailureTests.java",
+      "before.sha256": "d40c0bc90e1347c9c1d6263f967e23cc0521dc1888468a97fd06562ff33630ae",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/CleanupDiagnosticTests.java",
+      "before.sha256": "5ee0e915424752dcac9f8bee562c7f7b745b85ded648e12d44a1facb5b7311e1",
+      "family": "managed-free-proof",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeRootStateTests.java",
+      "before.sha256": "90c1c3ea26701bfede5d40631bb1840e6f8a5180242a3bb5e01f6bf742f69fa6",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeFixedEnumTests.java",
+      "before.sha256": "fcd05940e0086b31adc5ea4a3c0c0ee87eb144a23ebbd56ac83a421f37f995b3",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeEnumFacadeFailureTests.java",
+      "before.sha256": "6a60bcc646d3d1ece57b02745477ec639f6c5c421bb0016bc3ae2eb1fba5521c",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeIdentityCacheTests.java",
+      "before.sha256": "5f79a9c87dc401cd5ed6265d0a125f1a44415de3e594700e35fe31de1e685515",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeViewTests.java",
+      "before.sha256": "4381882bf3dff472bcb9c580fe0288c61c909a7de213c48b99f3ae6cc9e6ec48",
+      "family": "legacy-bridge-projection",
+      "disposition": "copied-and-borrowed-foreign-storage",
+      "coverage_family": "copied-and-borrowed-foreign-storage"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgePermanentFacadeFailureTests.java",
+      "before.sha256": "a97bbb2496d6e28f8ec686b68e339cce5deb6afac653222988894232e55a6b12",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeStackTests.java",
+      "before.sha256": "34bc972594fb7ce80d876abe027dfbac7d50a4234ad01ebad4f02a6c6bcd155b",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-bridge-admission",
+      "coverage_family": "managed-bridge-admission"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeGenerationTests.java",
+      "before.sha256": "980cb42610148458358ac4c4dd3efe7e7d93d8d0eda323a024cb473bbdb163af",
+      "family": "legacy-bridge-projection",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeGeneratedReclamationTests.java",
+      "before.sha256": "e265a9b7c23858330d3bca527c0fe681aa2855a33ffd254d88b7dbb34813ea58",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-bridge-admission",
+      "coverage_family": "managed-bridge-admission"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeCustomSnapshotNativeTests.java",
+      "before.sha256": "acc9cecc6d6bdb736cc534496fe4e8c0a6f2c287f2c46bda7536b4c3e750c0f4",
+      "family": "legacy-bridge-projection",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeObjectGenerationTests.java",
+      "before.sha256": "5ac743f10ec3aca5871f72f5c295335700819f9195034b2af8016dc9c3b69db5",
+      "family": "legacy-bridge-projection",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeExceptionProjectionTests.java",
+      "before.sha256": "3644e2d93f1097794ce2bc12f3575321380aca07fbb5c0eeb1d2ea1a8944edab",
+      "family": "legacy-bridge-projection",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeListenerProxyTests.java",
+      "before.sha256": "cc5b54037e856f5f3f181d7ec84d1d101ee039eb1ec005f66f380d4b104c9cac",
+      "family": "legacy-bridge-projection",
+      "disposition": "foreign-callback-lifetimes",
+      "coverage_family": "foreign-callback-lifetimes"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/DestructorEffectTests.java",
+      "before.sha256": "dc01366925060651473e9e9a61c465655f16681f663105a7a3d6ae768a4d7050",
+      "family": "managed-free-proof",
+      "disposition": "construction-and-publication",
+      "coverage_family": "construction-and-publication"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeNonReclamationTests.java",
+      "before.sha256": "9f18d5fda17fd9145aa5bd95100e3f05c1cf04e4321b9ab40a949de1e1a44bb4",
+      "family": "legacy-bridge-projection",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeFinalNonReclamationTests.java",
+      "before.sha256": "a46f2aa533ba648cd21a3166a38cc7ef50a264c93251f7063bc2da3a91c3d3d1",
+      "family": "legacy-bridge-projection",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeLibraryNativeTests.java",
+      "before.sha256": "e44f66600d37184427a6ea23fae026f9419152a4eb651f3899e45a37e25692f4",
+      "family": "legacy-bridge-projection",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/OwnershipPilotTests.java",
+      "before.sha256": "5d503fa993590d11d4c495d357eda173e2e551b9c0f98a66af061b94799a7743",
+      "family": "managed-free-proof",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeRootNativeTests.java",
+      "before.sha256": "f6ecbf37e1bde56c4ec7871f8921a8de592e3dc7fcea315a9c9d18c1f3e919c5",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgePermanentStringTests.java",
+      "before.sha256": "b3716d5d6433d23ea0b4432b5de3af123d8dbfd1b0c4fc5c86937681b2b67bbe",
+      "family": "legacy-bridge-projection",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeCustomSnapshotJavaTests.java",
+      "before.sha256": "eaf9999fd406bbd801fa9ce17e13182f3c8212cf44a078c0385a3f3bca13c938",
+      "family": "legacy-bridge-projection",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeValueNativeTests.java",
+      "before.sha256": "6469d51dd51bd352c9868cc60a767326b3e5edd6be8836beb242d76fed2fe815",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/OwnedArrayDiagnosticTests.java",
+      "before.sha256": "3ac22eba7337d47d608ad84c7d7211f35417b50a82e46c236349e9f34c4baba7",
+      "family": "managed-free-proof",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeOwnedCallbackJavaTests.java",
+      "before.sha256": "63b8f179b278ff48c276350cd2ab5626b99050d1f7fdcb5293457b68d760e18a",
+      "family": "legacy-bridge-projection",
+      "disposition": "foreign-callback-lifetimes",
+      "coverage_family": "foreign-callback-lifetimes"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/TemporaryReclamationTests.java",
+      "before.sha256": "c4bb9f77878351f97d37319fbc2317e395946a204b49d1815d2e5dba316d5ff4",
+      "family": "managed-free-proof",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeJavaSourceTests.java",
+      "before.sha256": "2d9043a4d65d34be7fbfba7f767d84e2bfe6a69b0c9fa95089e6a10f4534709d",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-bridge-admission",
+      "coverage_family": "managed-bridge-admission"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/KeyedSnapshotTests.java",
+      "before.sha256": "48610edc288d8c854e5398091fefb648b44f5ba526e39b49e9aabb34a1c13de9",
+      "family": "managed-free-proof",
+      "disposition": "aggregate-graphs",
+      "coverage_family": "aggregate-graphs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeOrderBookNativeTests.java",
+      "before.sha256": "8bf711d13dba67728d0f0692977e84c85efb2ceef19cb1ab4514bbec89921b7b",
+      "family": "legacy-bridge-projection",
+      "disposition": "pooling-bridge-workloads",
+      "coverage_family": "pooling-bridge-workloads"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/FreeDiagnosticTests.java",
+      "before.sha256": "6333c35b79dd39f0537d3ca71a8ab178ddd334f4a7f8e4c93c9ebd8e413fba78",
+      "family": "managed-free-proof",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/UnfreedAllocationTests.java",
+      "before.sha256": "1b298d24c2fbf7fee90ae2c59459c61cabfd2e2cb6cfe401ec19e7df5f31cb67",
+      "family": "managed-free-proof",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeExceptionNativeTests.java",
+      "before.sha256": "f26ff8ead173a04b2c779b3c5dc529a51f0ba6a600da0804d8e7eabf27cc85de",
+      "family": "legacy-bridge-projection",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeObjectValueApiTests.java",
+      "before.sha256": "226bcfce64d6ada693bb0072c0fc23b39060bef6bb0a1e416d756c379f9ab1b5",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeEnumFacadeNativeTests.java",
+      "before.sha256": "e43fb69270a53a8861353c7e1d552b63460b93df2d3c176005bb7a03397580c5",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/SavedEvidenceTests.java",
+      "before.sha256": "b025462dcbfe4f9070afb25bc94315c7de45601b8067d9617a18117e18c59b44",
+      "family": "managed-free-proof",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/DeferredFreeTests.java",
+      "before.sha256": "3c8d6ccc0672c443bb2dc439a784fe96b73184b2c21e6a5580acf990da08d99a",
+      "family": "managed-free-proof",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeCriticalCallTests.java",
+      "before.sha256": "315cd744cc45afa141f419e6720de3c7dad428e5708c808b31fce8d7b44bf33a",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-bridge-admission",
+      "coverage_family": "managed-bridge-admission"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeArrayFaultTests.java",
+      "before.sha256": "856a7cf5389f8f41dc4586f2385992f3580c8fe8f3ce73fbf79851773702a807",
+      "family": "legacy-bridge-projection",
+      "disposition": "copied-and-borrowed-foreign-storage",
+      "coverage_family": "copied-and-borrowed-foreign-storage"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/ExplanationEligibilityTests.java",
+      "before.sha256": "dc753dedddf64fc01f5804b8da619f526a302cd962d2312a7c5838732ec67318",
+      "family": "managed-free-proof",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeOrderBookTests.java",
+      "before.sha256": "85d2c422d4e14a1220c34b10f003666eaf9e20e041dfae0f08cfb468d9df753f",
+      "family": "legacy-bridge-projection",
+      "disposition": "pooling-bridge-workloads",
+      "coverage_family": "pooling-bridge-workloads"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeEnumTests.java",
+      "before.sha256": "78ea793fd1e18dce6c1dda857d7af412c8517d1f137f3cf2dc8e84985344a4a2",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeMixedLifetimeNativeTests.java",
+      "before.sha256": "e8c0a9530980cf0ebfeb9fc267a90254b43d469685c9d2a3904969ec2d3fe56b",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-bridge-admission",
+      "coverage_family": "managed-bridge-admission"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/NullableOwnedFieldTests.java",
+      "before.sha256": "6497aa1b4081b934d65fd4090ab0638332be0109263b82cca998144226a3f9c0",
+      "family": "managed-free-proof",
+      "disposition": "construction-and-publication",
+      "coverage_family": "construction-and-publication"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeCustomExceptionTests.java",
+      "before.sha256": "26310ff45da79edd365a8d1bd19215d2338f6d06a2d85d1843850ee42f2f618a",
+      "family": "legacy-bridge-projection",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeEnumNativeTests.java",
+      "before.sha256": "039eac7338a638844b9517b7887fccde9e71798a4d953bbb4adb23657616b1bd",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgePermanentFacadeNativeTests.java",
+      "before.sha256": "85cb51ea96698de174f61c7c3ebaa22c96492c5cdaeab93be2a2e466b457f32f",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeCustomSnapshotGraphNativeTests.java",
+      "before.sha256": "621b246f3d8c03ae7419409be35c79ebf68b640af19c2d0b7b41626b7236e895",
+      "family": "legacy-bridge-projection",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeExceptionSourceTests.java",
+      "before.sha256": "55da25089c8035339caa007ebd1af93f07e4b89eef174ceda2d5bbd7fb36f2b1",
+      "family": "legacy-bridge-projection",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeArrayValueFaultTests.java",
+      "before.sha256": "5b055fd16fb2ddd1f859d66ee2cd8f23fd28831332ea8d5d73965e8f5b8fab6e",
+      "family": "legacy-bridge-projection",
+      "disposition": "copied-and-borrowed-foreign-storage",
+      "coverage_family": "copied-and-borrowed-foreign-storage"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/SuppressUnfreedTests.java",
+      "before.sha256": "dbe5131eb2284aaf67ddb835ef0c06eba63572aa056c149f83a112f731898d04",
+      "family": "managed-free-proof",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/FreeAnalysisReadinessTests.java",
+      "before.sha256": "9f0174a0a6e4fb16a7b1e3cd2c929b3e73ba0129a63d82367be69d5159162b8c",
+      "family": "managed-free-proof",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeSnapshotSurfaceTests.java",
+      "before.sha256": "9bbf980bcd61419784aecf5a43aeee575d427efbc50a458c6c040c73aa19057c",
+      "family": "legacy-bridge-projection",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeGenericProducerTests.java",
+      "before.sha256": "58a8cdfa30123979ac200d523519bdcff025a61f3b0c81478280a735f746cf80",
+      "family": "legacy-bridge-projection",
+      "disposition": "generic-bridge-boundaries",
+      "coverage_family": "generic-bridge-boundaries"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/OwnershipSnapshotTests.java",
+      "before.sha256": "df6ef389701649b2c2f406098200e2893c465cc7101bc2ca9ba6bc907311e8e4",
+      "family": "managed-free-proof",
+      "disposition": "aggregate-graphs",
+      "coverage_family": "aggregate-graphs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/ExplanationObserverTests.java",
+      "before.sha256": "72e3b3821afe110aca7d0e8c09a4e6c76f81fcd1cb3ad58e74d22edadbce9370",
+      "family": "managed-free-proof",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeExceptionClosureTests.java",
+      "before.sha256": "57e661fe71fcfd2a00e458e230530bfb1961e42d0c94da1d05c67f7bc7b75e4a",
+      "family": "legacy-bridge-projection",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeRootStringNativeTests.java",
+      "before.sha256": "5994f587db45beb5559a5791c15d1e9b94770aa26b60af3b68b9c6ad899b0c65",
+      "family": "legacy-bridge-projection",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeObjectStringTests.java",
+      "before.sha256": "67efa76dece0a6e667243114be2a687bb1bcaf85770d6504eaa414d86b611c4a",
+      "family": "legacy-bridge-projection",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/TemporaryBorrowTests.java",
+      "before.sha256": "4189790233a56842f229dc44d8bd27e0add286f9f1150eb5c9de4a06443e79cf",
+      "family": "managed-free-proof",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeCustomExceptionNativeTests.java",
+      "before.sha256": "c51a26783240af908223bf14983af33c24d1d5547da831159d75cdb7239c148b",
+      "family": "legacy-bridge-projection",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/OwnedArrayExplanationTests.java",
+      "before.sha256": "f3f75526913239902708b6dfdf3dbcf34a1686eebbef325c0930abab7a1daf3f",
+      "family": "managed-free-proof",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeEnumValueNativeTests.java",
+      "before.sha256": "bf838bfd90e41d946bfc7a2bffbe67e21aa322d70975df8672a5d879183dee1b",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeArrayInputTests.java",
+      "before.sha256": "7bfbbacc7ec38de9290c921e35338d51fcae4ec9fe98899a6b249d208ce6b351",
+      "family": "legacy-bridge-projection",
+      "disposition": "copied-and-borrowed-foreign-storage",
+      "coverage_family": "copied-and-borrowed-foreign-storage"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeCommitTests.java",
+      "before.sha256": "dab7e91fb80d455345e80b59507d6e8b3e30abb83b68576b80381ee941d24998",
+      "family": "legacy-bridge-projection",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeStringTests.java",
+      "before.sha256": "9e48f920f995bdfe970053d347580385f85b94be326f82240d61262ebc523a73",
+      "family": "legacy-bridge-projection",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/FreeBundledSourceTests.java",
+      "before.sha256": "89f2218f295609428ae4667d0d9cb64a6fe2b355121e7835c054baaa7612cbf9",
+      "family": "managed-free-proof",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeEnumJavaSourceTests.java",
+      "before.sha256": "f42103b3d20919dcbc7f5c58e26d5b6591c87d6ca19529e175325e1316dbf450",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeApiTests.java",
+      "before.sha256": "b69fc54f4ff08c031c7d2c209b397ae24145f2edb2adfe153bbdbcb707bfeaa0",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-bridge-admission",
+      "coverage_family": "managed-bridge-admission"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeEntryTests.java",
+      "before.sha256": "684b48685bf8d7eb0912cdf8dcdbb1844f9e58e0014390b04ad6dfc0d99766ba",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgePermanentJavaSourceTests.java",
+      "before.sha256": "9a1457ef7c03264b1257d95d78472e1b0f3c3ae3327f04c1ab232aad7251da5a",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeOrderBookAllocationTests.java",
+      "before.sha256": "dd840a3cfe020c1fef7450933b6113c8e5365c2288b9e831786501ab7d50ea2b",
+      "family": "legacy-bridge-projection",
+      "disposition": "pooling-bridge-workloads",
+      "coverage_family": "pooling-bridge-workloads"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeStringResultTests.java",
+      "before.sha256": "b3b452d21c4820426a493189d43dd29dd39633d36583e72fc4f86c46c856f444",
+      "family": "legacy-bridge-projection",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeRootReuseTests.java",
+      "before.sha256": "a08213962fa6d762c64c5cf7e9a08bf90320a344966f683e9609ed3fdaf22031",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeRootIndexTests.java",
+      "before.sha256": "fe3de283b05b226ff605cfabf395a1a2f836d954a095acaed093f6c10debb7d1",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeRootResultTests.java",
+      "before.sha256": "a0ce7e26941594161e7ea26be7e9df926cd11cae3cc635f8df62369ae6857758",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeGeneratedConstructionTests.java",
+      "before.sha256": "884f48097d79a0ddee6c966d064c1f2b2465fe0b4c102010cb6c4d0e210e2b8f",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeSecondaryRetentionTests.java",
+      "before.sha256": "98d3bdbead4d95fc83105ecbac91938d57b1e358acc45906e93bd06defd105ca",
+      "family": "legacy-bridge-projection",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeViewRetentionTests.java",
+      "before.sha256": "3843d616a6dff595acfc37cd4b9ad6d7d062cc5d2e2356730a5ff5eb2a5174a6",
+      "family": "legacy-bridge-projection",
+      "disposition": "copied-and-borrowed-foreign-storage",
+      "coverage_family": "copied-and-borrowed-foreign-storage"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeRootFacadeNativeTests.java",
+      "before.sha256": "28d4e73561637017352608e82e3d8933c157ddb9ba0611d7db2c0ac49361aa60",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeFinalRootRetentionTests.java",
+      "before.sha256": "6351a91ca4ab2cbc9176b4c218771684461dc3dabe3e3767da00dbaeb3e5566d",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeImageTraceTests.java",
+      "before.sha256": "c5e315c0f58d14e6dd9b6928b54931f3aea9f6debd45cfeb3ae8a4ecbc9e757f",
+      "family": "legacy-bridge-projection",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeRootEntryTests.java",
+      "before.sha256": "90391e2b40064855595613cf072da13c06951678b2b923118cc0a5e477c28456",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeFreshGraphTests.java",
+      "before.sha256": "cc05f81df1ff1dcb51f43adc1841f5767a9880602d91f7653edd7de1846d0a85",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeRootJavaSourceTests.java",
+      "before.sha256": "6dadccdbae1e3ac6513735368614891bfd7626be2c603b6e7e294e92a250b5fb",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeCallbackBatchingTests.java",
+      "before.sha256": "6650a18dafb5272bd305a3ecabfe038dcf7aee24dcc8b5055109311d893f41b9",
+      "family": "legacy-bridge-projection",
+      "disposition": "foreign-callback-lifetimes",
+      "coverage_family": "foreign-callback-lifetimes"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeLoaderSourceTests.java",
+      "before.sha256": "ace1ada27d81c5c69e51ecdf08ea99edc34ca360270c943cfdb6f3c5d1a0c064",
+      "family": "legacy-bridge-projection",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeObjectAdmissionTests.java",
+      "before.sha256": "bbf066ab99924c150622073e27da5ea0f4a7af6b041ec3432e640422a9720f50",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeEnumInvocationTests.java",
+      "before.sha256": "bc6df609e8b8dbb640d898db2e7d5ed04bb203ac0c157cc11b704749515b94e0",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeCallbackCarrierNativeTests.java",
+      "before.sha256": "664931584d13efe77dceb99dd93b26322a3c28e058477b8e6c8e06ee2b6d57b1",
+      "family": "legacy-bridge-projection",
+      "disposition": "foreign-callback-lifetimes",
+      "coverage_family": "foreign-callback-lifetimes"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgePermanentEnumTests.java",
+      "before.sha256": "fe0310e17e528c40aa263e89615d168d61d18a8b3f7c247676dabab83a79720b",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgePermanentStringNativeTests.java",
+      "before.sha256": "0fcb4e9787ebf8e9156bf67a721b742528515ddeed8702e43d51d2726c25f32c",
+      "family": "legacy-bridge-projection",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgePermanentFacadeLoaderTests.java",
+      "before.sha256": "9dacb1303109f83e308efdbe5a4162c2aedce229a1b27364dae8a05b06d54c22",
+      "family": "legacy-bridge-projection",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/FreeEvidenceBaselineTests.java",
+      "before.sha256": "b1713e2bc31caa9db28e9a75f75f3f6a7c110aeae8a1d08d9651bd1f468b2752",
+      "family": "managed-free-proof",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeStringResultNativeTests.java",
+      "before.sha256": "d1ffee0ec11dfbcc61a61f2c1387688d9122d67b7e4bf40530f64b4e754b2e81",
+      "family": "legacy-bridge-projection",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeRootEnumTests.java",
+      "before.sha256": "3e3f44a6e1ac6efc0892c3c42dc895d9e863025b6a9f4725ece5332b54454904",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgePermanentTests.java",
+      "before.sha256": "c82350ac28e78f8a58e6e0ecaaf2c5bf8267a77eafcf4f0b9af156fac7a6c15a",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/bridge/BridgeCallbackActiveUseTests.java",
+      "before.sha256": "9fb80ad12ca932ed51efda724a79ef489c057c634c8683b9627362fa6fe78266",
+      "family": "legacy-bridge-projection",
+      "disposition": "foreign-callback-lifetimes",
+      "coverage_family": "foreign-callback-lifetimes"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/semantic/OwnedArrayValidatorShapeTests.java",
+      "before.sha256": "3bc0df34913ec9efdc5c62ac6c89716754fdfbe01c665da759c71325fbb7088d",
+      "family": "managed-free-proof",
+      "disposition": "aggregate-graphs",
+      "coverage_family": "aggregate-graphs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/semantic/BridgeCleanupInitializationTests.java",
+      "before.sha256": "be177b62073b25a793cd5cd60d93d417fc1e9d5991c8e42416a9799a99175f11",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-bridge-admission",
+      "coverage_family": "managed-bridge-admission"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/semantic/SemanticObserverBridge.java",
+      "before.sha256": "38a8b6e4b3f71628360188cea4a13b2efdb6ba16a2d2eaa8451f6cb3e67e7e42",
+      "family": "managed-free-proof",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/semantic/BridgeForeignCallTests.java",
+      "before.sha256": "f81ecdaa3f727db91cda34b7088f6975fcecc9b08d93f4d27881d4c4bc62768d",
+      "family": "legacy-bridge-projection",
+      "disposition": "foreign-callback-lifetimes",
+      "coverage_family": "foreign-callback-lifetimes"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/semantic/BridgeRollbackAttributionTests.java",
+      "before.sha256": "944112225a9184f416f6bf893f69c0b62ee89589643d0b562fbf95fb79075b05",
+      "family": "legacy-bridge-projection",
+      "disposition": "managed-bridge-admission",
+      "coverage_family": "managed-bridge-admission"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/semantic/SummaryWitnessEvidenceTests.java",
+      "before.sha256": "930ace7b6cf60ae9e663dd67e2948829e5dbe51eeacc2016e8dccf63715c8dc5",
+      "family": "managed-free-proof",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/semantic/RejectedFreeEvidenceTests.java",
+      "before.sha256": "74d52ee30de2c065e2302d837a51cdf06af6aaf59b98b6d051346db00377b4be",
+      "family": "managed-free-proof",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeConstructionTests.java",
+      "before.sha256": "8f91c8f295821d344dff521c5226b3908eebe9be29712056544d7699a4a36454",
+      "family": "legacy-native-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeByteViewProducerTests.java",
+      "before.sha256": "f3abcc3a0ac6698275b6622a16e8e2b4f5f0ed4939b4d8c63acd09a67589d81d",
+      "family": "legacy-native-projection",
+      "disposition": "copied-and-borrowed-foreign-storage",
+      "coverage_family": "copied-and-borrowed-foreign-storage"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeProducerTests.java",
+      "before.sha256": "49011cc67bf580508b8814a8f4c6e04566f82095bae806fd65b77deb83060436",
+      "family": "legacy-native-projection",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeResultOriginTests.java",
+      "before.sha256": "542810c60c2d077ab60ab335447f1a01b34fb419e45813bd04f2156c7f8a6fc5",
+      "family": "legacy-native-projection",
+      "disposition": "managed-bridge-admission",
+      "coverage_family": "managed-bridge-admission"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeAssemblyTests.java",
+      "before.sha256": "657ce2bffcc3136de31a4d7c75874d45fc77fa8632a4d8f441143f43bf865a26",
+      "family": "legacy-native-projection",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgePrimitiveCallbackNativeTests.java",
+      "before.sha256": "3872162a597b9e2a8513691a4489ee929e1b9e9f089de179e3ad51fb670aa418",
+      "family": "legacy-native-projection",
+      "disposition": "foreign-callback-lifetimes",
+      "coverage_family": "foreign-callback-lifetimes"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/ControlFlowStorageTests.java",
+      "before.sha256": "8136ab28c7cbbc4797ba5baee935856974f854bffd23872e5b5b774201702497",
+      "family": "managed-free-observer",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeOwnedCallbackProducerTests.java",
+      "before.sha256": "207d7fa252a187eacabafb2693818213ffe4aab46a56679e6314beb74541f149",
+      "family": "legacy-native-projection",
+      "disposition": "foreign-callback-lifetimes",
+      "coverage_family": "foreign-callback-lifetimes"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeCallbackDispatchTests.java",
+      "before.sha256": "eba2975cfd5ba8e31f657d3c0a46d35d370ebdd2b1994ce35628d69523f56880",
+      "family": "legacy-native-projection",
+      "disposition": "foreign-callback-lifetimes",
+      "coverage_family": "foreign-callback-lifetimes"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeCustomSnapshotLayoutTests.java",
+      "before.sha256": "17ce0b9178fb154c78f54b22cd0dc057ed8d872a199e610587656bb3c5c70cd5",
+      "family": "legacy-native-projection",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeCallbackTransportTests.java",
+      "before.sha256": "1bc2578a9219bf7f885f8ac5ecc3cd7f8ae81ffa703a0240c6e3952c0f3c6c96",
+      "family": "legacy-native-projection",
+      "disposition": "foreign-callback-lifetimes",
+      "coverage_family": "foreign-callback-lifetimes"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeTextRetentionTests.java",
+      "before.sha256": "3b3e1fc4c92b75631fe1de717d2ddc805c8c922c629b2ebca7896efbd9203f4b",
+      "family": "legacy-native-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeGeneratedJarTests.java",
+      "before.sha256": "802d01bd0f4ce1d4c0dc25296f045fcc13f03fe57d10994d750da880c273cdb1",
+      "family": "legacy-native-projection",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeArrayProducerTests.java",
+      "before.sha256": "30afc388063ebccad9ced03eab8b76528096a00f6cc9f8d3148d22e7d1df6577",
+      "family": "legacy-native-projection",
+      "disposition": "copied-and-borrowed-foreign-storage",
+      "coverage_family": "copied-and-borrowed-foreign-storage"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeSynchronousCallbackTests.java",
+      "before.sha256": "184cad53c90809565479250d431d55a4e77e486cf9844c05d05560574518f55a",
+      "family": "legacy-native-projection",
+      "disposition": "foreign-callback-lifetimes",
+      "coverage_family": "foreign-callback-lifetimes"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeByteViewPackagingTests.java",
+      "before.sha256": "87721d77062860d3334b43debb2f0e67b079aa4e85b88668f3dfff65345c3b24",
+      "family": "legacy-native-projection",
+      "disposition": "copied-and-borrowed-foreign-storage",
+      "coverage_family": "copied-and-borrowed-foreign-storage"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeObjectProducerTests.java",
+      "before.sha256": "221383dac865fbb4fc46297b3da67056ae4921d6b0d0d760a1e3de055ac67e18",
+      "family": "legacy-native-projection",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeCallbackProducerTests.java",
+      "before.sha256": "29ffa8cde3a3afdc7d17c27a4992ac9961be6cceb70d975e8184b7080b8c1f42",
+      "family": "legacy-native-projection",
+      "disposition": "foreign-callback-lifetimes",
+      "coverage_family": "foreign-callback-lifetimes"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeRetentionTests.java",
+      "before.sha256": "425ee61fbd96ead185fb1568b87a0702796920c4924e59bcb15acd8ace6a1d35",
+      "family": "legacy-native-projection",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeArrayValueProducerTests.java",
+      "before.sha256": "c1c7e6d2dc5e43c38abcba3c1ee44473ced2a97aaa35f206e2e319b05a302bed",
+      "family": "legacy-native-projection",
+      "disposition": "copied-and-borrowed-foreign-storage",
+      "coverage_family": "copied-and-borrowed-foreign-storage"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeOwnedCallbackNativeTests.java",
+      "before.sha256": "fa8312936e794e83a825e3820d2b9562808979245d73d87a8404ef755376605e",
+      "family": "legacy-native-projection",
+      "disposition": "foreign-callback-lifetimes",
+      "coverage_family": "foreign-callback-lifetimes"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/FreeDependencyDiagnosticTests.java",
+      "before.sha256": "27733a9d7801a678f8f0a47a624134272685424a8dace5b3c85a477411fbffcb",
+      "family": "managed-free-observer",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeProducerExceptionTests.java",
+      "before.sha256": "2f5c95a46d38604da0cf5b432fe78cd805a36fc0bdd2d7a7fc6548221757be67",
+      "family": "legacy-native-projection",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/FreeSummaryEvidenceTests.java",
+      "before.sha256": "739ce57b294f73e7f330d4d6d5efd49737a0ea863f9d77d699876084a40f3c7f",
+      "family": "managed-free-observer",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeLinuxProducerTests.java",
+      "before.sha256": "015fc3585284ac93caa7ffd7e768af4bc242c7910859104802c52da7a154acd3",
+      "family": "legacy-native-projection",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeOrderBookProducerTests.java",
+      "before.sha256": "4eefeff4feac156f4dbcff98f71f9f870dc3f545d688fa822da42e228f6f7b2d",
+      "family": "legacy-native-projection",
+      "disposition": "pooling-bridge-workloads",
+      "coverage_family": "pooling-bridge-workloads"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/semantic/StringCopyEffectTests.java",
+      "before.sha256": "58e6d77c1f00f62d7a23f0023da8f426d4adef33509bdb1c898725e9edc02dbb",
+      "family": "managed-free-observer",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/PublicationTests.java",
+      "before.sha256": "f8cb99073a854cf0f4c3d16d1cf108878e86a20a1d8f6cfcda3f0698fa8bbbdf",
+      "family": "managed-free-proof",
+      "disposition": "construction-and-publication",
+      "coverage_family": "construction-and-publication"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/FreeOwnershipContractTests.java",
+      "before.sha256": "e5bd189a9e471c2ddae53773a34aee36a7559b67719c602a35ebc29647e0de8b",
+      "family": "managed-free-proof",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/FreeProofProbeTests.java",
+      "before.sha256": "711972927e435adac5f8823564f7de78fa82dbd5fa296d9fe5f0f5d23712c3de",
+      "family": "managed-free-proof",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/ExplainRejectedFreeCliTests.java",
+      "before.sha256": "8a9236c4613b594c73d962fa67dc0c3fb1763423da6a5c199d6e9b935f929f3d",
+      "family": "managed-free-proof",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/OwnedFieldReentryTests.java",
+      "before.sha256": "9e0377e6608ee3e6531d24f6bcab8b219fee3e3827c705071293c877f048e10a",
+      "family": "managed-free-proof",
+      "disposition": "construction-and-publication",
+      "coverage_family": "construction-and-publication"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/FreedValueClassTests.java",
+      "before.sha256": "bdbf5df2e89ede421c364725a9a014e2a13b1c229f8a74835f109aff6621127e",
+      "family": "managed-free-proof",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/FreeReasonSelectionTests.java",
+      "before.sha256": "af5d81d6ab5c95eb103a0fa9a354efa578cfc7042a8ff3b6c6459815d976d11b",
+      "family": "managed-free-proof",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/PublicationObjectTests.java",
+      "before.sha256": "a78b90e315f751928852bf93f66700f4321ae87f6d197ef492ded5c7e860aff6",
+      "family": "managed-free-proof",
+      "disposition": "construction-and-publication",
+      "coverage_family": "construction-and-publication"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/FreeOwnerExplanationTests.java",
+      "before.sha256": "d91f42544f7cea4ab0193255ee8aa48323fc2b3c1c66a19039333e6a4e3e7bbc",
+      "family": "managed-free-proof",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/OperationVariantTests.java",
+      "before.sha256": "150af7597c4e2e8bb37dfa57b97a88e8ab145f5ff1cf10ed0272cf19319f9f62",
+      "family": "discarded self-hosting prototype",
+      "disposition": "discarded-proof-prototypes",
+      "coverage_family": "discarded-proof-prototypes"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/FrontendPilotTests.java",
+      "before.sha256": "55548096bdc377257899c083bac6ed09fba275e4f252b7704c5543f451cdfb6a",
+      "family": "discarded self-hosting prototype",
+      "disposition": "discarded-proof-prototypes",
+      "coverage_family": "discarded-proof-prototypes"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/ArraySnapshotOrderTests.java",
+      "before.sha256": "b20fba384583479c238638a94073226c356333b41ad8d1ee5acf09f0928350f6",
+      "family": "free-witness-snapshot-storage",
+      "disposition": "aggregate-graphs",
+      "coverage_family": "aggregate-graphs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/SnapshotBorrowTests.java",
+      "before.sha256": "a6c7e1b7c6ed9cddd53834718e019fc95821447bbe7a88368185fd06a01f621e",
+      "family": "snapshot-managed-reclamation",
+      "disposition": "aggregate-graphs",
+      "coverage_family": "aggregate-graphs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/UnfreedScopeProbe.java",
+      "before.sha256": "9099da2c5e5d8b63abcb3a250be71a6304097fbcaafcd458b8ade2c57a086598",
+      "family": "unused legacy projection/diagnostic fixture",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeCommitFixtureSources.java",
+      "before.sha256": "a4484dfe6d7173ab6e709222e869f63acbfb36965af603dd3a1e7272a504e896",
+      "family": "unused legacy projection/diagnostic fixture",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/BridgeOrderBookFixtureSources.java",
+      "before.sha256": "ec8e5fc4a003f89e9e7095aebb7f8dbb6fb2a2619a5fa919daf2b2540f867425",
+      "family": "unused legacy projection/diagnostic fixture",
+      "disposition": "pooling-bridge-workloads",
+      "coverage_family": "pooling-bridge-workloads"
+    },
+    {
+      "file": "integration-tests/cases/compiler_saved_evidence.iron",
+      "before.sha256": "a741301bffe878897557a89ebff26525224f3adfc430d88830677978f4b460c9",
+      "family": "discarded free-witness snapshot prototype",
+      "disposition": "discarded-proof-prototypes",
+      "coverage_family": "discarded-proof-prototypes"
+    }
+  ],
+  "registrations": [
+    {
+      "test": "\"Java Bridge retention follows destructor and rollback effects\"",
+      "target": "BridgeRetentionTests::cleanupEffects",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "\"Java Bridge cleanup retention preserves actual initialization edges\"",
+      "target": "ironwood.compiler.semantic.BridgeCleanupInitializationTests::proofs",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "ironwood.compiler.semantic.BridgeRollbackAttributionTests.NAME",
+      "target": "ironwood.compiler.semantic.BridgeRollbackAttributionTests::proofs",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"Java Bridge fresh graphs preserve independent input retention proofs\"",
+      "target": "BridgeFreshGraphTests::proofs",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "\"Java Bridge secondary associations preserve caught input provenance\"",
+      "target": "BridgeSecondaryRetentionTests::proofs",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "test": "ironwood.compiler.semantic.BridgeForeignCallTests.NAME",
+      "target": "ironwood.compiler.semantic.BridgeForeignCallTests::proofs",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "BridgeListenerProxyTests.NAME",
+      "target": "BridgeListenerProxyTests::proofs",
+      "disposition": "foreign-callback-lifetimes",
+      "coverage_family": "foreign-callback-lifetimes"
+    },
+    {
+      "test": "BridgeCallbackCarrierNativeTests.NAME",
+      "target": "BridgeCallbackCarrierNativeTests::carriers",
+      "disposition": "foreign-callback-lifetimes",
+      "coverage_family": "foreign-callback-lifetimes"
+    },
+    {
+      "test": "BridgeOwnedCallbackTests.NAME",
+      "target": "BridgeOwnedCallbackTests::proofs",
+      "disposition": "foreign-callback-lifetimes",
+      "coverage_family": "foreign-callback-lifetimes"
+    },
+    {
+      "test": "BridgeOwnedCallbackJavaTests.NAME",
+      "target": "BridgeOwnedCallbackJavaTests::projection",
+      "disposition": "foreign-callback-lifetimes",
+      "coverage_family": "foreign-callback-lifetimes"
+    },
+    {
+      "test": "BridgeCallbackBatchingTests.PROOF",
+      "target": "BridgeCallbackBatchingTests::proofs",
+      "disposition": "foreign-callback-lifetimes",
+      "coverage_family": "foreign-callback-lifetimes"
+    },
+    {
+      "test": "BridgeCallbackBatchingTests.NATIVE",
+      "target": "BridgeCallbackBatchingTests::nativeBatches",
+      "disposition": "foreign-callback-lifetimes",
+      "coverage_family": "foreign-callback-lifetimes"
+    },
+    {
+      "test": "BridgeCallbackBatchingTests.ALLOCATION",
+      "target": "BridgeCallbackBatchingTests::nativeAllocations",
+      "disposition": "foreign-callback-lifetimes",
+      "coverage_family": "foreign-callback-lifetimes"
+    },
+    {
+      "test": "ironwood.compiler.bridge.BridgeCallbackActiveUseTests.NAME",
+      "target": "ironwood.compiler.bridge.BridgeCallbackActiveUseTests::guards",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"Java Bridge non-reclamation follows export and cleanup closure\"",
+      "target": "BridgeNonReclamationTests::closure",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "test": "BridgeGeneratedReclamationTests.NAME",
+      "target": "BridgeGeneratedReclamationTests::proofs",
+      "disposition": "managed-bridge-admission",
+      "coverage_family": "managed-bridge-admission"
+    },
+    {
+      "test": "BridgeGeneratedConstructionTests.NAME",
+      "target": "BridgeGeneratedConstructionTests::proofs",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "BridgeFinalNonReclamationTests.NAME",
+      "target": "BridgeFinalNonReclamationTests::proofs",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "test": "BridgeSnapshotSurfaceTests.NAME",
+      "target": "BridgeSnapshotSurfaceTests::proofs",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "test": "BridgeMixedLifetimeTests.NAME",
+      "target": "BridgeMixedLifetimeTests::proofs",
+      "disposition": "managed-bridge-admission",
+      "coverage_family": "managed-bridge-admission"
+    },
+    {
+      "test": "BridgeMixedLifetimeNativeTests.NAME",
+      "target": "BridgeMixedLifetimeNativeTests::entries",
+      "disposition": "managed-bridge-admission",
+      "coverage_family": "managed-bridge-admission"
+    },
+    {
+      "test": "BridgeObjectAdmissionTests.NAME",
+      "target": "BridgeObjectAdmissionTests::proofs",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "BridgeFinalRootRetentionTests.NAME",
+      "target": "BridgeFinalRootRetentionTests::proofs",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "\"Java Bridge non-reclamation rejects unknown and dynamic deallocation\"",
+      "target": "BridgeNonReclamationTests::unknownAndDispatch",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "test": "\"Java Bridge actual OrderBook rollback is unpublished\"",
+      "target": "BridgeOrderBookTests::construction",
+      "disposition": "pooling-bridge-workloads",
+      "coverage_family": "pooling-bridge-workloads"
+    },
+    {
+      "test": "\"Java Bridge OrderBook lifetime proofs survive artifact reconstruction\"",
+      "target": "BridgeOrderBookTests::artifacts",
+      "disposition": "pooling-bridge-workloads",
+      "coverage_family": "pooling-bridge-workloads"
+    },
+    {
+      "test": "\"Java Bridge scalar entries protect typed operations and reject missing proofs\"",
+      "target": "BridgeEntryTests::typedEntries",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "\"Java Bridge scalar JNI calls contain exceptions at O0 and O3\"",
+      "target": "BridgeEntryTests::nativeScalars",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "\"Java Bridge shared images preserve disjoint native traces\"",
+      "target": "BridgeImageTraceTests::disjointImages",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "test": "\"Java Bridge bounded native stack envelope and isolated limits\"",
+      "target": "BridgeStackTests::envelope",
+      "disposition": "managed-bridge-admission",
+      "coverage_family": "managed-bridge-admission"
+    },
+    {
+      "test": "\"Java Bridge copied String proofs preserve cleanup and artifact parity\"",
+      "target": "BridgeStringTests::proofs",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "test": "BridgeArrayInputTests.NAME",
+      "target": "BridgeArrayInputTests::proofs",
+      "disposition": "copied-and-borrowed-foreign-storage",
+      "coverage_family": "copied-and-borrowed-foreign-storage"
+    },
+    {
+      "test": "BridgeArrayFaultTests.NAME",
+      "target": "BridgeArrayFaultTests::failures",
+      "disposition": "copied-and-borrowed-foreign-storage",
+      "coverage_family": "copied-and-borrowed-foreign-storage"
+    },
+    {
+      "test": "BridgeArrayValueFaultTests.NAME",
+      "target": "BridgeArrayValueFaultTests::failures",
+      "disposition": "copied-and-borrowed-foreign-storage",
+      "coverage_family": "copied-and-borrowed-foreign-storage"
+    },
+    {
+      "test": "\"Java Bridge String result proofs preserve ownership and artifact parity\"",
+      "target": "BridgeStringResultTests::proofs",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "test": "BridgeObjectStringTests.NAME",
+      "target": "BridgeObjectStringTests::proofs",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "test": "BridgePermanentStringTests.NAME",
+      "target": "BridgePermanentStringTests::proofs",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "test": "BridgePermanentEnumTests.NAME",
+      "target": "BridgePermanentEnumTests::proofs",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "BridgeRootEnumTests.NAME",
+      "target": "BridgeRootEnumTests::proofs",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "BridgeRootEnumNativeTests.NAME",
+      "target": "BridgeRootEnumNativeTests::entries",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "BridgePermanentEnumNativeTests.NAME",
+      "target": "BridgePermanentEnumNativeTests::entries",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "BridgePermanentStringNativeTests.NAME",
+      "target": "BridgePermanentStringNativeTests::entries",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "test": "BridgeEnumValueNativeTests.NAME",
+      "target": "BridgeEnumValueNativeTests::entries",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "BridgeRootStringNativeTests.NAME",
+      "target": "BridgeRootStringNativeTests::entries",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "test": "\"Java Bridge String results preserve native lifetime through JNI delivery\"",
+      "target": "BridgeStringResultNativeTests::results",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "test": "\"Java Bridge copied strings contain repeated allocation failures\"",
+      "target": "BridgeStringTests::nativeCopies",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "test": "\"Java Bridge loader preflight preserves bindings and permanent anchors\"",
+      "target": "BridgeLoaderTests::lifecycle",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "test": "\"Java Bridge enum inputs require bound named conversion proofs\"",
+      "target": "BridgeEnumTests::proofs",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "\"Java Bridge enum JNI conversion initializes named native constants\"",
+      "target": "BridgeEnumNativeTests::conversions",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "\"Java Bridge root retention proves origins and repeated-call acyclicity\"",
+      "target": "BridgeRootRetentionTests::proofs",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "\"Java Bridge destruction requires complete nonthrowing cleanup\"",
+      "target": "BridgeDestructionTests::proofs",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "\"Java Bridge root entries preserve final slots before failure extraction\"",
+      "target": "BridgeRootEntryTests::lowering",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "\"Java Bridge root JNI payloads preserve mutation and unpublished rollback\"",
+      "target": "BridgeRootNativeTests::payloads",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "\"Java Bridge host commit completes retention before Java failure\"",
+      "target": "BridgeCommitTests::commit",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "test": "\"Java Bridge result origins preserve uniform ownership and artifact parity\"",
+      "target": "BridgeResultOriginTests::proofs",
+      "disposition": "managed-bridge-admission",
+      "coverage_family": "managed-bridge-admission"
+    },
+    {
+      "test": "\"Java Bridge root results require bounded uniform ownership\"",
+      "target": "BridgeRootResultTests::admission",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "\"Java Bridge native index preserves identity across reservation and delivery failure\"",
+      "target": "BridgeIdentityTests::identity",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "\"Java Bridge dependent views require exact root owners\"",
+      "target": "BridgeViewTests::proofs",
+      "disposition": "copied-and-borrowed-foreign-storage",
+      "coverage_family": "copied-and-borrowed-foreign-storage"
+    },
+    {
+      "test": "BridgeViewRetentionTests.NAME",
+      "target": "BridgeViewRetentionTests::proofs",
+      "disposition": "copied-and-borrowed-foreign-storage",
+      "coverage_family": "copied-and-borrowed-foreign-storage"
+    },
+    {
+      "test": "\"Java Bridge permanent entries require complete lifetime and rollback proofs\"",
+      "target": "BridgePermanentTests::proofs",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "BridgeOrderBookNativeTests.NAME",
+      "target": "BridgeOrderBookNativeTests::failures",
+      "disposition": "pooling-bridge-workloads",
+      "coverage_family": "pooling-bridge-workloads"
+    },
+    {
+      "test": "BridgeLibraryTests.NAME",
+      "target": "BridgeLibraryTests::rootsAndArtifacts",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "test": "BridgeApiTests.NAME",
+      "target": "BridgeApiTests::projection",
+      "disposition": "managed-bridge-admission",
+      "coverage_family": "managed-bridge-admission"
+    },
+    {
+      "test": "BridgeGenericProducerTests.NAME",
+      "target": "BridgeGenericProducerTests::proofs",
+      "disposition": "generic-bridge-boundaries",
+      "coverage_family": "generic-bridge-boundaries"
+    },
+    {
+      "test": "BridgeGenericProducerTests.PRODUCER",
+      "target": "BridgeGenericProducerTests::producer",
+      "disposition": "generic-bridge-boundaries",
+      "coverage_family": "generic-bridge-boundaries"
+    },
+    {
+      "test": "BridgeBoundedGenericTests.NAME",
+      "target": "BridgeBoundedGenericTests::proofs",
+      "disposition": "generic-bridge-boundaries",
+      "coverage_family": "generic-bridge-boundaries"
+    },
+    {
+      "test": "BridgeBoundedGenericTests.PRODUCER",
+      "target": "BridgeBoundedGenericTests::producer",
+      "disposition": "generic-bridge-boundaries",
+      "coverage_family": "generic-bridge-boundaries"
+    },
+    {
+      "test": "BridgeEnumInvocationTests.NAME",
+      "target": "BridgeEnumInvocationTests::proofs",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "BridgeObjectValueApiTests.NAME",
+      "target": "BridgeObjectValueApiTests::signatures",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "\"Java Bridge public surface rejects incomplete capabilities and signature closure\"",
+      "target": "BridgeApiTests::selection",
+      "disposition": "managed-bridge-admission",
+      "coverage_family": "managed-bridge-admission"
+    },
+    {
+      "test": "\"Java Bridge value surface requires proved String cleanup without admitting objects\"",
+      "target": "BridgeApiTests::valueSelection",
+      "disposition": "managed-bridge-admission",
+      "coverage_family": "managed-bridge-admission"
+    },
+    {
+      "test": "BridgeGenerationTests.NAME",
+      "target": "BridgeGenerationTests::identities",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "test": "BridgeObjectGenerationTests.NAME",
+      "target": "BridgeObjectGenerationTests::identities",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "test": "BridgeIdentityCacheTests.NAME",
+      "target": "BridgeIdentityCacheTests::cache",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "BridgeRootStateTests.NAME",
+      "target": "BridgeRootStateTests::state",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "BridgeRootIndexTests.NAME",
+      "target": "BridgeRootIndexTests::index",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "BridgeRootJavaSourceTests.NAME",
+      "target": "BridgeRootJavaSourceTests::declarations",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "BridgeRootFacadeNativeTests.NAME",
+      "target": "BridgeRootFacadeNativeTests::facades",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "BridgeRootFacadeFailureTests.NAME",
+      "target": "BridgeRootFacadeFailureTests::failures",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "BridgeRootReuseTests.NAME",
+      "target": "BridgeRootReuseTests::reuse",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "BridgeRootRetentionNativeTests.NAME",
+      "target": "BridgeRootRetentionNativeTests::retention",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "BridgeRootRetentionFailureTests.NAME",
+      "target": "BridgeRootRetentionFailureTests::failures",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "\"Java Bridge custom snapshots preserve retention through getter failures and native cleanup\"",
+      "target": "BridgeRootRetentionNativeTests::snapshots",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "BridgeObjectCollisionTests.NAME",
+      "target": "BridgeObjectCollisionTests::collisions",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "BridgePermanentJavaSourceTests.NAME",
+      "target": "BridgePermanentJavaSourceTests::declarations",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "BridgePermanentFacadeNativeTests.NAME",
+      "target": "BridgePermanentFacadeNativeTests::facades",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "BridgePermanentFacadeFailureTests.NAME",
+      "target": "BridgePermanentFacadeFailureTests::failures",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "BridgePermanentFacadeLoaderTests.NAME",
+      "target": "BridgePermanentFacadeLoaderTests::loaders",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "test": "BridgeEnumJavaSourceTests.NAME",
+      "target": "BridgeEnumJavaSourceTests::declarations",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "BridgeFixedEnumTests.STRUCTURE",
+      "target": "BridgeFixedEnumTests::structure",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "BridgeFixedEnumTests.NATIVE",
+      "target": "BridgeFixedEnumTests::nativeBehavior",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "BridgeCriticalCallTests.SELECTION",
+      "target": "BridgeCriticalCallTests::selection",
+      "disposition": "managed-bridge-admission",
+      "coverage_family": "managed-bridge-admission"
+    },
+    {
+      "test": "BridgeCriticalCallTests.STRUCTURE",
+      "target": "BridgeCriticalCallTests::structure",
+      "disposition": "managed-bridge-admission",
+      "coverage_family": "managed-bridge-admission"
+    },
+    {
+      "test": "BridgeCriticalCallTests.NATIVE",
+      "target": "BridgeCriticalCallTests::nativeBehavior",
+      "disposition": "managed-bridge-admission",
+      "coverage_family": "managed-bridge-admission"
+    },
+    {
+      "test": "BridgeEnumFacadeNativeTests.NAME",
+      "target": "BridgeEnumFacadeNativeTests::facades",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "BridgeEnumFacadeFailureTests.NAME",
+      "target": "BridgeEnumFacadeFailureTests::failures",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "\"Java Bridge producer inventories preserve content and reject incomplete inputs\"",
+      "target": "BridgeGenerationTests::producerInputs",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "test": "BridgeJavaSourceTests.NAME",
+      "target": "BridgeJavaSourceTests::declarations",
+      "disposition": "managed-bridge-admission",
+      "coverage_family": "managed-bridge-admission"
+    },
+    {
+      "test": "BridgeLoaderSourceTests.NAME",
+      "target": "BridgeLoaderSourceTests::sourceAndExtraction",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "test": "\"Java Bridge builtin exception projections preserve exact getters and ownership\"",
+      "target": "BridgeExceptionProjectionTests::projections",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "test": "BridgeCustomExceptionTests.NAME",
+      "target": "BridgeCustomExceptionTests::proofs",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "test": "BridgeCustomSnapshotJavaTests.NAME",
+      "target": "BridgeCustomSnapshotJavaTests::snapshots",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "test": "BridgeCustomSnapshotNativeTests.NAME",
+      "target": "BridgeCustomSnapshotNativeTests::snapshots",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "test": "BridgeCustomSnapshotGraphNativeTests.NAME",
+      "target": "BridgeCustomSnapshotGraphNativeTests::graphs",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "test": "BridgeCustomExceptionNativeTests.NAME",
+      "target": "BridgeCustomExceptionNativeTests::getters",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "test": "\"Java Bridge exception getters retain protected nonrecursive typed entries\"",
+      "target": "BridgeExceptionProjectionTests::entries",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "test": "BridgeExceptionSourceTests.NAME",
+      "target": "BridgeExceptionSourceTests::constructors",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "test": "\"Java Bridge protected exception getters contain allocation and Java delivery failures\"",
+      "target": "BridgeExceptionNativeTests::getters",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "test": "BridgeValueNativeTests.NAME",
+      "target": "BridgeValueNativeTests::adapters",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "BridgeBootstrapNativeTests.NAME",
+      "target": "BridgeBootstrapNativeTests::bootstrap",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "test": "BridgeOrderBookAllocationTests.NAME",
+      "target": "BridgeOrderBookAllocationTests::allocations",
+      "disposition": "pooling-bridge-workloads",
+      "coverage_family": "pooling-bridge-workloads"
+    },
+    {
+      "test": "\"Java Bridge exception discovery rejects reachable custom types and preserves artifact parity\"",
+      "target": "BridgeExceptionClosureTests::discovery",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "test": "BridgeLibraryNativeTests.NAME",
+      "target": "BridgeLibraryNativeTests::libraries",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "test": "\"Java Bridge production libraries preserve disjoint native traces\"",
+      "target": "BridgeImageTraceTests::productionImages",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "test": "\"Java Bridge production scalar libraries preserve ABI and warm-path allocation\"",
+      "target": "BridgeEntryTests::productionScalars",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "\"Java Bridge production library stack envelope and isolated limits\"",
+      "target": "BridgeStackTests::productionEnvelope",
+      "disposition": "managed-bridge-admission",
+      "coverage_family": "managed-bridge-admission"
+    },
+    {
+      "test": "\"free syntax is accepted\"",
+      "target": "this::freeSyntaxIsAccepted",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"deferred calls retain captures and mandatory ownership proofs\"",
+      "target": "DeferTests::ownership",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"deferred free enforces local syntax and pending binding writes\"",
+      "target": "DeferredFreeTests::bindings",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "test": "\"deferred free preserves ownership across cleanup predecessors\"",
+      "target": "DeferredFreeTests::ownership",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "test": "\"deferred free emits independent typed cleanup copies\"",
+      "target": "DeferredFreeTests::typedCleanup",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "test": "\"deferred free survives source class and archive reconstruction\"",
+      "target": "DeferredFreeTests::artifacts",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "test": "\"malformed free syntax has parser diagnostics\"",
+      "target": "this::malformedFreeSyntaxHasDiagnostics",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"destructor syntax placement and uniqueness are checked\"",
+      "target": "this::destructorSyntaxAndPlacementAreChecked",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"wildcard conversions preserve safe-free allocation identity\"",
+      "target": "this::wildcardConversionsPreserveSafeFreeIdentity",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"generic calls preserve conservative safe-free summaries\"",
+      "target": "this::genericCallsPreserveSafeFreeSummaries",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"literal-true loops preserve reclamation proofs\"",
+      "target": "LoopReachabilityTests::reclamationProofs",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"unfreed diagnostics identify abandoned allocations\"",
+      "target": "UnfreedAllocationTests::abandonedAllocations",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"unfreed diagnostics preserve retained and reclaimed allocations\"",
+      "target": "UnfreedAllocationTests::retainedAndReclaimedAllocations",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"unfreed diagnostics track receiver-retained allocations\"",
+      "target": "UnfreedAllocationTests::receiverRetainedAllocations",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"receiver-retained borrows run natively\"",
+      "target": "UnfreedAllocationTests::receiverRetainedNativeOutput",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"unfreed options preserve native output and artifact diagnostics\"",
+      "target": "UnfreedAllocationTests::optionsAndNativeOutput",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"unfreed checks cover bundled library code in every entry path\"",
+      "target": "UnfreedAllocationTests::bundledLibraryScope",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"@SuppressUnfreed accepts local directives and rejects other forms\"",
+      "target": "SuppressUnfreedTests::parserForms",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"@SuppressUnfreed follows allocations through aliases loops and finally\"",
+      "target": "SuppressUnfreedTests::allocationExemptions",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"@SuppressUnfreed preserves unrelated allocation findings\"",
+      "target": "SuppressUnfreedTests::suppressionBoundaries",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"@SuppressUnfreed preserves mandatory safe-free errors\"",
+      "target": "SuppressUnfreedTests::mandatorySafety",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"@SuppressUnfreed preserves typed IR and LLVM\"",
+      "target": "SuppressUnfreedTests::unchangedCodeGeneration",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"@SuppressUnfreed survives class archive and native linking\"",
+      "target": "SuppressUnfreedTests::artifactAndNativeOutput",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"safe free accepts local allocation and ended aliases\"",
+      "target": "this::safeFreeAcceptsLocalAllocation",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"safe free rejects live aliases and escaped allocations\"",
+      "target": "this::safeFreeRejectsAliasesAndEscapes",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"safe free tracks values read from wrapper fields\"",
+      "target": "this::safeFreeTracksWrapperFieldReads",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"safe free selects stable blockers across fresh compiler processes\"",
+      "target": "FreeDiagnosticTests::stableBlockers",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"rejected free preserves escape and uncertainty reason selection\"",
+      "target": "FreeReasonSelectionTests::selectedReasons",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"rejected free keeps selected event sites across updates and restores\"",
+      "target": "FreeReasonSelectionTests::eventLifetimes",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"rejected free keeps borrowed owner uncertainty on its accepted merge path\"",
+      "target": "FreeReasonSelectionTests::borrowedOwnerMerges",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"rejected free preserves branch reclamation and field proof boundaries\"",
+      "target": "FreeEvidenceBaselineTests::evidenceBoundaries",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"rejected free retains unproved private field load provenance\"",
+      "target": "FreeEvidenceBaselineTests::fieldLoadProvenance",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"field ownership notes identify publication and return predicates\"",
+      "target": "FreeEvidenceBaselineTests::fieldPublicationPredicates",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"field ownership notes identify conservative call and reentrant predicates\"",
+      "target": "FreeEvidenceBaselineTests::fieldConservativePredicates",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"rejected free attributes only a current earlier reclamation path\"",
+      "target": "FreeEvidenceBaselineTests::earlierFreeExplanations",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"rejected free preserves call chains cycles and final borrow refinement\"",
+      "target": "FreeSummaryEvidenceTests::summaryBaselines",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"rejected free call sites and missing identities use final local evidence\"",
+      "target": "FreeCallExplanationTests::callSitesAndMissingIdentity",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"rejected free in dependencies preserves compile and link source locations\"",
+      "target": "FreeDependencyDiagnosticTests::dependencySources",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"rejected-free CLI artifact matrix preserves notes parity and native controls\"",
+      "target": "FreeDependencyDiagnosticTests::artifactMatrix",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"rejected free identifies current retaining owners and helper acquisition\"",
+      "target": "FreeOwnerExplanationTests::ownerSitesAndLifetimes",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"free proof probe renders identical diagnostics\"",
+      "target": "FreeProofProbeTests::renderedRejections",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"unnamed temporaries reclaim arguments receivers and expression statements\"",
+      "target": "TemporaryReclamationTests::reclaimsTemporaries",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "test": "\"unnamed temporaries keep retained escaped and named allocations\"",
+      "target": "TemporaryReclamationTests::keepsRetainedEscapedAndNamed",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "test": "\"unnamed temporaries reclaim on exceptional paths\"",
+      "target": "TemporaryReclamationTests::reclaimsOnExceptionalPaths",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "test": "\"unnamed temporaries match handwritten cleanup\"",
+      "target": "TemporaryReclamationTests::matchesHandwrittenCleanup",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "test": "\"unnamed temporaries preserve provisional and final summaries\"",
+      "target": "TemporaryReclamationTests::preservesProvisionalAndFinalSummaries",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "test": "\"anonymous class constructor arguments keep superclass retention\"",
+      "target": "TemporaryReclamationTests::anonymousConstructorArgumentsStayRetained",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "test": "\"unnamed temporaries cover every full-expression context\"",
+      "target": "TemporaryReclamationTests::coversEveryFullExpressionContext",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "test": "\"unnamed temporaries keep transferred values\"",
+      "target": "TemporaryReclamationTests::keepsTransferredValues",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "test": "\"unnamed temporaries survive artifact reconstruction\"",
+      "target": "TemporaryReclamationTests::survivesArtifactReconstruction",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "test": "\"unnamed temporaries keep aliases that exist only on exception paths\"",
+      "target": "TemporaryReclamationTests::keepsAliasesThatExistOnlyOnExceptionPaths",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "test": "\"unnamed temporaries reclaim retained children on exception paths\"",
+      "target": "TemporaryReclamationTests::reclaimsRetainedChildrenOnExceptionPaths",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "test": "\"named allocations the proof declines keep their ordinary findings\"",
+      "target": "TemporaryReclamationTests::keepsNamedUndecidableAllocationsSilent",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "test": "\"unnamed temporaries reclaim retained chains on exception paths\"",
+      "target": "TemporaryReclamationTests::reclaimsRetainedChainsOnExceptionPaths",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "test": "\"uses after temporary reclamation name the temporary\"",
+      "target": "TemporaryReclamationTests::explainsUsesAfterTemporaryReclamation",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "test": "\"unnamed temporaries reclaim pattern condition operands\"",
+      "target": "TemporaryReclamationTests::reclaimsPatternConditionOperands",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "test": "\"unnamed temporaries reclaim values named only inside the expression\"",
+      "target": "TemporaryReclamationTests::reclaimsTransientlyNamedValues",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "test": "\"unnamed temporaries keep arrays read with an unknown index\"",
+      "target": "TemporaryReclamationTests::keepsArraysReadWithUnknownIndex",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "test": "\"unnamed temporaries keep receivers whose fields are read\"",
+      "target": "TemporaryReclamationTests::keepsReceiversWhoseFieldsAreRead",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "test": "\"constructor temporaries are reclaimed before instance initializers\"",
+      "target": "TemporaryReclamationTests::closesConstructorScopeBeforeInitializers",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "test": "\"fresh factory results are absent on their own unwind edge\"",
+      "target": "TemporaryReclamationTests::keepsFactoryResultsOffTheirOwnUnwindEdge",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "test": "\"earlier temporaries reclaim beside later ones on exceptional paths\"",
+      "target": "TemporaryReclamationTests::reclaimsEarlierTemporariesBesideLaterOnes",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "test": "\"switch rule expression bodies reclaim their temporaries\"",
+      "target": "TemporaryReclamationTests::reclaimsSwitchRuleExpressionBodies",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "test": "\"direct delegation arguments are reclaimed when only read\"",
+      "target": "TemporaryReclamationTests::reclaimsDirectDelegationArguments",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "test": "\"temporaries rendered by callees are reclaimed\"",
+      "target": "TemporaryReclamationTests::reclaimsTemporariesRenderedByCallees",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "test": "\"argument-reclaiming callees are pinned to the release intrinsics\"",
+      "target": "TemporaryReclamationTests::pinsArgumentReclaimingCallees",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "test": "\"rejected free in bundled Writer follows retaining user overrides\"",
+      "target": "FreeBundledSourceTests::retainingOverride",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"explanation notes retain bundled Writer source and final readiness\"",
+      "target": "FreeBundledSourceTests::explanationSourceScope",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"bundled Writer field call notes follow final possible overrides\"",
+      "target": "FreeBundledSourceTests::fieldCallExplanations",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"rejected free distinguishes incoming branch facts without changing join reasons\"",
+      "target": "FreeReasonSelectionTests::joinedReasons",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"rejected free explains both ordinary branch witnesses\"",
+      "target": "FreeReasonSelectionTests::joinedExplanations",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"rejected free explains conditional and short-circuit expression paths\"",
+      "target": "FreeReasonSelectionTests::expressionExplanations",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"rejected free explains try catch and exception predecessors\"",
+      "target": "FreeReasonSelectionTests::tryCatchExplanations",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"rejected free explains labeled transfer and normal predecessors\"",
+      "target": "FreeReasonSelectionTests::labeledExplanations",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"rejected free bounds nested joins and discloses incomplete alternatives\"",
+      "target": "FreeReasonSelectionTests::boundedJoinExplanations",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"rejected free explains loop condition and break predecessors\"",
+      "target": "FreeReasonSelectionTests::loopJoinExplanations",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"safe free distinguishes earlier errors from refined dispatch\"",
+      "target": "FreeAnalysisReadinessTests::earlierErrorsAndRefinement",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"ownership diagnostics are independent of unrelated declaration errors\"",
+      "target": "FreeAnalysisReadinessTests::unrelatedDeclarationErrors",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"genuine ownership errors are reported beside earlier errors\"",
+      "target": "FreeAnalysisReadinessTests::genuineErrorsBesideEarlierErrors",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"declaration errors used around frees report only their own errors\"",
+      "target": "FreeAnalysisReadinessTests::declarationErrorsUsedAroundFrees",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"missing implementations add no ownership diagnostics of their own\"",
+      "target": "FreeAnalysisReadinessTests::missingImplementationPlaceholders",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"unconverged ownership analysis reports no ownership verdicts\"",
+      "target": "FreeAnalysisReadinessTests::unconvergedAnalysis",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"command line reports only the declaration error after earlier errors\"",
+      "target": "FreeAnalysisReadinessTests::commandLineAfterDeclarationErrors",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"link without an entry point reports only its own error\"",
+      "target": "FreeAnalysisReadinessTests::linkWithoutEntryPoint",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"safe free rejects unknown identities and uncertain control flow\"",
+      "target": "this::safeFreeRejectsUncertainIdentity",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"safe free tracks ownership independently across duplicated finally paths\"",
+      "target": "this::safeFreeTracksDuplicatedFinallyPaths",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"rejected cleanup frees preserve per-exit diagnostic multiplicity\"",
+      "target": "CleanupDiagnosticTests::cleanupCopies",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"rejected cleanup copies identify return and normal exits\"",
+      "target": "CleanupDiagnosticTests::returnAndNormalExitExplanations",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"rejected cleanup copies identify transfers yields and exceptional exits\"",
+      "target": "CleanupDiagnosticTests::transferAndExceptionalExplanations",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"predecessor-free catch preserves direct and cleanup primaries\"",
+      "target": "CleanupDiagnosticTests::deadCatchOrigin",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"checked catches without exception edges qualify direct and cleanup frees\"",
+      "target": "CleanupDiagnosticTests::checkedCatchExplanations",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"nested cleanup replacement and catch completion keep their exits\"",
+      "target": "CleanupDiagnosticTests::nestedAndCatchCompletionExplanations",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"cleanup exit notes respect refinement readiness and excluded errors\"",
+      "target": "CleanupDiagnosticTests::cleanupReadinessAndExclusions",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"duplicated cleanup keeps bounded deterministic notes per copy\"",
+      "target": "CleanupDiagnosticTests::boundedCleanupCopies",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"loop back-edge rejections preserve both primary diagnostics\"",
+      "target": "CleanupDiagnosticTests::loopBackEdgePrimaries",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"loop back edges explain free predecessors and blocking paths\"",
+      "target": "CleanupDiagnosticTests::loopBackEdgeExplanations",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"explanation eligibility covers deferred destructor loop and owned elements\"",
+      "target": "ExplanationEligibilityTests::otherEmitters",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"deferred calls capture values while deferred free binds locals\"",
+      "target": "CleanupDiagnosticTests::deferredTargets",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"rejected frees identify the matched deferred-free binding\"",
+      "target": "CleanupDiagnosticTests::pendingFreeExplanations",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"rejected frees identify deferred-call capture roles and original values\"",
+      "target": "CleanupDiagnosticTests::pendingCallExplanations",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"rejected cleanup frees identify the pending yield result\"",
+      "target": "CleanupDiagnosticTests::pendingYieldExplanation",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"deferred-free registration explains its first failed ownership check\"",
+      "target": "CleanupDiagnosticTests::deferredRegistrationExplanations",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"finally transfers preserve ownership at destinations and loop back edges\"",
+      "target": "this::finallyTransferOwnershipIsChecked",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"finally transfer reclamation runs at every optimization level\"",
+      "target": "this::finallyTransferReclamationRunsNatively",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"safe free rejects double free and post-free use\"",
+      "target": "this::safeFreeRejectsInvalidReuse",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "NullableOwnedFieldTests.NAME",
+      "target": "NullableOwnedFieldTests::proofs",
+      "disposition": "construction-and-publication",
+      "coverage_family": "construction-and-publication"
+    },
+    {
+      "test": "\"TCP facade preserves typed options and result ownership\"",
+      "target": "TcpFoundationTests::ownershipAndOptions",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"failed fresh acquisition preserves success ownership\"",
+      "target": "TcpFoundationTests::failedFreshAcquisition",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"TCP extensions preserve factory and constructor ownership effects\"",
+      "target": "TcpFoundationTests::extensionEffects",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"host networking preserves snapshot and scoped address ownership\"",
+      "target": "HostNetworkingTests::ownership",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"proxy configuration preserves copied ownership and API boundaries\"",
+      "target": "ProxyNetworkingTests::ownership",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"wget URL and response ownership contracts\"",
+      "target": "WgetTests::ownership",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"destructor and constructor effects are checked closed-world\"",
+      "target": "this::destructorAndConstructorEffectsAreChecked",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"destructor effects are reported at the class whose destruction has them\"",
+      "target": "DestructorEffectTests::attributedToDestroyedClass",
+      "disposition": "construction-and-publication",
+      "coverage_family": "construction-and-publication"
+    },
+    {
+      "test": "\"destructor calls on a receiver that may be another object keep every override\"",
+      "target": "DestructorEffectTests::uncertainReceiverKeepsEveryOverride",
+      "disposition": "construction-and-publication",
+      "coverage_family": "construction-and-publication"
+    },
+    {
+      "test": "\"released values run only the destructors of the classes they may be\"",
+      "target": "FreedValueClassTests::releasedValuesFollowTheirClasses",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"publication follows the objects a constructor or destructor receives\"",
+      "target": "PublicationObjectTests::argumentObjectsDecidePublication",
+      "disposition": "construction-and-publication",
+      "coverage_family": "construction-and-publication"
+    },
+    {
+      "test": "\"destructors trust the null tests that guard their calls\"",
+      "target": "NullGuardTests::destructorsTrustTheirGuards",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"destructors trust null tests through joins and loop headers\"",
+      "target": "NullGuardTests::destructorsTrustGuardsThroughMerges",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"destructors trust fields every constructor sets until they free them\"",
+      "target": "NullGuardTests::destructorsTrustConstructedFields",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"methods a destructor calls on its object trust the fields not yet freed\"",
+      "target": "NullGuardTests::destructorsTrustConstructedFieldsThroughCalls",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"safe free accounts for reference-array element aliases\"",
+      "target": "this::safeFreeAccountsForArrayAliases",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"multidimensional child ownership supports proven direct detachment\"",
+      "target": "this::multidimensionalArrayOwnershipIsExplicit",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"System.arraycopy destination aliases block unsafe free\"",
+      "target": "this::systemArrayCopyDestinationBlocksUnsafeFree",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"creation-array competing second-pass diagnostics follow first store\"",
+      "target": "OwnedArrayDiagnosticTests::firstRecordedFailure",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"owned-element first-pass notes identify the selected failed operation\"",
+      "target": "OwnedArrayExplanationTests::firstPass",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"owned-element recorded-object notes identify publication and exit\"",
+      "target": "OwnedArrayExplanationTests::recordedObjects",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"owned-element defensive IR predicates retain selected evidence\"",
+      "target": "ironwood.compiler.semantic.OwnedArrayValidatorShapeTests::defensivePredicates",
+      "disposition": "aggregate-graphs",
+      "coverage_family": "aggregate-graphs"
+    },
+    {
+      "test": "\"owned-element notes retain class and archive source identities\"",
+      "target": "OwnedArrayExplanationTests::artifactSourceIdentity",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"fresh bulk results preserve detached element ownership under mutation\"",
+      "target": "FreshBulkResultTests::detachAndMutation",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"private backing arrays are freed only after proven detachment\"",
+      "target": "this::privateBackingArraysRequireProvenDetachment",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"field loans judge rejected frees by the destructors of their type\"",
+      "target": "OwnedFieldReentryTests::rejectedFrees",
+      "disposition": "construction-and-publication",
+      "coverage_family": "construction-and-publication"
+    },
+    {
+      "test": "\"field loans leave to lowering a free the field\\'s reclamation makes unsafe\"",
+      "target": "OwnedFieldReentryTests::contingentFrees",
+      "disposition": "construction-and-publication",
+      "coverage_family": "construction-and-publication"
+    },
+    {
+      "test": "\"constructor helper arguments reject observable rollback owners\"",
+      "target": "this::constructorHelpersRejectObservableRollbackOwners",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"receiver field aliases reject constructor and destructor publication\"",
+      "target": "ReceiverPublicationTests::fieldAliasesAreRejected",
+      "disposition": "construction-and-publication",
+      "coverage_family": "construction-and-publication"
+    },
+    {
+      "test": "\"confined receiver field aliases remain accepted\"",
+      "target": "ReceiverPublicationTests::confinedFieldAliasesAreAccepted",
+      "disposition": "construction-and-publication",
+      "coverage_family": "construction-and-publication"
+    },
+    {
+      "test": "\"reconstructed helper links reject receiver field publication\"",
+      "target": "ReceiverPublicationTests::reconstructedHelpersAreChecked",
+      "disposition": "construction-and-publication",
+      "coverage_family": "construction-and-publication"
+    },
+    {
+      "test": "\"private keyed snapshots preserve payload aliases and shared child versions\"",
+      "target": "KeyedSnapshotTests::loans",
+      "disposition": "aggregate-graphs",
+      "coverage_family": "aggregate-graphs"
+    },
+    {
+      "test": "\"private keyed snapshot reads reject unknown bodies and publishing callbacks\"",
+      "target": "KeyedSnapshotTests::proofControls",
+      "disposition": "aggregate-graphs",
+      "coverage_family": "aggregate-graphs"
+    },
+    {
+      "test": "\"private keyed counts and lookups preserve stored callback exposure\"",
+      "target": "KeyedSnapshotTests::countAndStoredCallbacks",
+      "disposition": "aggregate-graphs",
+      "coverage_family": "aggregate-graphs"
+    },
+    {
+      "test": "\"private keyed snapshots survive artifacts and allocation failures\"",
+      "target": "KeyedSnapshotTests::artifacts",
+      "disposition": "aggregate-graphs",
+      "coverage_family": "aggregate-graphs"
+    },
+    {
+      "test": "\"seven-field ownership snapshots retire storage and keep payload safety\"",
+      "target": "OwnershipSnapshotTests::controls",
+      "disposition": "aggregate-graphs",
+      "coverage_family": "aggregate-graphs"
+    },
+    {
+      "test": "\"seven-field ownership snapshots match the M0 value contract across artifacts\"",
+      "target": "OwnershipSnapshotTests::artifacts",
+      "disposition": "aggregate-graphs",
+      "coverage_family": "aggregate-graphs"
+    },
+    {
+      "test": "\"seven-field ownership snapshot saves roll back every allocation failure\"",
+      "target": "OwnershipSnapshotTests::failures",
+      "disposition": "aggregate-graphs",
+      "coverage_family": "aggregate-graphs"
+    },
+    {
+      "test": "\"compiler value helpers keep ownership of results only\"",
+      "target": "ValueHelpersTests::ownership",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"proof snapshots own saved evidence and keep its ownership safe\"",
+      "target": "SavedEvidenceTests::controls",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"snapshot-owned evidence retires every unit across budgets and artifacts\"",
+      "target": "SavedEvidenceTests::artifacts",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"frontend pilot retires builders and rejects frees of observed state\"",
+      "target": "FrontendPilotTests::ownership",
+      "disposition": "discarded-proof-prototypes",
+      "coverage_family": "discarded-proof-prototypes"
+    },
+    {
+      "test": "\"ownership pilot retires versions and rejects frees of observed state\"",
+      "target": "OwnershipPilotTests::ownership",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"ownership pilot counts callbacks and rejects frees of captured state\"",
+      "target": "OwnershipPilotTests::callbacks",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"ownership pilot matches the Java kernels across artifacts\"",
+      "target": "OwnershipPilotTests::artifacts",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"ownership pilot unwinds every allocation failure cleanly\"",
+      "target": "OwnershipPilotTests::failures",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"data structures retain inserted references for safe-free analysis\"",
+      "target": "this::dataStructuresBlockUnsafeFree",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"data structure releases allow caller item reclamation\"",
+      "target": "()->runFixtureAtO3(\"ds_caller_item_reclamation.iron\", 42)",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"static reference publication blocks unsafe free\"",
+      "target": "this::staticFieldsParticipateInSafeFree",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"interface method bodies participate in safe-free summaries\"",
+      "target": "this::interfaceMethodsParticipateInSafeFree",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"checked reference casts preserve safe-free allocation identity\"",
+      "target": "this::checkedReferenceCastsPreserveSafeFreeIdentity",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"safe free lowers to inspectable typed IR and LLVM\"",
+      "target": "this::safeFreeLowersToTypedIrAndLlvm",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"destructors rollback and live counts lower to typed IR and LLVM\"",
+      "target": "this::destructorsLowerToTypedIrAndLlvm",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"proven destructor receivers preserve mandatory safety\"",
+      "target": "FrontendCorrectnessTests::destructorSafety",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"explain-rejected-free CLI parses and transports the invocation option\"",
+      "target": "ExplainRejectedFreeCliTests::runAll",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"explanation observer records completed and unconverged refinement\"",
+      "target": "ExplanationObserverTests::runAll",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"rejected-free evidence limits preserve pipeline safety and truthful fallback\"",
+      "target": "ExplanationObserverTests::forcedEvidenceLimits",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"rejected-free evidence snapshots retain identity and enforce storage limits\"",
+      "target": "ironwood.compiler.semantic.RejectedFreeEvidenceTests::snapshotsAndBudgets",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"summary witness evidence enforces method fact and invocation limits\"",
+      "target": "ironwood.compiler.semantic.SummaryWitnessEvidenceTests::boundedStore",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"explanation readiness gives local boundaries without changing primaries\"",
+      "target": "ExplanationEligibilityTests::localAndReadiness",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"rejected-free local bindings retain current source and invalidate reassignment\"",
+      "target": "ExplanationEligibilityTests::localBindings",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"explanation readiness and exclusions preserve eligible note boundaries\"",
+      "target": "ExplanationEligibilityTests::readinessAndExclusions",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"field value forwarding preserves mandatory reclamation safety\"",
+      "target": "FieldValueForwardingTests::safety",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"unread primitive stores preserve mandatory reclamation safety\"",
+      "target": "UnreadFieldStoreTests::safety",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"ByteBuffer aliases retain backing storage for safe free\"",
+      "target": "this::byteBufferWrapBlocksUnsafeFree",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"safe free runs natively\"",
+      "target": "this::safeFreeRunsNatively",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"deterministic destructors and rollback run at O3\"",
+      "target": "this::deterministicDestructorsRunAtAllOptimizationLevels",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"standard-library caller-owned results teardown and rollback run at O3\"",
+      "target": "this::standardLibraryReclamationRunsAtAllOptimizationLevels",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"temporary constructor helpers preserve mandatory ownership proofs\"",
+      "target": "TemporaryBorrowTests::safety",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "test": "\"temporary list helpers preserve element owners\"",
+      "target": "TemporaryBorrowTests::lists",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "test": "\"temporary borrower proofs survive artifact reconstruction\"",
+      "target": "TemporaryBorrowTests::artifacts",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "test": "\"Java Bridge retention attributes helper and exceptional stores\"",
+      "target": "BridgeRetentionTests::attribution",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "\"Java Bridge retention rejects slot transfers and unknown effects\"",
+      "target": "BridgeRetentionTests::rejections",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "\"Java Bridge retention proofs survive artifact reconstruction\"",
+      "target": "BridgeRetentionTests::artifacts",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "\"Java Bridge text retention distinguishes copied storage from publication\"",
+      "target": "BridgeTextRetentionTests::effects",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "BridgeCallbackTransportTests.NAME",
+      "target": "BridgeCallbackTransportTests::nativeTransport",
+      "disposition": "foreign-callback-lifetimes",
+      "coverage_family": "foreign-callback-lifetimes"
+    },
+    {
+      "test": "BridgePrimitiveCallbackNativeTests.NAME",
+      "target": "BridgePrimitiveCallbackNativeTests::primitives",
+      "disposition": "foreign-callback-lifetimes",
+      "coverage_family": "foreign-callback-lifetimes"
+    },
+    {
+      "test": "BridgeSynchronousCallbackTests.NAME",
+      "target": "BridgeSynchronousCallbackTests::proofs",
+      "disposition": "foreign-callback-lifetimes",
+      "coverage_family": "foreign-callback-lifetimes"
+    },
+    {
+      "test": "BridgeOwnedCallbackNativeTests.NAME",
+      "target": "BridgeOwnedCallbackNativeTests::owners",
+      "disposition": "foreign-callback-lifetimes",
+      "coverage_family": "foreign-callback-lifetimes"
+    },
+    {
+      "test": "BridgeOwnedCallbackProducerTests.NAME",
+      "target": "BridgeOwnedCallbackProducerTests::producer",
+      "disposition": "foreign-callback-lifetimes",
+      "coverage_family": "foreign-callback-lifetimes"
+    },
+    {
+      "test": "BridgeCallbackProducerTests.NAME",
+      "target": "BridgeCallbackProducerTests::producer",
+      "disposition": "foreign-callback-lifetimes",
+      "coverage_family": "foreign-callback-lifetimes"
+    },
+    {
+      "test": "BridgeCallbackDispatchTests.NAME",
+      "target": "BridgeCallbackDispatchTests::dispatch",
+      "disposition": "foreign-callback-lifetimes",
+      "coverage_family": "foreign-callback-lifetimes"
+    },
+    {
+      "test": "\"Java Bridge construction facts preserve ordinary safety and IR\"",
+      "target": "BridgeConstructionTests::isolation",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "\"Java Bridge construction facts survive artifact reconstruction\"",
+      "target": "BridgeConstructionTests::artifacts",
+      "disposition": "managed-anchor-and-projection-contracts",
+      "coverage_family": "managed-anchor-and-projection-contracts"
+    },
+    {
+      "test": "BridgeByteViewProducerTests.NAME",
+      "target": "BridgeByteViewProducerTests::producer",
+      "disposition": "copied-and-borrowed-foreign-storage",
+      "coverage_family": "copied-and-borrowed-foreign-storage"
+    },
+    {
+      "test": "BridgeByteViewPackagingTests.NAME",
+      "target": "BridgeByteViewPackagingTests::packaging",
+      "disposition": "copied-and-borrowed-foreign-storage",
+      "coverage_family": "copied-and-borrowed-foreign-storage"
+    },
+    {
+      "test": "BridgeArrayProducerTests.NAME",
+      "target": "BridgeArrayProducerTests::producer",
+      "disposition": "copied-and-borrowed-foreign-storage",
+      "coverage_family": "copied-and-borrowed-foreign-storage"
+    },
+    {
+      "test": "BridgeArrayValueProducerTests.NAME",
+      "target": "BridgeArrayValueProducerTests::producer",
+      "disposition": "copied-and-borrowed-foreign-storage",
+      "coverage_family": "copied-and-borrowed-foreign-storage"
+    },
+    {
+      "test": "BridgeCustomSnapshotLayoutTests.NAME",
+      "target": "BridgeCustomSnapshotLayoutTests::layouts",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "test": "BridgeLinuxProducerTests.NAME",
+      "target": "BridgeLinuxProducerTests::producer",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "test": "BridgeAssemblyTests.NAME",
+      "target": "BridgeAssemblyTests::assembly",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "test": "BridgeProducerTests.NAME",
+      "target": "BridgeProducerTests::producer",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "test": "BridgeObjectProducerTests.NAME",
+      "target": "BridgeObjectProducerTests::producer",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "test": "\"Java Bridge root producer preserves packaged input parity and consumer lifetime\"",
+      "target": "BridgeObjectProducerTests::roots",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "test": "\"Java Bridge retaining producer preserves mixed lifetime parity and complete slot commits\"",
+      "target": "BridgeObjectProducerTests::retention",
+      "disposition": "packaging-images-stale-inputs",
+      "coverage_family": "packaging-images-stale-inputs"
+    },
+    {
+      "test": "BridgeOrderBookProducerTests.NAME",
+      "target": "BridgeOrderBookProducerTests::producer",
+      "disposition": "pooling-bridge-workloads",
+      "coverage_family": "pooling-bridge-workloads"
+    },
+    {
+      "test": "BridgeProducerExceptionTests.NAME",
+      "target": "BridgeProducerExceptionTests::exceptions",
+      "disposition": "string-exception-graphs",
+      "coverage_family": "string-exception-graphs"
+    },
+    {
+      "test": "\"summary witnesses retain final direct raw escape sites\"",
+      "target": "FreeSummaryEvidenceTests::directRawWitnesses",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"symbolic summary witnesses retain direct publication and return facts\"",
+      "target": "FreeSummaryEvidenceTests::symbolicDirectWitnesses",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"summary witness ordinals follow source events and stable origin roles\"",
+      "target": "FreeSummaryEvidenceTests::discoveryOrder",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"summary witness method fact and aggregate exhaustion preserve safety\"",
+      "target": "FreeSummaryEvidenceTests::isolatedExhaustion",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"final summary call notes follow retaining chains and recursive stores\"",
+      "target": "FreeSummaryEvidenceTests::renderedCallChains",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"summary call notes cap four hops and ignore unrelated imports\"",
+      "target": "FreeSummaryEvidenceTests::boundedAndStableCallNotes",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"explanation notes retain dependency source class and archive identities\"",
+      "target": "FreeDependencyDiagnosticTests::explanationSourceScope",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"String copies remain allocating in closed-world cleanup effects\"",
+      "target": "ironwood.compiler.semantic.StringCopyEffectTests::allocationEffects",
+      "disposition": "evaluation-defer-rendering",
+      "coverage_family": "evaluation-defer-rendering"
+    },
+    {
+      "test": "\"control-flow evidence stays bounded across generated joins and cleanup\"",
+      "target": "ControlFlowStorageTests::boundedFamilies",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"control-flow evidence exhaustion preserves safety and omissions\"",
+      "target": "ControlFlowStorageTests::forcedExhaustion",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"rejected free respects helper pool wrapper and dispatch contracts\"",
+      "target": "FreeOwnershipContractTests::ownersAndDispatch",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"final dispatch call notes select a contributing retaining target\"",
+      "target": "FreeOwnershipContractTests::dispatchWitnesses",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"rejected free explains pool checkout and transfer contracts\"",
+      "target": "FreeOwnershipContractTests::poolExplanations",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"rejected free explains switch dispatch and continuation paths\"",
+      "target": "FreeReasonSelectionTests::switchExplanations",
+      "disposition": "diagnostics-and-witnesses",
+      "coverage_family": "diagnostics-and-witnesses"
+    },
+    {
+      "test": "\"owned reusable helpers remain dependent borrows across calls\"",
+      "target": "this::ownedReusableHelpersAreDependentBorrows",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"every path that can release a misbehaving class keeps its holder reported\"",
+      "target": "FreedValueClassTests::reachableValuesStayReported",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"instances of one class keep their own fields arrays and builders\"",
+      "target": "FreedValueClassTests::instancesKeepTheirOwnContents",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"constructors that build no object keep their exact-class publication verdict\"",
+      "target": "PublicationObjectTests::constructorsWithoutObjectsKeepTheirVerdict",
+      "disposition": "construction-and-publication",
+      "coverage_family": "construction-and-publication"
+    },
+    {
+      "test": "\"copied map keys remain dependent borrows across calls\"",
+      "target": "this::copiedMapKeyLoansRejectUnsafeFree",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"field loans reject reentry through implicit code loops handlers and cleanup\"",
+      "target": "OwnedFieldReentryTests::reentryRoutes",
+      "disposition": "construction-and-publication",
+      "coverage_family": "construction-and-publication"
+    },
+    {
+      "test": "\"field loans admit runtime checks conversions and own-class statics\"",
+      "target": "OwnedFieldReentryTests::fixedOperationsInsideLoan",
+      "disposition": "construction-and-publication",
+      "coverage_family": "construction-and-publication"
+    },
+    {
+      "test": "\"independent map copies preserve keys values and callback loan safety\"",
+      "target": "this::mapCopiesPreserveLoans",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"independent set copies preserve item loans and callback boundaries\"",
+      "target": "this::setCopiesPreserveLoans",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"independent set copy constructor and iterator proofs reject publication\"",
+      "target": "this::setCopyProofControls",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"independent map copy proofs reject changed traversal and publication\"",
+      "target": "this::mapCopyProofControls",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"independent list copies preserve destination and nested payload loans\"",
+      "target": "this::listCopiesPreserveLoans",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"independent list copy read proofs reject guard mutation and retention\"",
+      "target": "this::listCopyReadProofRejectsMutation",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"independent list item projections require pure count queries\"",
+      "target": "this::listCopyCountQueriesPreserveMembership",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"private compiler snapshots preserve copied payload loans\"",
+      "target": "this::privateSnapshotLoans",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"M4.2 publication moves lower to typed IR and return the caller\\'s target\"",
+      "target": "PublicationTests::typedOperations",
+      "disposition": "construction-and-publication",
+      "coverage_family": "construction-and-publication"
+    },
+    {
+      "test": "\"M4.2 publication moves match Java 21 on one file system across artifacts\"",
+      "target": "PublicationTests::javaDifferential",
+      "disposition": "construction-and-publication",
+      "coverage_family": "construction-and-publication"
+    },
+    {
+      "test": "\"M4.2 publication moves keep their guarantees across file systems\"",
+      "target": "PublicationTests::crossDevice",
+      "disposition": "construction-and-publication",
+      "coverage_family": "construction-and-publication"
+    },
+    {
+      "test": "\"M4.2 exclusive publication admits exactly one competing process\"",
+      "target": "PublicationTests::competingCreators",
+      "disposition": "construction-and-publication",
+      "coverage_family": "construction-and-publication"
+    },
+    {
+      "test": "\"M4.2 native publication survives injected races and failures\"",
+      "target": "PublicationTests::nativeHarness",
+      "disposition": "construction-and-publication",
+      "coverage_family": "construction-and-publication"
+    },
+    {
+      "test": "\"M4.2 staged publication unwinds every allocation failure without leftovers\"",
+      "target": "PublicationTests::failures",
+      "disposition": "construction-and-publication",
+      "coverage_family": "construction-and-publication"
+    },
+    {
+      "test": "\"private compiler snapshot getter loans survive joins and delegation\"",
+      "target": "this::privateSnapshotGetterJoins",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"private compiler snapshot proofs reject publication and unrecognized construction\"",
+      "target": "this::privateSnapshotProofControls",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"private compiler snapshots survive artifacts and allocation failures\"",
+      "target": "this::privateSnapshotsAcrossArtifacts",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"data structure rendering exposure remains conservative\"",
+      "target": "this::dataStructureRenderingExposureRemainsConservative",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"data structure release proofs reject surviving aliases\"",
+      "target": "this::dataStructureReleaseProofsRejectSurvivingAliases",
+      "disposition": "managed-graphs-and-pool-protocols",
+      "coverage_family": "managed-graphs-and-pool-protocols"
+    },
+    {
+      "test": "\"pilot variant lists match the Java operation model\"",
+      "target": "OperationVariantTests::matchesJavaModel",
+      "disposition": "discarded-proof-prototypes",
+      "coverage_family": "discarded-proof-prototypes"
+    },
+    {
+      "test": "\"pilot variant admission fails closed on untreated variants\"",
+      "target": "OperationVariantTests::failsClosed",
+      "disposition": "discarded-proof-prototypes",
+      "coverage_family": "discarded-proof-prototypes"
+    },
+    {
+      "test": "\"pilot variant admission matches the model across artifacts\"",
+      "target": "OperationVariantTests::artifacts",
+      "disposition": "discarded-proof-prototypes",
+      "coverage_family": "discarded-proof-prototypes"
+    },
+    {
+      "test": "\"frontend pilot variants match the Java syntax model\"",
+      "target": "FrontendPilotTests::matchesJavaModel",
+      "disposition": "discarded-proof-prototypes",
+      "coverage_family": "discarded-proof-prototypes"
+    },
+    {
+      "test": "\"frontend pilot dispatch fails closed on untreated variants\"",
+      "target": "FrontendPilotTests::failsClosed",
+      "disposition": "discarded-proof-prototypes",
+      "coverage_family": "discarded-proof-prototypes"
+    },
+    {
+      "test": "\"frontend pilot matches the Java frontend across artifacts\"",
+      "target": "FrontendPilotTests::artifacts",
+      "disposition": "discarded-proof-prototypes",
+      "coverage_family": "discarded-proof-prototypes"
+    },
+    {
+      "test": "\"frontend pilot unwinds every allocation failure cleanly\"",
+      "target": "FrontendPilotTests::failures",
+      "disposition": "discarded-proof-prototypes",
+      "coverage_family": "discarded-proof-prototypes"
+    }
+  ],
+  "unregistered_methods": [
+    "byteBufferWrapBlocksUnsafeFree",
+    "checkedReferenceCastsPreserveSafeFreeIdentity",
+    "constructorHelpersRejectObservableRollbackOwners",
+    "dataStructuresBlockUnsafeFree",
+    "destructorAndConstructorEffectsAreChecked",
+    "destructorSyntaxAndPlacementAreChecked",
+    "destructorsLowerToTypedIrAndLlvm",
+    "deterministicDestructorsRunAtAllOptimizationLevels",
+    "finallyTransferOwnershipIsChecked",
+    "finallyTransferReclamationRunsNatively",
+    "freeSyntaxIsAccepted",
+    "genericCallsPreserveSafeFreeSummaries",
+    "interfaceMethodsParticipateInSafeFree",
+    "malformedFreeSyntaxHasDiagnostics",
+    "multidimensionalArrayOwnershipIsExplicit",
+    "privateBackingArraysRequireProvenDetachment",
+    "safeFreeAcceptsLocalAllocation",
+    "safeFreeAccountsForArrayAliases",
+    "safeFreeLowersToTypedIrAndLlvm",
+    "safeFreeRejectsAliasesAndEscapes",
+    "safeFreeRejectsInvalidReuse",
+    "safeFreeRejectsUncertainIdentity",
+    "safeFreeRunsNatively",
+    "safeFreeTracksDuplicatedFinallyPaths",
+    "safeFreeTracksWrapperFieldReads",
+    "standardLibraryReclamationRunsAtAllOptimizationLevels",
+    "staticFieldsParticipateInSafeFree",
+    "systemArrayCopyDestinationBlocksUnsafeFree",
+    "wildcardConversionsPreserveSafeFreeIdentity",
+    "copiedMapKeyLoansRejectUnsafeFree",
+    "dataStructureReleaseProofsRejectSurvivingAliases",
+    "dataStructureRenderingExposureRemainsConservative",
+    "listCopiesPreserveLoans",
+    "listCopyCountQueriesPreserveMembership",
+    "listCopyReadProofRejectsMutation",
+    "mapCopiesPreserveLoans",
+    "mapCopyProofControls",
+    "ownedReusableHelpersAreDependentBorrows",
+    "privateSnapshotGetterJoins",
+    "privateSnapshotLoans",
+    "privateSnapshotProofControls",
+    "privateSnapshotsAcrossArtifacts",
+    "setCopiesPreserveLoans",
+    "setCopyProofControls"
+  ],
+  "split_mixed_registrations": [
+    {
+      "test": "\"primitive array copy factories preserve fresh result ownership\"",
+      "target": "this::primitiveArrayCopyFactoriesPreserveFreshResults",
+      "disposition": "migrated-in-place; functional/initialization/resource/protocol assertions retained",
+      "current_selection": "primitive array copy factories preserve fresh managed results",
+      "retained_target": "this::primitiveArrayCopyFactoriesPreserveFreshResults",
+      "coverage_family": "retained-functional-protocol-contracts"
+    },
+    {
+      "test": "\"direct text formatting uses typed IR and preserves ownership checks\"",
+      "target": "this::directTextFormattingLowersToTypedIr",
+      "disposition": "migrated-in-place; functional/initialization/resource/protocol assertions retained",
+      "current_selection": "direct text formatting uses typed IR and shared managed results",
+      "retained_target": "this::directTextFormattingLowersToTypedIr",
+      "coverage_family": "retained-functional-protocol-contracts"
+    },
+    {
+      "test": "\"Object rendering ownership lowers through concrete type metadata\"",
+      "target": "this::objectRenderingOwnershipLowersToTypedIrAndLlvm",
+      "disposition": "migrated-in-place; functional/initialization/resource/protocol assertions retained",
+      "current_selection": "Object rendering lowers through concrete type metadata",
+      "retained_target": "this::objectRenderingOwnershipLowersToTypedIrAndLlvm",
+      "coverage_family": "retained-functional-protocol-contracts"
+    },
+    {
+      "test": "\"Dynamic String concatenation return ownership is inferred safely\"",
+      "target": "this::dynamicStringConcatenationReturnOwnershipIsInferredSafely",
+      "disposition": "migrated-in-place; functional/initialization/resource/protocol assertions retained",
+      "current_selection": "Dynamic String concatenation preserves return origins",
+      "retained_target": "this::dynamicStringConcatenationReturnOwnershipIsInferredSafely",
+      "coverage_family": "retained-functional-protocol-contracts"
+    },
+    {
+      "test": "\"Throwable rendering preserves typed operations and message ownership\"",
+      "target": "this::throwableRenderingPreservesTypedOwnership",
+      "disposition": "migrated-in-place; functional/initialization/resource/protocol assertions retained",
+      "current_selection": "Throwable rendering preserves typed operations and managed messages",
+      "retained_target": "this::throwableRenderingPreservesTypedOwnership",
+      "coverage_family": "retained-functional-protocol-contracts"
+    },
+    {
+      "test": "\"PrintStream Object rendering specializes call-site ownership\"",
+      "target": "this::printStreamObjectRenderingSpecializesCallSiteOwnership",
+      "disposition": "migrated-in-place; functional/initialization/resource/protocol assertions retained",
+      "current_selection": "PrintStream Object rendering preserves typed call-site behavior",
+      "retained_target": "this::printStreamObjectRenderingSpecializesCallSiteOwnership",
+      "coverage_family": "retained-functional-protocol-contracts"
+    },
+    {
+      "test": "\"PrintStream CharSequence output is allocation-free at O3\"",
+      "target": "this::printStreamCharSequenceRunsAllocationFree",
+      "disposition": "migrated-in-place; functional/initialization/resource/protocol assertions retained",
+      "current_selection": "PrintStream CharSequence output is allocation-free at O3",
+      "retained_target": "this::printStreamCharSequenceRunsAllocationFree",
+      "coverage_family": "retained-functional-protocol-contracts"
+    },
+    {
+      "test": "\"StringBuilder setLength chains without new ownership\"",
+      "target": "this::stringBuilderSetLengthChains",
+      "disposition": "migrated-in-place; functional/initialization/resource/protocol assertions retained",
+      "current_selection": "StringBuilder setLength chains without new allocation",
+      "retained_target": "this::stringBuilderSetLengthChains",
+      "coverage_family": "retained-functional-protocol-contracts"
+    },
+    {
+      "test": "\"everyday StringBuilder ownership and allocations are preserved\"",
+      "target": "this::everydayStringBuilderOwnership",
+      "disposition": "migrated-in-place; functional/initialization/resource/protocol assertions retained",
+      "current_selection": "everyday StringBuilder sharing and allocations are preserved",
+      "retained_target": "this::everydayStringBuilderOwnership",
+      "coverage_family": "retained-functional-protocol-contracts"
+    },
+    {
+      "test": "\"explicit numeric field helpers preserve output and reclamation at O3\"",
+      "target": "this::numericFieldHelpersRunNatively",
+      "disposition": "migrated-in-place; functional/initialization/resource/protocol assertions retained",
+      "current_selection": "explicit numeric field helpers preserve output and reclamation at O3",
+      "retained_target": "this::numericFieldHelpersRunNatively",
+      "coverage_family": "retained-functional-protocol-contracts"
+    },
+    {
+      "test": "\"U1 allocating text services preserve allocation-failure rollback\"",
+      "target": "this::u1AllocationFailuresRunAtAllOptimizationLevels",
+      "disposition": "migrated-in-place; functional/initialization/resource/protocol assertions retained",
+      "current_selection": "U1 allocating text services preserve allocation-failure behavior",
+      "retained_target": "this::u1AllocationFailuresRunAtAllOptimizationLevels",
+      "coverage_family": "retained-functional-protocol-contracts"
+    },
+    {
+      "test": "\"qualified instance fields preserve ownership proofs\"",
+      "target": "this::qualifiedInstanceFieldsPreserveOwnershipProofs",
+      "disposition": "migrated-in-place; functional/initialization/resource/protocol assertions retained",
+      "current_selection": "qualified instance fields preserve shared managed references",
+      "retained_target": "this::qualifiedInstanceFieldsPreserveOwnershipProofs",
+      "coverage_family": "retained-functional-protocol-contracts"
+    },
+    {
+      "test": "\"U3 streaming ownership and typed native operations are checked\"",
+      "target": "this::u3OwnershipAndTypedIr",
+      "disposition": "migrated-in-place; functional/initialization/resource/protocol assertions retained",
+      "current_selection": "U3 streaming sharing and typed native operations are checked",
+      "retained_target": "this::u3OwnershipAndTypedIr",
+      "coverage_family": "retained-functional-protocol-contracts"
+    },
+    {
+      "test": "\"ByteArrayOutputStream snapshots preserve typed ownership\"",
+      "target": "this::byteStreamSnapshotOwnership",
+      "disposition": "migrated-in-place; functional/initialization/resource/protocol assertions retained",
+      "current_selection": "ByteArrayOutputStream snapshots preserve typed managed results",
+      "retained_target": "this::byteStreamSnapshotOwnership",
+      "coverage_family": "retained-functional-protocol-contracts"
+    },
+    {
+      "test": "\"Instant ownership and omission boundaries are enforced\"",
+      "target": "this::instantOwnership",
+      "disposition": "migrated-in-place; functional/initialization/resource/protocol assertions retained",
+      "current_selection": "Instant managed results and omission boundaries are enforced",
+      "retained_target": "this::instantOwnership",
+      "coverage_family": "retained-functional-protocol-contracts"
+    },
+    {
+      "test": "\"everyday String ownership and omission boundaries are enforced\"",
+      "target": "this::everydayStringOwnershipAndBoundaries",
+      "disposition": "migrated-in-place; functional/initialization/resource/protocol assertions retained",
+      "current_selection": "everyday String managed results and omission boundaries are enforced",
+      "retained_target": "this::everydayStringOwnershipAndBoundaries",
+      "coverage_family": "retained-functional-protocol-contracts"
+    },
+    {
+      "test": "\"trace bookkeeping preserves allocation counts and safe free\"",
+      "target": "this::traceBookkeepingPreservesAllocationAndFreeRules",
+      "disposition": "migrated-in-place; functional/initialization/resource/protocol assertions retained",
+      "current_selection": "trace bookkeeping preserves allocation counts and managed results",
+      "retained_target": "this::traceBookkeepingPreservesAllocationAndFreeRules",
+      "coverage_family": "retained-functional-protocol-contracts"
+    }
+  ],
+  "retired_methods": [
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/CompilerTests.java",
+      "method": "runtimeAllocationAndDeallocationWorks",
+      "replacement": [
+        "scripts/test-gc-engine.py",
+        "scripts/test-gc-integrated.py --case no_collect --case integrated"
+      ]
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/NullGuardTests.java",
+      "method": "KINDS",
+      "replacement": [
+        "NullGuardTests.guardsOmitOnlyRedundantChecks",
+        "NullGuardTests.mergesOmitOnlyRedundantChecks",
+        "NullGuardTests.nullsStillThrowAtRuntime",
+        "Gc7ConsumerTests.initialization"
+      ]
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/NullGuardTests.java",
+      "method": "PARTS",
+      "replacement": [
+        "NullGuardTests.guardsOmitOnlyRedundantChecks",
+        "NullGuardTests.mergesOmitOnlyRedundantChecks",
+        "NullGuardTests.nullsStillThrowAtRuntime",
+        "Gc7ConsumerTests.initialization"
+      ]
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/NullGuardTests.java",
+      "method": "destructorsTrustTheirGuards",
+      "replacement": [
+        "NullGuardTests.guardsOmitOnlyRedundantChecks",
+        "NullGuardTests.mergesOmitOnlyRedundantChecks",
+        "NullGuardTests.nullsStillThrowAtRuntime",
+        "Gc7ConsumerTests.initialization"
+      ]
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/NullGuardTests.java",
+      "method": "destructorsTrustGuardsThroughMerges",
+      "replacement": [
+        "NullGuardTests.guardsOmitOnlyRedundantChecks",
+        "NullGuardTests.mergesOmitOnlyRedundantChecks",
+        "NullGuardTests.nullsStillThrowAtRuntime",
+        "Gc7ConsumerTests.initialization"
+      ]
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/NullGuardTests.java",
+      "method": "destructorsTrustConstructedFields",
+      "replacement": [
+        "NullGuardTests.guardsOmitOnlyRedundantChecks",
+        "NullGuardTests.mergesOmitOnlyRedundantChecks",
+        "NullGuardTests.nullsStillThrowAtRuntime",
+        "Gc7ConsumerTests.initialization"
+      ]
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/NullGuardTests.java",
+      "method": "destructorsTrustConstructedFieldsThroughCalls",
+      "replacement": [
+        "NullGuardTests.guardsOmitOnlyRedundantChecks",
+        "NullGuardTests.mergesOmitOnlyRedundantChecks",
+        "NullGuardTests.nullsStillThrowAtRuntime",
+        "Gc7ConsumerTests.initialization"
+      ]
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/NullGuardTests.java",
+      "method": "expect",
+      "replacement": [
+        "NullGuardTests.guardsOmitOnlyRedundantChecks",
+        "NullGuardTests.mergesOmitOnlyRedundantChecks",
+        "NullGuardTests.nullsStillThrowAtRuntime",
+        "Gc7ConsumerTests.initialization"
+      ]
+    }
+  ],
+  "format": 1,
+  "license": "SPDX-License-Identifier: MIT OR Apache-2.0",
+  "entry_revision": "e8ea963d9395e0e7871fc244cdc2bc303a1bec4a",
+  "baseline_compiler_tests.sha256": "91925ee6938bcd213641e80176afc4a47bbf3a91f902243039a15e0d294b732b",
+  "notes": [
+    "Registration names identify exact old parameterized families; their original source remains in entry_revision Git objects.",
+    "Pure free-proof, witness and destructor-capability verdicts have no current semantic equivalent. They are retired explicitly, not disabled.",
+    "Mixed families keep operand order, null/bounds failure order, exceptions, initialization, dispatch, resource/pool behavior, artifacts and allocation assertions in place.",
+    "Two retained mixed families were additionally migrated: ConstructionPublicationTests preserves all dispatch/publication shapes as accepted managed source; FilesystemServicesTests keeps typed/native operations while destructor-only rejection is retired.",
+    "File-tree callback retention becomes accepted managed behavior, with gc7_retained_visitor plus unchanged depth/link/abrupt-close controls.",
+    "TCP old malloc-block/free totals are retired as managed-reclamation evidence. Descriptor balance/native fault checks remain; heap interposer totals are observations. Metrics fifth field now measures source-close allocations, expected zero.",
+    "Steady-state zero-allocation/live-delta controls remain when the workload performs no collection or allocation.",
+    "Pool-builder origin replacements reject direct, explicit-super and implicit-super constructor publication and unknown/cached factory effects; quiet constructors and ordinary managed publication remain accepted.",
+    "Final BridgeRetentionAnalyzer audit deletes unproduced PERMANENT origin, unused cleanupBodies rejection stub and String ownership-result queries. All live analyses continue to include initialization and conservative foreign effects."
+  ],
+  "renamed_selections": {
+    "primitive array copy factories preserve fresh result ownership": "primitive array copy factories preserve fresh managed results",
+    "direct text formatting uses typed IR and preserves ownership checks": "direct text formatting uses typed IR and shared managed results",
+    "Object rendering ownership lowers through concrete type metadata": "Object rendering lowers through concrete type metadata",
+    "Dynamic String concatenation return ownership is inferred safely": "Dynamic String concatenation preserves return origins",
+    "Throwable rendering preserves typed operations and message ownership": "Throwable rendering preserves typed operations and managed messages",
+    "PrintStream Object rendering specializes call-site ownership": "PrintStream Object rendering preserves typed call-site behavior",
+    "StringBuilder setLength chains without new ownership": "StringBuilder setLength chains without new allocation",
+    "everyday StringBuilder ownership and allocations are preserved": "everyday StringBuilder sharing and allocations are preserved",
+    "U1 allocating text services preserve allocation-failure rollback": "U1 allocating text services preserve allocation-failure behavior",
+    "qualified instance fields preserve ownership proofs": "qualified instance fields preserve shared managed references",
+    "U3 streaming ownership and typed native operations are checked": "U3 streaming sharing and typed native operations are checked",
+    "ByteArrayOutputStream snapshots preserve typed ownership": "ByteArrayOutputStream snapshots preserve typed managed results",
+    "Instant ownership and omission boundaries are enforced": "Instant managed results and omission boundaries are enforced",
+    "everyday String ownership and omission boundaries are enforced": "everyday String managed results and omission boundaries are enforced",
+    "trace bookkeeping preserves allocation counts and safe free": "trace bookkeeping preserves allocation counts and managed results",
+    "benchmark library reports and reclaims native results": "benchmark library preserves reports and managed results",
+    "standard-library test reporting reclaims temporary allocations": "standard-library test reporting preserves managed results",
+    "combined defer cleanup closes and reclaims loopback sockets at O3": "combined defer cleanup closes loopback sockets at O3",
+    "nullable owned-field getters reclaim their owner graph at O3": "nullable field getters preserve shared child graphs at O3",
+    "network address results reclaim owned graphs at O3": "network address results preserve shared managed graphs at O3",
+    "TLS client preserves owned configuration and stream borrows": "TLS client preserves managed configuration and stream resource contracts",
+    "nested array initializers preserve explicit child ownership": "nested array initializers preserve shared children",
+    "creation-array cleanup proves distinct fresh elements": "creation arrays admit shared and partially constructed elements",
+    "fresh bulk result element cleanup runs at O3": "fresh bulk results preserve managed elements at O3",
+    "creation-array cleanup destroys elements natively": "creation arrays preserve roots and collect completed phases",
+    "pool release transfers ownership for safe-free analysis": "pool release preserves managed aliases and reuse",
+    "pool ownership rejects dangling and conflicting aliases": "pool origins reject wrong-pool use and cached builders",
+    "owning pools reclaim all values and retain allocation-free reuse": "pools retain allocation-free release and reuse",
+    "data structure entry loans cannot outlive their containers": "data structure entries preserve shared managed graphs",
+    "data structure builder cleanup requires ordered containment": "data structure builders admit managed field publication",
+    "copied map key storage is reclaimed without freeing caller keys": "copied map keys preserve independent caller storage",
+    "confined constructor helpers reclaim normal and failed construction": "constructor helpers preserve normal and failed construction",
+    "receiver field aliases reclaim normal and failed construction": "receiver field aliases preserve normal and failed construction",
+    "independent list copy failures reclaim partial construction": "independent list copies preserve partial construction failures",
+    "M5.1 CRC32 borrows its arrays and rejects retaining overrides": "M5.1 CRC32 admits managed retaining overrides and preserves its API",
+    "Throwable rendering matches Java text and reclaims results at O3": "Throwable rendering matches Java text with managed results at O3",
+    "Throwable rendering allocation failures reclaim temporary messages": "Throwable rendering preserves message allocation failures",
+    "Object String concatenation releases implicit rendering results": "Object String concatenation preserves managed rendering results",
+    "everyday StringBuilder allocation failures reclaim temporary storage": "everyday StringBuilder preserves allocation failure behavior",
+    "Object and collection rendering reclaim temporary text at O3": "Object and collection rendering preserve managed text at O3",
+    "deferred standard-library collection rendering preserves text and live counts": "deferred standard-library collection rendering preserves text and phase collection",
+    "U3 construction and result OOM reclaim owned graphs": "U3 construction and result OOM preserve failure behavior",
+    "Instant allocation failures reclaim temporary storage": "Instant preserves allocation failure behavior",
+    "everyday String allocation failures reclaim temporary storage": "everyday String preserves allocation failure behavior",
+    "floating text overloads match Java and reclaim temporaries": "floating text overloads match Java with managed results",
+    "compiler semantic helpers borrow inputs and own their results": "compiler semantic helpers preserve shared inputs and managed results",
+    "compiler backend helpers borrow inputs and own their results": "compiler backend helpers preserve shared inputs and managed results",
+    "M4.1 filesystem services borrow inputs and own their results": "M4.1 filesystem services preserve shared inputs and managed results",
+    "M4.3 driver adapters own arguments and lend probe outputs": "M4.3 driver adapters preserve shared arguments and probe outputs",
+    "M5.2 inflate and ZIP writer borrow inputs and own their results": "M5.2 inflate and ZIP writer preserve shared inputs and managed results",
+    "M5.3 archive services borrow inputs and own their results": "M5.3 archive services preserve shared inputs and managed results",
+    "M5.4 documentation helpers borrow inputs and own their results": "M5.4 documentation helpers preserve shared inputs and managed results",
+    "M6.1 Bridge helpers borrow inputs and own their results": "M6.1 Bridge helpers preserve shared inputs and managed results",
+    "M6.2 Bridge jar contents borrow inputs and own their copies": "M6.2 Bridge jar contents preserve shared inputs and managed copies",
+    "compiler text blocks own only their normalized result": "compiler text blocks preserve their normalized managed result",
+    "data structures destroy internal pools and preserve caller items": "data structures retain pool reuse and preserve caller items across collection"
+  },
+  "coverage_families": {
+    "generic-bridge-boundaries": [
+      "Gc7ConsumerTests.genericConsumers",
+      "Gc6ManagedBridgeTests.Box<Counter>/Box<Trade> source/class/archive parity",
+      "generics/benchmark.py --quick (getter and nongeneric control)",
+      "bounded-generics/benchmark.py --quick (setter and nongeneric control)"
+    ],
+    "packaging-images-stale-inputs": [
+      "Gc7ConsumerTests.staleBridgeManifests",
+      "Gc6CliTests/Gc6PackageTests",
+      "Gc6ManagedBridgeTests artifact parity",
+      "test-gc6-images.py independent production A/B JVM images and private exports",
+      "test-gc6-metadata.py",
+      "test-gc-inputs.py 16 SDK/source/class/archive/stale-input checks"
+    ],
+    "managed-anchor-and-projection-contracts": [
+      "Gc6ManagedBridgeTests (shared graphs, partial publication, ordinary free/close members, enums, generic results, source/class/archive parity)",
+      "Gc6CallbackTests registrations and failure commits",
+      "test-gc6-objects.py anchor epochs, stale facades, source resource close and exact JVM roots",
+      "test-gc6-callbacks.py",
+      "test-gc6-images.py",
+      "managed micro/retention workloads"
+    ],
+    "managed-bridge-admission": [
+      "Gc6ManagedBridgeTests",
+      "Gc6CallbackTests",
+      "Gc7ConsumerTests.nativeContracts/staleBridgeManifests",
+      "test-gc6-objects.py",
+      "test-gc6-images.py"
+    ],
+    "construction-and-publication": [
+      "ConstructionPublicationTests (all original dispatch shapes accepted)",
+      "Gc7ConsumerTests.initialization",
+      "gc7_constructor_dispatch.iron",
+      "gc7_shared_graphs.iron partial construction",
+      "creation_array_cleanup.iron"
+    ],
+    "diagnostics-and-witnesses": [
+      "Gc7ConsumerTests.removedSyntax",
+      "Gc5IntrinsicTests.resolution (source/class/archive embedded migration)",
+      "DiagnosticNoteTests"
+    ],
+    "foreign-callback-lifetimes": [
+      "Gc6CallbackTests (accepted and retaining/unknown refusal families)",
+      "Gc6CarrierTests",
+      "Gc6SegmentTests",
+      "test-gc6-callbacks.py O3 and batch JNI fallback",
+      "test-gc6-carriers.py O3 actual JNI completion",
+      "listener example and measure-managed.py --case listeners --quick"
+    ],
+    "copied-and-borrowed-foreign-storage": [
+      "Gc7ConsumerTests.nativeContracts paired copied-input/retaining/ByteView refusals",
+      "Gc6ManagedBridgeTests.copy/borrow/absent/same",
+      "Gc6CallbackTests escape modes 4/5",
+      "test-gc6-objects.py actual JNI copy-back and borrowed views",
+      "test-gc6-callbacks.py JVM reentry"
+    ],
+    "string-exception-graphs": [
+      "Gc6ManagedBridgeTests String/collecting Fault snapshot and artifact parity",
+      "Gc7ConsumerTests.snapshotConfinement (collecting getter accepted, receiver publication refused)",
+      "Gc6CallbackTests exception/reentry/defer cases",
+      "test-gc6-objects.py O3 critical plus JNI fallback",
+      "test-gc6-carriers.py explicit JNI completion"
+    ],
+    "managed-graphs-and-pool-protocols": [
+      "Gc7ConsumerTests.aliasesAndOrigins/initialization/poolOrigins",
+      "gc7_shared_graphs.iron",
+      "PoolReleaseTests",
+      "pool_release_helpers.iron",
+      "retained initialization/null/dispatch/artifact tests"
+    ],
+    "evaluation-defer-rendering": [
+      "DeferTests (syntax, captures, artifacts and exceptions)",
+      "defer_calls.iron",
+      "defer_stdlib_rendering.iron (21 text families and completed-phase collection)",
+      "CompilerTests rendering/formatting/string allocation controls",
+      "gc7_shared_graphs.iron pending returns and capture reassignment"
+    ],
+    "aggregate-graphs": [
+      "Gc7ConsumerTests.aliasesAndOrigins/artifacts (8 parameterized graph families)",
+      "FreshBulkResultTests",
+      "gc7_shared_graphs.iron joined arrays",
+      "creation_array_cleanup.iron",
+      "PoolRetentionTests",
+      "CollectionRetentionTests"
+    ],
+    "pooling-bridge-workloads": [
+      "projects/OrderBook/java-bridge/test.sh (exact demo, JNI fallback, throughput/latency and invalid arguments)",
+      "measure-managed.py --case orderbook --quick (per-operation, batch, latency; native allocation expectations)"
+    ],
+    "discarded-proof-prototypes": [
+      "IrModelInventoryTests (117 records/22 enums and generator exactness)",
+      "Gc7ConsumerTests.checkedInCompilerConsumers (syntax only)",
+      "current parser/lexer/AST and reduced OperationVariants data catalog; no I1/I2"
+    ],
+    "retained-functional-protocol-contracts": [
+      "Gc7ConsumerTests.aliasesAndOrigins/initialization/poolOrigins",
+      "gc7_shared_graphs.iron",
+      "PoolReleaseTests",
+      "pool_release_helpers.iron",
+      "retained initialization/null/dispatch/artifact tests"
+    ]
+  },
+  "additional_split_families": [
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/ConstructionPublicationTests.java",
+      "before.sha256": "6a3ba0159996c00e7b924a908838c2d502ef55db49dacc64fc3849009c2fca7c",
+      "after.sha256": "02245fb6e9f676f53a57c95da72cfdd22d696e2176bc5195ae67b53fb7622cc2",
+      "disposition": "Accept original managed publication/dispatch shapes; preserve final initialization checks.",
+      "replacement": [
+        "ConstructionPublicationTests::attributedToConstructedClass",
+        "ConstructionPublicationTests::bundledConstructorsKeepUserCause",
+        "Gc7ConsumerTests.initialization",
+        "gc7_constructor_dispatch.iron"
+      ]
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/FilesystemServicesTests.java",
+      "before.sha256": "630609202e30c0de73b2a00296bb49328e8514cbbee4216ce7346557c6280033",
+      "after.sha256": "117c9fa6b54f8bf6e726ade3c24e98d2edb240bb251b758bc8baa8c22e2e554a",
+      "disposition": "Retire destructor-only visitor rejection; retain typed/native API checks and traversal resource behavior.",
+      "replacement": [
+        "FilesystemServicesTests",
+        "gc7_retained_visitor.iron",
+        "U5 file tree traversal controls depth links and cleanup"
+      ]
+    },
+    {
+      "file": "compiler/src/test/java/ironwood/compiler/semantic/BridgeControlFlowTests.java",
+      "before.sha256": "90e8a0da6d00115bba372efec681fa5d280a48349916d0ccb5427327ee9ab2f9",
+      "after.sha256": "caf64bd2eefdc5d9f209cb8071f367d9d7b8fe601fd099ce98eb2191d52f314f",
+      "disposition": "Retire test-only String ownership-result certificates; keep every source/IR shape, reachable/unreachable unwind, live phi predecessor, reference effect and native exception cleanup assertion.",
+      "replacement": [
+        "Java Bridge unwind reachability requires complete nonraising helper proofs",
+        "Java Bridge primitive arraycopy proofs preserve erased-helper and artifact attribution",
+        "GC6 carriers separate exact managed linkage from JNI completion"
+      ]
+    }
+  ]
+}

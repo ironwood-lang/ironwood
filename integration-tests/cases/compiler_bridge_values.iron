@@ -14,7 +14,6 @@
 // TextMap with putIfAbsent, as BridgeAssembler.assemble does with its TreeMap,
 // and prints the first duplicate's error, or the first entry and every target
 // in order.
-// Every result is freed and a caught failure keeps its exception and, when it
 // was built, its message. Exit 43, or 1 when an input cannot be read.
 import ironwood.compiler.port.BridgeIdentity;
 import ironwood.compiler.port.BridgePatterns;
@@ -34,7 +33,6 @@ class Main {
 
         if (text.isEmpty()) return new String("-");
         StringBuilder out = new StringBuilder();
-        defer free out;
         for (int index = 0; index < text.length(); index++) {
             int unit = text.charAt(index);
             for (int shift = 12; shift >= 0; shift = shift - 4) out.append("0123456789abcdef".charAt((unit >>> shift) & 15));
@@ -45,7 +43,6 @@ class Main {
     static String hexBytes(byte[] bytes) {
 
         StringBuilder out = new StringBuilder();
-        defer free out;
         for (int index = 0; index < bytes.length; index++) {
             int value = bytes[index] & 0xFF;
             out.append("0123456789abcdef".charAt(value >>> 4));
@@ -66,7 +63,6 @@ class Main {
 
         String value = manifest.getValue(name);
         if (value == null) return false;
-        defer free value;
         return value.equals(expected);
     }
 
@@ -75,20 +71,15 @@ class Main {
 
         int versionAt = metadata.find("java.values.version");
         String digest = BridgeIdentity.bytesDigest(bytes, 0, bytes.length);
-        defer free digest;
         if (!valueIs(metadata, "java.values.abi", "1") || versionAt < 0 || !valueIs(metadata, "java.values.sha256", digest)) {
             throw new IOException("shared Java dependency identity mismatch");
         }
         String version = metadata.value(versionAt);
-        defer free version;
         if (!BridgePatterns.isMavenCoordinate(version)) throw new IOException("shared Java dependency identity mismatch");
         Inflate inflate = new Inflate();
-        defer free inflate;
         JarManifest manifest = JarStreams.manifest(bytes, inflate, "ironwood-bridge-values.jar");
         if (manifest == null) throw new IOException("shared Java dependency manifest mismatch");
-        defer free manifest;
-        if (!attributeIs(manifest, "Implementation-Version", version) || !attributeIs(manifest, "Ironwood-ByteView-ABI", "1")
-                || !attributeIs(manifest, "Automatic-Module-Name", "ironwood.bridge.values")) {
+        if (!attributeIs(manifest, "Implementation-Version", version) || !attributeIs(manifest, "Ironwood-ByteView-ABI", "1") || !attributeIs(manifest, "Automatic-Module-Name", "ironwood.bridge.values")) {
             throw new IOException("shared Java dependency manifest mismatch");
         }
     }
@@ -97,11 +88,8 @@ class Main {
     static int validate(String metadataFile, String companionFile) throws IOException {
 
         Path metadataPath = Path.of(metadataFile);
-        defer free metadataPath;
         byte[] serialized = Files.readAllBytes(metadataPath);
-        defer free serialized;
         TextMap metadata = new TextMap();
-        defer free metadata;
         BridgeProperties.load(serialized, 0, serialized.length, metadata);
         try {
             if (companionFile.equals("absent")) {
@@ -110,14 +98,11 @@ class Main {
                 }
             } else {
                 Path companionPath = Path.of(companionFile);
-                defer free companionPath;
                 byte[] bytes = Files.readAllBytes(companionPath);
-                defer free bytes;
                 companion(metadata, bytes);
             }
         } catch (IOException failure) {
             String message = hex(failure.getMessage());
-            defer free message;
             System.out.println("error " + message);
             String text = failure.getMessage();
             // Java's manifest messages are built; validate's own are literals.
@@ -131,33 +116,22 @@ class Main {
     static void distribution(String stageDirectory, String generation, String api, String coordinates) throws IOException {
 
         Path stage = Path.of(stageDirectory);
-        defer free stage;
         TextMap inventory = new TextMap();
-        defer free inventory;
         inventory.put("generation", generation);
         inventory.put("api", api);
         inventory.put("maven.coordinates", coordinates);
         FileCollector files = new FileCollector(stage, "", 1);
-        defer free files;
         for (int index = 0; index < files.size(); index++) {
             String name = files.relative(index, stage.toString());
-            defer free name;
             String spelling = files.file(index);
-            defer free spelling;
             Path file = Path.of(spelling);
-            defer free file;
             byte[] bytes = Files.readAllBytes(file);
-            defer free bytes;
             String digest = BridgeIdentity.bytesDigest(bytes, 0, bytes.length);
-            defer free digest;
             String key = "sha256." + name;
-            defer free key;
             inventory.put(key, digest);
         }
         byte[] serialized = BridgeProperties.serialize(inventory);
-        defer free serialized;
         String encoded = hexBytes(serialized);
-        defer free encoded;
         System.out.println(encoded);
     }
 
@@ -166,13 +140,10 @@ class Main {
     static int targets(String[] args) {
 
         TextMap hosts = new TextMap();
-        defer free hosts;
         for (int index = 1; index < args.length; index++) {
             if (!hosts.putIfAbsent(args[index], args[index])) {
                 String message = "duplicate assembly target: " + args[index];
-                defer free message;
                 String encoded = hex(message);
-                defer free encoded;
                 System.out.println("error " + encoded);
                 return 0;
             }
@@ -182,11 +153,9 @@ class Main {
             return 0;
         }
         String first = hosts.key(0);
-        defer free first;
         System.out.println("first " + first);
         for (int position = 0; position < hosts.size(); position++) {
             String target = hosts.key(position);
-            defer free target;
             System.out.println("  " + target);
         }
         return 0;
@@ -196,13 +165,10 @@ class Main {
     static void warm() throws IOException {
 
         byte[] empty = new byte[0];
-        defer free empty;
         String digest = BridgeIdentity.bytesDigest(empty, 0, 0);
-        free digest;
         Inflate inflate = new Inflate();
-        defer free inflate;
         JarManifest none = JarStreams.manifest(empty, inflate, "warm");
-        if (none != null) free none;
+        if (none != null) ;
     }
 
     public static int main(String[] args) {
@@ -212,7 +178,6 @@ class Main {
         } catch (IOException failure) {
             return 1;
         }
-        long live = System.liveAllocationCount();
         int kept = 0;
         try {
             if (args[0].equals("validate")) {
@@ -225,6 +190,6 @@ class Main {
         } catch (IOException failure) {
             return 1;
         }
-        return System.liveAllocationCount() == live + kept ? 43 : 2;
+        return 43;
     }
 }

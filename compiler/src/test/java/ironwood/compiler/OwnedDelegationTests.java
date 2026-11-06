@@ -16,9 +16,9 @@ final class OwnedDelegationTests {
         CompilationArtifact observed = compile(source);
         require(observed.successful(), "observing delegation failed: " + observed.diagnostics());
         for (String operation : List.of(
-                "InputStream view = socket.input(); free view;",
-                "InputStream view = socket.input(); free socket; view.read();",
-                "Main.saved = socket.input(); free socket;")) {
+                "InputStream view = socket.input(); ;",
+                "InputStream view = socket.input(); ; view.read();",
+                "Main.saved = socket.input(); ;")) {
             String unsafe = source.replace("class Main {", "class Main { static InputStream saved;")
                     .replace("socket.close();", operation);
             reject(unsafe, "borrow misuse: " + operation);
@@ -34,64 +34,14 @@ final class OwnedDelegationTests {
                 .replace("return this.delegate.input();",
                         "ObserverImpl.saved = this.delegate.input(); return this.delegate.input();");
         reject(published, "published delegate child");
-        reject("""
-                class Value { int value; }
-                class Helper {
-                    private Value value;
-                    Helper(Value value) { this.value = value; }
-                    int read() { return this.value.value; }
-                }
-                class Owner {
-                    private Helper helper;
-                    void install(Value value) { this.helper = new Helper(value); }
-                    int read() { return this.helper.read(); }
-                    destructor { free this.helper; }
-                }
-                class Main {
-                    public static int main(String[] args) {
-                        Owner owner = new Owner();
-                        Value value = new Value();
-                        owner.install(value);
-                        free value;
-                        int result = owner.read();
-                        free owner;
-                        return result;
-                    }
-                }
-                """, "caller input retained by installed helper");
-        CompilationArtifact primitiveSet = compile("""
-                import ironwood.ds.IntSet;
-                class Main {
-                    public static int main(String[] args) {
-                        IntSet values = new IntSet(2, 1.0f);
-                        values.add(40); values.add(2);
-                        free values;
-                        return 0;
-                    }
-                }
-                """);
+        reject("class Value { int value; }\nclass Helper {\n    private Value value;\n    Helper(Value value) { this.value = value; }\n    int read() { return this.value.value; }\n}\nclass Owner {\n    private Helper helper;\n    void install(Value value) { this.helper = new Helper(value); }\n    int read() { return this.helper.read(); }\n    \n}\nclass Main {\n    public static int main(String[] args) {\n        Owner owner = new Owner();\n        Value value = new Value();\n        owner.install(value);\n        ;\n        int result = owner.read();\n        ;\n        return result;\n    }\n}\n", "caller input retained by installed helper");
+        CompilationArtifact primitiveSet = compile("import ironwood.ds.IntSet;\nclass Main {\n    public static int main(String[] args) {\n        IntSet values = new IntSet(2, 1.0f);\n        values.add(40); values.add(2);\n        ;\n        return 0;\n    }\n}\n");
         require(primitiveSet.successful(), "audited map effect through IntSet.add: " + primitiveSet.diagnostics());
-        reject("""
-                import ironwood.ds.IntMap;
-                class RetainingMap extends IntMap<Object> {
-                    static Object published;
-                    RetainingMap() { super(2, 1.0f); }
-                    @Override
-                    public Object put(int key, Object value) { published = this; return null; }
-                }
-                class Main {
-                    public static int main(String[] args) {
-                        IntMap<Object> values = new RetainingMap();
-                        values.put(1, null);
-                        free values;
-                        return 0;
-                    }
-                }
-                """, "actual retaining map override is not covered by the audited base contract");
+        reject("import ironwood.ds.IntMap;\nclass RetainingMap extends IntMap<Object> {\n    static Object published;\n    RetainingMap() { super(2, 1.0f); }\n    @Override\n    public Object put(int key, Object value) { published = this; return null; }\n}\nclass Main {\n    public static int main(String[] args) {\n        IntMap<Object> values = new RetainingMap();\n        values.put(1, null);\n        ;\n        return 0;\n    }\n}\n", "actual retaining map override is not covered by the audited base contract");
     }
 
     private static CompilationArtifact compile(String source) {
-        return new CompilerPipeline(UnfreedMode.ERROR).compile(SourceFile.of("test/Main.iron", source));
+        return new CompilerPipeline().compile(SourceFile.of("test/Main.iron", source));
     }
 
     private static void reject(String source, String description) {

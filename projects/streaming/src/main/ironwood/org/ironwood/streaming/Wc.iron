@@ -14,21 +14,16 @@ final class Wc {
     static int stdin() throws IOException {
 
         CountingInput counter = new CountingInput(System.in);
-        defer free counter;
         InputStreamReader reader = new InputStreamReader(counter);
-        defer free reader;
         defer reader.close();
         return count(reader, counter);
     }
     static int file(String name) throws IOException {
 
         FileInputStream input = new FileInputStream(name);
-        defer free input;
         defer input.close();
         CountingInput counter = new CountingInput(input);
-        defer free counter;
         InputStreamReader reader = new InputStreamReader(counter);
-        defer free reader;
         defer reader.close();
         return count(reader, counter);
     }
@@ -39,7 +34,6 @@ final class Wc {
     private static int count(Reader reader, CountingInput counter) throws IOException {
 
         char[] units = new char[4096];
-        defer free units;
         long characters = 0L;
         long words = 0L;
         long lines = 0L;

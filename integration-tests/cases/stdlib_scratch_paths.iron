@@ -29,9 +29,7 @@ class Fixture {
 
         this.root = new String(root);
         Path rootPath = Path.of(root);
-        defer free rootPath;
         Path real = rootPath.toRealPath();
-        defer free real;
         this.realRoot = new String(real.toString());
     }
 
@@ -49,9 +47,7 @@ class Fixture {
         delete("locked/child.txt");
         delete("link-full");
         Path inner = Path.of("full/inner.txt");
-        defer free inner;
         StringBuilder line = new StringBuilder();
-        defer free line;
         line.append("exists full/inner.txt -> ").append(Files.exists(inner) ? "true" : "false");
         emit(line);
     }
@@ -59,9 +55,7 @@ class Fixture {
     private void delete(String name) {
 
         Path path = Path.of(name);
-        defer free path;
         StringBuilder line = new StringBuilder();
-        defer free line;
         line.append("deleteIfExists ").append(name).append(" -> ");
         try {
             line.append(Files.deleteIfExists(path) ? "true" : "false");
@@ -107,17 +101,12 @@ class Fixture {
     private void file(String dir, String prefix, String suffix) {
 
         Path directory = Path.of(dir);
-        defer free directory;
         String prefixValue = nul(prefix);
-        defer free prefixValue;
         String suffixValue = nul(suffix);
-        defer free suffixValue;
         StringBuilder line = new StringBuilder();
-        defer free line;
         line.append("createTempFile ").append(dir).append(' ').append(prefix == null ? "<null>" : prefix).append(' ').append(suffix == null ? "<null>" : suffix).append(" -> ");
         try {
             Path created = Files.createTempFile(directory, prefixValue, suffixValue);
-            defer free created;
             show(line, created.toString());
             line.append(Files.isRegularFile(created) ? " file" : " other");
         } catch (IOException failure) {
@@ -131,15 +120,11 @@ class Fixture {
     private void directory(String dir, String prefix) {
 
         Path directory = Path.of(dir);
-        defer free directory;
         String prefixValue = nul(prefix);
-        defer free prefixValue;
         StringBuilder line = new StringBuilder();
-        defer free line;
         line.append("createTempDirectory ").append(dir).append(' ').append(prefix == null ? "<null>" : prefix).append(" -> ");
         try {
             Path created = Files.createTempDirectory(directory, prefixValue);
-            defer free created;
             show(line, created.toString());
             line.append(Files.isDirectory(created) ? " directory" : " other");
         } catch (IOException failure) {
@@ -173,15 +158,12 @@ class Fixture {
     private void real(String name) {
 
         Path path = Path.of(name);
-        defer free path;
         StringBuilder line = new StringBuilder();
-        defer free line;
         line.append("toRealPath ");
         show(line, name);
         line.append(" -> ");
         try {
             Path resolved = path.toRealPath();
-            defer free resolved;
             show(line, resolved.toString());
         } catch (IOException failure) {
             failed(line, failure, true);
@@ -193,12 +175,9 @@ class Fixture {
 
         String[] names = {"nested/x", "exec.sh", "secret.txt", "nested", "locked", "ro", "link-exec",
                 "dangling", "missing", "locked/child.txt", "🌲 space"};
-        defer free names;
         for (int index = 0; index < names.length; index++) {
             Path path = Path.of(names[index]);
-            defer free path;
             StringBuilder line = new StringBuilder();
-            defer free line;
             line.append("access ").append(names[index]).append(" -> ").append(Files.isReadable(path) ? 'r' : '-').append(Files.isExecutable(path) ? 'x' : '-');
             emit(line);
         }
@@ -207,16 +186,12 @@ class Fixture {
     void noFollow() {
 
         String[] names = {"link-exec", "nested/x", "nested", "loop-a", "dangling", "missing"};
-        defer free names;
         for (int index = 0; index < names.length; index++) {
             Path path = Path.of(names[index]);
-            defer free path;
             StringBuilder line = new StringBuilder();
-            defer free line;
             line.append("readAttributesNoFollow ").append(names[index]).append(" -> ");
             try {
                 BasicFileAttributes attributes = Files.readAttributesNoFollow(path);
-                defer free attributes;
                 line.append(attributes.isSymbolicLink() ? "link" : attributes.isDirectory() ? "directory"
                         : attributes.isRegularFile() ? "file" : "other");
             } catch (IOException failure) {
@@ -230,21 +205,14 @@ class Fixture {
     void defaults() {
 
         String configured = System.getProperty("java.io.tmpdir");
-        defer free configured;
         StringBuilder line = new StringBuilder();
-        defer free line;
         line.append("default ");
         try {
             Path expected = Path.of(configured);
-            defer free expected;
             Path file = Files.createTempFile("m4-default-", null);
-            defer free file;
             Path directory = Files.createTempDirectory(null);
-            defer free directory;
             Path fileParent = file.getParent();
-            defer free fileParent;
             Path directoryParent = directory.getParent();
-            defer free directoryParent;
             line.append(fileParent.equals(expected) && directoryParent.equals(expected) ? "in-tmpdir " : "elsewhere ");
             show(line, file.toString());
             line.append(' ');
@@ -317,7 +285,6 @@ class Fixture {
 
         if (text == null) return null;
         StringBuilder value = new StringBuilder();
-        defer free value;
         for (int index = 0; index < text.length(); index++) {
             char unit = text.charAt(index);
             value.append(unit == '@' ? (char) 0 : unit);
@@ -328,15 +295,9 @@ class Fixture {
     private static void emit(StringBuilder line) {
 
         String text = line.toString();
-        defer free text;
         System.out.println(text);
     }
 
-    destructor {
-
-        free this.root;
-        free this.realRoot;
-    }
 }
 
 class Main {
@@ -344,7 +305,6 @@ class Main {
     public static int main(String[] args) throws IOException {
 
         Fixture fixture = new Fixture(args[1]);
-        defer free fixture;
         if (args[0].equals("cases")) {
             fixture.temporaries();
             fixture.realPaths();

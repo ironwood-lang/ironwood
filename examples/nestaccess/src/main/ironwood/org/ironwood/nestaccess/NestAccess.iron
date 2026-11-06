@@ -59,7 +59,6 @@ public class NestAccess {
             }
         };
         int result = reader.read();
-        free reader;
         return result;
     }
 

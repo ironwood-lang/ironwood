@@ -19,7 +19,7 @@ final class UnreadFieldStoreTests {
     private UnreadFieldStoreTests() {}
 
     static void structure() throws Exception {
-        var artifact = new CompilerPipeline(UnfreedMode.ERROR).compile(SourceFile.of(
+        var artifact = new CompilerPipeline().compile(SourceFile.of(
                 SOURCE.toString(), Files.readString(SOURCE)));
         require(artifact.valid(), artifact.diagnostics().toString());
         IrProgram before = ClosedWorldPruner.prune(artifact.program().orElseThrow());
@@ -87,16 +87,15 @@ final class UnreadFieldStoreTests {
         Path root = Path.of("integration-tests/target/unread-primitive-stores").toAbsolutePath();
         Files.createDirectories(root);
         Path classes = root.resolve("classes");
-        cli(SOURCE.toString(), "--unfreed=error", "-d", classes.toString());
+        cli(SOURCE.toString(), "-d", classes.toString());
         Path archive = root.resolve("stores.ironjar");
         IronJar.create(archive, List.of(classes));
         for (int level : List.of(0, 3)) {
             for (String kind : List.of("source", "classes", "archive")) {
                 Path binary = root.resolve(kind + "-O" + level);
-                var args = new java.util.ArrayList<>(List.of("--link", "--main-class", "Main", "--unfreed=error",
-                        "-O" + level, "-o", binary.toString()));
+                var args = new java.util.ArrayList<>(List.of("--link", "--main-class", "Main", "-O" + level, "-o", binary.toString()));
                 if (kind.equals("source")) {
-                    var artifact = new CompilerPipeline(UnfreedMode.ERROR).compile(SourceFile.of(
+                    var artifact = new CompilerPipeline().compile(SourceFile.of(
                             SOURCE.toString(), Files.readString(SOURCE)));
                     var linked = UnreadFieldStoreEliminator.eliminate(
                             ClosedWorldPruner.prune(artifact.program().orElseThrow()));
@@ -119,20 +118,9 @@ final class UnreadFieldStoreTests {
     }
 
     static void safety() {
-        String safe = """
-                class Box { int unread; }
-                class Main { public static int main(String[] args) {
-                    Box box = new Box(); box.unread = 1; free box; return 0;
-                } }
-                """;
-        for (UnfreedMode mode : UnfreedMode.values()) {
-            require(new CompilerPipeline(mode).compile(SourceFile.of("safe.iron", safe)).valid(), "safe store rejected");
-            for (String invalid : List.of(safe.replace("free box;", "free box; box.unread = 2;"),
-                    safe.replace("free box;", "free box; free box;"))) {
-                var artifact = new CompilerPipeline(mode).compile(SourceFile.of("unsafe.iron", invalid));
-                require(!artifact.valid() && artifact.program().isEmpty(), "unsafe dead write accepted " + mode);
-            }
-        }
+        String source = "class Box { int value; int read() { return value; } } class Main { public static int main(String[] args) { return check(); } static int check() { Box value = new Box(); Box alias = value; value.value = 7; ironwood.lang.Memory.collect(); return alias.read(); } }";
+        var result = new CompilerPipeline().compile(SourceFile.of("Main.iron", source));
+        require(result.successful(), result.diagnostics().toString());
     }
 
     private static Stream<IrFieldStoreInstruction> stores(IrProgram program) {

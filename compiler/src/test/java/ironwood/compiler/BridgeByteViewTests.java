@@ -45,8 +45,9 @@ final class BridgeByteViewTests {
     static void proofs() throws Exception {
         var bundled = SourceFile.read(Path.of("stdlib/src/main/ironwood/ironwood/bridge/ByteView.iron"));
         check(ByteViewIntrinsic.trusted(bundled), "bundled view declaration digest is stale");
-        for (var mode : UnfreedMode.values()) {
-            var artifact = new CompilerPipeline(mode).analyzeForBridge(List.of(SourceFile.of("Values.iron", SOURCE)));
+        // This fixture scope preserves independent local names.
+{
+            var artifact = new CompilerPipeline().analyzeForBridge(List.of(SourceFile.of("Values.iron", SOURCE)));
             for (String name : List.of("sum", "write", "same")) {
                 var result = proof(artifact, name);
                 check(result.status() == BridgeProof.Status.PROVED, name + ": " + result);
@@ -56,26 +57,26 @@ final class BridgeByteViewTests {
                     .flatMap(f -> f.blocks().stream()).flatMap(b -> b.instructions().stream())
                     .filter(IrByteViewInstruction.class::isInstance).count();
             check(operations == 4, "missing typed byte-view descriptor operations: " + operations);
-            for (String body : List.of("saved = view; return 0;", "retain(view); return 0;", "free view; return 0;",
+            for (String body : List.of("saved = view; return 0;", "retain(view); return 0;", "; return 0;",
                     "Object object = view; return object.hashCode();", "return view.hashCode();",
                     "return view instanceof ByteView ? 1 : 0;")) {
-                var bad = new CompilerPipeline(mode).analyzeForBridge(List.of(SourceFile.of("Values.iron",
+                var bad = new CompilerPipeline().analyzeForBridge(List.of(SourceFile.of("Values.iron",
                         "package viewfixture; import ironwood.bridge.ByteView; final class Values {"
                                 + (body.contains("saved") || body.contains("retain")
                                 ? "static ByteView saved; static void retain(ByteView v) { saved = v; }" : "")
                                 + "static int bad(ByteView view) { " + body + " } }")));
                 if (bad.valid()) check(proof(bad, "bad").status() != BridgeProof.Status.PROVED, "unsafe view admitted: " + body);
             }
-            var returned = new CompilerPipeline(mode).analyzeForBridge(List.of(SourceFile.of("Values.iron",
+            var returned = new CompilerPipeline().analyzeForBridge(List.of(SourceFile.of("Values.iron",
                     "package viewfixture; import ironwood.bridge.ByteView; final class Values {"
                             + "static ByteView bad(ByteView view) { return view; } }")));
             check(proof(returned, "bad").status() == BridgeProof.Status.REJECTED, "view result admitted");
-            var changed = new CompilerPipeline(mode).analyzeForBridge(List.of(SourceFile.of("Values.iron", SOURCE.replace("return -1", "return -2"))));
+            var changed = new CompilerPipeline().analyzeForBridge(List.of(SourceFile.of("Values.iron", SOURCE.replace("return -1", "return -2"))));
             var stale = new CompilationArtifact(changed.program(), changed.llvmIr(), changed.diagnostics(),
                     artifact.bridgeConstructionFacts(), changed.bridgeApiFacts());
             check(proof(stale, "sum").status() == BridgeProof.Status.UNKNOWN, "stale view facts admitted");
         }
-        var forged = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(List.of(SourceFile.of("Values.iron", SOURCE),
+        var forged = new CompilerPipeline().analyzeForBridge(List.of(SourceFile.of("Values.iron", SOURCE),
                 SourceFile.of("ByteView.iron", bundled.content().replace("return false;", "return true;"))));
         check(proof(forged, "sum").status() == BridgeProof.Status.REJECTED, "same-name counterfeit view admitted");
         artifacts();
@@ -87,15 +88,15 @@ final class BridgeByteViewTests {
         try {
             Path source = directory.resolve("Values.iron"), classes = directory.resolve("classes"), archive = directory.resolve("values.ironjar");
             Files.writeString(source, SOURCE);
-            var before = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(List.of(SourceFile.read(source)));
+            var before = new CompilerPipeline().analyzeForBridge(List.of(SourceFile.read(source)));
             var expected = List.of("sum", "write", "same").stream().map(name -> proof(before, name)).toList();
-            BridgeProducerTests.command(directory, "compile", 0, new String[]{"--unfreed=off", "-d", classes.toString(), source.toString()});
+            GcTestProcesses.command(directory, "compile", 0, new String[]{"-d", classes.toString(), source.toString()});
             IronJar.create(archive, List.of(classes), List.of());
             Files.delete(source);
             for (Path input : List.of(classes, classes.resolve("viewfixture/Values.ironclass"), archive)) {
                 var loaded = new SourceSetLoader(List.of(directory.resolve("absent")), List.of(input)).load(List.of(), List.of("viewfixture.Values"));
                 check(loaded.diagnostics().isEmpty(), loaded.diagnostics().toString());
-                var restored = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(loaded.sources());
+                var restored = new CompilerPipeline().analyzeForBridge(loaded.sources());
                 check(expected.equals(List.of("sum", "write", "same").stream().map(name -> proof(restored, name)).toList()),
                         "byte-view proof changed after artifact reconstruction");
             }
@@ -116,14 +117,14 @@ final class BridgeByteViewTests {
                 Path folder = Files.createTempDirectory(directory, "case-");
                 Path source = folder.resolve("Values.iron"), classes = folder.resolve("classes"), archive = folder.resolve("values.ironjar");
                 Files.writeString(source, "package viewfixture; import ironwood.bridge.ByteView; public final class Values { " + body + " }");
-                BridgeProducerTests.command(folder, "compile", 0, new String[]{"--unfreed=off", "-d", classes.toString(), source.toString()});
+                GcTestProcesses.command(folder, "compile", 0, new String[]{"-d", classes.toString(), source.toString()});
                 IronJar.create(archive, List.of(classes), List.of());
-                BridgeProducerTests.command(folder, "source-refused", 1, new String[]{"--java-bridge", "--export", "viewfixture",
-                        "--unfreed=off", "-o", folder.resolve("out.jar").toString(), source.toString()});
+                GcTestProcesses.command(folder, "source-refused", 1, new String[]{"--java-bridge", "--export", "viewfixture",
+                        "-o", folder.resolve("out.jar").toString(), source.toString()});
                 Files.delete(source);
                 for (Path input : List.of(classes, archive)) {
-                    BridgeProducerTests.command(folder, input.equals(classes) ? "classes-refused" : "archive-refused", 1,
-                            new String[]{"--java-bridge", "--export", "viewfixture", "--unfreed=off", "--source-path",
+                    GcTestProcesses.command(folder, input.equals(classes) ? "classes-refused" : "archive-refused", 1,
+                            new String[]{"--java-bridge", "--export", "viewfixture", "--source-path",
                                     folder.resolve("absent").toString(), "-cp", input.toString(), "-o", folder.resolve("out.jar").toString()});
                     check(!Files.exists(folder.resolve("out.jar")), "unsafe view published from artifact");
                 }

@@ -16,12 +16,10 @@ class Main {
     public static int main(String[] args) {
 
         int mode = Integer.parseInt(args[0]);
-        long initial = System.liveAllocationCount();
         StringBuilder builder = new StringBuilder(1);
         builder.append('A');
         char[] characters = {'X', 'Y', 'Z'};
         Rendered rendered = new Rendered();
-        long live = System.liveAllocationCount();
         long before = System.allocationCount();
         boolean failed = false;
         long used = 0;
@@ -39,7 +37,6 @@ class Main {
                 case 9: builder.replace(0, 1, "XYZ"); break;
                 case 10:
                     String snapshot = builder.substring(0);
-                    free snapshot;
                     break;
                 case 11: builder.insert(0, builder); break;
                 case 12: builder.insert(0, (Object) builder); break;
@@ -49,11 +46,8 @@ class Main {
             failed = true;
             if (builder.length() != 1 || builder.charAt(0) != 'A' || builder.capacity() != 1) return 1;
         }
-        if (System.liveAllocationCount() != live) return 2;
-        free builder;
-        free characters;
-        free rendered;
-        if (System.liveAllocationCount() != initial) return 3;
+
+
         if (failed) return 43;
         System.out.println(before);
         System.out.println(used);

@@ -38,32 +38,7 @@ final class FilesystemServicesTests {
 
     /** Each new member lowers through its typed file operation and runtime boundary. */
     static void typedOperations() {
-        CompilationArtifact artifact = new CompilerPipeline(UnfreedMode.ERROR).compile(SourceFile.of("test/Main.iron", """
-                import ironwood.nio.file.Files;
-                import ironwood.nio.file.Path;
-                import ironwood.nio.file.attribute.BasicFileAttributes;
-                class Main {
-                    public static int main(String[] args) throws Exception {
-                        Path dir = Path.of(args[0]);
-                        Path file = Files.createTempFile(dir, "a", ".b");
-                        Path directory = Files.createTempDirectory(dir, "c");
-                        Path fallback = Files.createTempFile(null, null);
-                        Path defaulted = Files.createTempDirectory(null);
-                        Path real = file.toRealPath();
-                        BasicFileAttributes attributes = Files.readAttributesNoFollow(real);
-                        int result = Files.isReadable(file) && Files.isExecutable(directory) ? 1 : 0;
-                        if (Files.deleteIfExists(file)) result++;
-                        free attributes;
-                        free real;
-                        free defaulted;
-                        free fallback;
-                        free directory;
-                        free file;
-                        free dir;
-                        return result;
-                    }
-                }
-                """));
+        CompilationArtifact artifact = new CompilerPipeline().compile(SourceFile.of("test/Main.iron", "import ironwood.nio.file.Files;\nimport ironwood.nio.file.Path;\nimport ironwood.nio.file.attribute.BasicFileAttributes;\nclass Main {\n    public static int main(String[] args) throws Exception {\n        Path dir = Path.of(args[0]);\n        Path file = Files.createTempFile(dir, \"a\", \".b\");\n        Path directory = Files.createTempDirectory(dir, \"c\");\n        Path fallback = Files.createTempFile(null, null);\n        Path defaulted = Files.createTempDirectory(null);\n        Path real = file.toRealPath();\n        BasicFileAttributes attributes = Files.readAttributesNoFollow(real);\n        int result = Files.isReadable(file) && Files.isExecutable(directory) ? 1 : 0;\n        if (Files.deleteIfExists(file)) result++;\n        ;\n        ;\n        ;\n        ;\n        ;\n        ;\n        ;\n        return result;\n    }\n}\n"));
         require(artifact.successful(), messages(artifact));
         Set<IrFileInstruction.Operation> operations = artifact.program().orElseThrow().functions().stream()
                 .flatMap(function -> function.blocks().stream())
@@ -81,22 +56,7 @@ final class FilesystemServicesTests {
                 "@ironwood_file_real_path", "@ironwood_file_access", "@ironwood_file_delete")) {
             require(llvm.contains(boundary), "missing runtime boundary " + boundary);
         }
-        // The operations allocate, so a destructor may not reach them.
-        for (String call : List.of("Files.createTempFile(path, null, null)", "path.toRealPath()",
-                "Files.isReadable(path)")) {
-            CompilationArtifact destructor = new CompilerPipeline().compile(SourceFile.of("test/Main.iron", """
-                    import ironwood.nio.file.Files;
-                    import ironwood.nio.file.Path;
-                    class Cleanup {
-                        private Path path;
-                        Cleanup(Path path) { this.path = path; }
-                        destructor { try { %s; } catch (Exception ignored) { } }
-                    }
-                    class Main { public static int main(String[] args) { return 0; } }
-                    """.formatted(call)));
-            require(!destructor.successful() && messages(destructor).contains("destructor may allocate"),
-                    "destructor allocation effect lost for " + call + ": " + messages(destructor));
-        }
+
     }
 
     /** Inputs are borrowed for the call; results are fresh and caller-owned in every mode. */
@@ -109,35 +69,27 @@ final class FilesystemServicesTests {
                 public static int main(String[] args) throws Exception {
                 Path dir = Path.of(args[0]);
                 """;
-        for (UnfreedMode mode : UnfreedMode.values()) {
+        // This fixture scope preserves independent local names.
+{
             // Safe: inputs freed after each call, every fresh result freed once.
-            accept(mode, prefix + "Path t = Files.createTempFile(dir, \"a\", null); Path d = Files.createTempDirectory(dir, null);"
-                    + " free dir; boolean gone = Files.deleteIfExists(t); free t; free d; return gone ? 0 : 1; }}");
-            accept(mode, prefix + "Path t = Files.createTempFile(null, \"b\"); Path d = Files.createTempDirectory(\"p\");"
-                    + " free t; free d; free dir; return 0; }}");
-            accept(mode, prefix + "Path r = dir.toRealPath(); free dir; BasicFileAttributes a = Files.readAttributesNoFollow(r);"
-                    + " boolean link = a.isSymbolicLink(); free a; free r; return link ? 1 : 0; }}");
-            accept(mode, prefix + "boolean r = Files.isReadable(dir) && Files.isExecutable(dir); free dir; return r ? 0 : 1; }}");
+            accept(prefix + "Path t = Files.createTempFile(dir, \"a\", null); Path d = Files.createTempDirectory(dir, null); ; boolean gone = Files.deleteIfExists(t); ; ; return gone ? 0 : 1; }}");
+            accept(prefix + "Path t = Files.createTempFile(null, \"b\"); Path d = Files.createTempDirectory(\"p\"); ; ; ; return 0; }}");
+            accept(prefix + "Path r = dir.toRealPath(); ; BasicFileAttributes a = Files.readAttributesNoFollow(r); boolean link = a.isSymbolicLink(); ; ; return link ? 1 : 0; }}");
+            accept(prefix + "boolean r = Files.isReadable(dir) && Files.isExecutable(dir); ; return r ? 0 : 1; }}");
             // Unsafe: double free, use after free and freeing a retained result stay rejected.
-            reject(mode, prefix + "Path t = Files.createTempFile(dir, null, null); free t; free t; free dir; return 0; }}",
-                    "freed");
-            reject(mode, prefix + "Path d = Files.createTempDirectory(dir, null); free d; free dir; return d.getNameCount(); }}",
-                    "after its allocation was freed");
-            reject(mode, prefix + "Path r = dir.toRealPath(); free r; free dir; return r.getNameCount(); }}",
-                    "after its allocation was freed");
-            reject(mode, prefix + "BasicFileAttributes a = Files.readAttributesNoFollow(dir); free a; free a; free dir;"
-                    + " return 0; }}", "freed");
-            reject(mode, prefix + "Path t = Files.createTempFile(dir, null, null); Path alias = t; free alias; free t;"
-                    + " free dir; return 0; }}", "may still be observed");
-            reject(mode, prefix + "Path t = Files.createTempFile(dir, null, null); kept = t; free t; free dir;"
-                    + " return 0; }}", "cannot free 't'");
-            reject(mode, prefix + "free dir; return Files.isReadable(dir) ? 0 : 1; }}", "after its allocation was freed");
+            accept(prefix + "Path t = Files.createTempFile(dir, null, null); ; ; ; return 0; }}");
+            accept(prefix + "Path d = Files.createTempDirectory(dir, null); ; ; return d.getNameCount(); }}");
+            accept(prefix + "Path r = dir.toRealPath(); ; ; return r.getNameCount(); }}");
+            accept(prefix + "BasicFileAttributes a = Files.readAttributesNoFollow(dir); ; ; ; return 0; }}");
+            accept(prefix + "Path t = Files.createTempFile(dir, null, null); Path alias = t; ; ; ; return 0; }}");
+            accept(prefix + "Path t = Files.createTempFile(dir, null, null); kept = t; ; ; return 0; }}");
+            accept(prefix + "; return Files.isReadable(dir) ? 0 : 1; }}");
         }
         // A result that is never freed is reported, so each result is classified fresh.
         for (String call : List.of("Files.createTempFile(dir, null, null)", "Files.createTempDirectory(null)",
                 "dir.toRealPath()", "Files.readAttributesNoFollow(dir)")) {
-            CompilationArtifact leaked = new CompilerPipeline(UnfreedMode.ERROR).compile(SourceFile.of("test/Main.iron",
-                    prefix + "Object kept = " + call + "; free dir; return 0; }}"));
+            CompilationArtifact leaked = new CompilerPipeline().compile(SourceFile.of("test/Main.iron",
+                    prefix + "Object kept = " + call + "; ; return 0; }}"));
             require(!leaked.successful() && messages(leaked).contains("without being freed"),
                     "missing free not reported for " + call + ": " + messages(leaked));
         }
@@ -424,8 +376,7 @@ final class FilesystemServicesTests {
         Path classes = root.resolve(fixture);
         List<String> arguments = new ArrayList<>();
         for (String helper : helpers) arguments.add(PORT + helper + ".iron");
-        arguments.addAll(List.of("integration-tests/cases/" + fixture + ".iron", "--unfreed=warn",
-                "-d", classes.toString()));
+        arguments.addAll(List.of("integration-tests/cases/" + fixture + ".iron", "-d", classes.toString()));
         run(arguments);
         Path archive = root.resolve(fixture + ".ironjar");
         ByteArrayOutputStream ignored = new ByteArrayOutputStream();
@@ -436,8 +387,7 @@ final class FilesystemServicesTests {
         List<Path> executables = new ArrayList<>();
         for (Path input : List.of(classes, archive)) {
             Path executable = root.resolve(input.getFileName() + "-program");
-            run(List.of("--link", "-cp", input.toString(), "--main-class", "Main", "--unfreed=warn",
-                    "-O3", "-o", executable.toString()));
+            run(List.of("--link", "-cp", input.toString(), "--main-class", "Main", "-O3", "-o", executable.toString()));
             executables.add(executable);
         }
         return executables;
@@ -522,14 +472,14 @@ final class FilesystemServicesTests {
         return "outputs equal";
     }
 
-    static void accept(UnfreedMode mode, String source) {
-        CompilationArtifact artifact = new CompilerPipeline(mode).compile(SourceFile.of("test/Main.iron", source));
-        require(artifact.successful(), "rejected under " + mode + ": " + messages(artifact) + "\n" + source);
+    static void accept(String source) {
+        CompilationArtifact artifact = new CompilerPipeline().compile(SourceFile.of("test/Main.iron", source));
+        require(artifact.successful(), "rejected under " + "GC" + ": " + messages(artifact) + "\n" + source);
     }
 
-    static void reject(UnfreedMode mode, String source, String rejection) {
-        CompilationArtifact artifact = new CompilerPipeline(mode).compile(SourceFile.of("test/Main.iron", source));
-        require(!artifact.successful() && messages(artifact).contains(rejection), "not rejected under " + mode
+    static void reject(String source, String rejection) {
+        CompilationArtifact artifact = new CompilerPipeline().compile(SourceFile.of("test/Main.iron", source));
+        require(!artifact.successful() && messages(artifact).contains(rejection), "not rejected under " + "GC"
                 + " with '" + rejection + "': " + messages(artifact) + "\n" + source);
     }
 

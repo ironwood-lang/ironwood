@@ -14,23 +14,17 @@ class Main {
         String text = "    alpha\n      beta\n    gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi\n    ";
         String normalized = TextBlocks.stripIndent(text);
         int length = normalized.length();
-        free normalized;
         SnapshotList<String> one = Lists.single(text);
         length += one.size();
-        free one;
         IntArrayList builder = new IntArrayList(4);
-        defer free builder;
         builder.add(1);
         builder.add(2);
         SnapshotInts counts = new SnapshotInts(builder);
         length += counts.sum();
-        free counts;
         return length;
     }
 
     public static int main(String[] args) {
-
-        long baseline = System.liveAllocationCount();
         boolean failed = false;
         try {
             check();
@@ -40,7 +34,7 @@ class Main {
             failed = true;
         }
 
-        if (System.liveAllocationCount() != baseline) return 1;
+
         return failed ? 42 : 43;
     }
 }

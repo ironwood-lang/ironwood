@@ -29,7 +29,6 @@ public final class BridgeIdentity {
     public static String digest(TextMap values) {
 
         Sha256 digest = new Sha256();
-        defer free digest;
         frame(digest, DOMAIN);
         for (int position = 0; position < values.size(); position++) {
             int keyLength = values.keyLength(position);
@@ -51,7 +50,6 @@ public final class BridgeIdentity {
     public static String bytesDigest(byte[] bytes, int offset, int length) {
 
         Sha256 digest = new Sha256();
-        defer free digest;
         digest.update(bytes, offset, length);
         return digest.hexDigest();
     }
@@ -70,10 +68,8 @@ public final class BridgeIdentity {
         if (files.size() == 0) throw new IllegalArgumentException("content identity requires an input inventory");
         for (int position = 0; position < files.size(); position++) {
             String name = files.key(position);
-            defer free name;
             if (name.isBlank()) throw new IllegalArgumentException("missing input name");
             String hash = files.value(position);
-            defer free hash;
             if (!isHash(hash)) throw new IllegalArgumentException("expected SHA-256 input identity");
         }
         return digest(files);

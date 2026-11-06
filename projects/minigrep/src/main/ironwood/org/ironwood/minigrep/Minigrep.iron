@@ -35,7 +35,6 @@ public final class Minigrep {
             System.err.println(failure.getMessage());
             status = IO_ERROR;
         }
-        free path;
         return status;
     }
 
@@ -49,8 +48,6 @@ public final class Minigrep {
         boolean ignoreCase = setting != null;
         int matches = Search.printMatchingLines(contents, query, ignoreCase);
 
-        free setting;
-        free contents;
         return matches == 0 ? NO_MATCH : 0;
     }
 }

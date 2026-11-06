@@ -19,7 +19,6 @@ public class ObservingCall {
         list.add("value");
         Iterator<String> iterator = list.iterator();
         boolean observed = observe(iterator);
-        free list; // Valid: closed-world analysis proves observe is non-retaining.
         return observed ? 42 : 1;
     }
 }

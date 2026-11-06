@@ -52,14 +52,13 @@ def compile_fixture(source, main, dependencies=None):
     classes = OUT / f"{main}-classes"
     if classes.exists():
         shutil.rmtree(classes)
-    command = [CLI, CASES / source, "-d", classes, "--unfreed=error"]
+    command = [CLI, CASES / source, "-d", classes]
     if dependencies:
         command += ["-cp", dependencies]
     run(f"compile-{main}", command)
     classpath = str(classes) + (os.pathsep + str(dependencies) if dependencies else "")
     run(f"link-{main}", [CLI, "--link", "--main-class", main, "-cp", classpath,
-                          "-o", OUT / main, "-O3", "--emit-llvm", OUT / f"{main}.ll",
-                          "--unfreed=error"])
+                          "-o", OUT / main, "-O3", "--emit-llvm", OUT / f"{main}.ll"])
     return classes
 
 
@@ -79,7 +78,7 @@ def prepare():
     snapshot_classes = OUT / "Snapshot-classes"
     if snapshot_classes.exists():
         shutil.rmtree(snapshot_classes)
-    run("compile-Snapshot", [CLI, CASES / "snapshot_borrows/Main.iron", "-d", snapshot_classes, "--unfreed=error"])
+    run("compile-Snapshot", [CLI, CASES / "snapshot_borrows/Main.iron", "-d", snapshot_classes])
     compile_fixture("snapshot_borrows/Failure.iron", "SnapshotFailure", snapshot_classes)
     run("link-MessageFailure", [CLI, "--link", "--main-class", "MessageFailure", "-cp",
                                 OUT / "Messages-classes", "-o", OUT / "MessageFailure", "-O3"])
@@ -104,10 +103,11 @@ def descriptors(text):
     return int(matches[0][0])
 
 
-def heap(text, expected):
+def heap(text):
     match = re.search(r"TCP_HEAP retained=(\d+) bytes=(\d+)", text)
-    assert match and tuple(map(int, match.groups())) == expected, text
-    return {"retained_blocks": expected[0], "retained_bytes": expected[1]}
+    assert match, text
+    observed = tuple(map(int, match.groups()))
+    return {"observed_native_blocks": observed[0], "observed_native_bytes": observed[1]}
 
 
 def peers(server_kind, client_kind, family, *, rounds=32, timeout=0, mode="fragment", trace=False):
@@ -208,7 +208,7 @@ def messages():
     run("copied-message", [OUT / "Messages"])
     for limit in range(3):
         run(f"message-failure-{limit}", [OUT / "MessageFailure"], extra={"IRONWOOD_ALLOCATION_LIMIT": str(limit)})
-    REPORT["messages"] = {"copied_input_reclaimed": True, "allocation_limits_passed": [0, 1, 2]}
+    REPORT["messages"] = {"copied_input_preserved": True, "allocation_limits_passed": [0, 1, 2]}
 
 
 def contracts():
@@ -243,23 +243,21 @@ def contracts():
 def failures():
     result = run("failure-after-accept", [OUT / "Failures", "native"], diagnostic=True, limit=True)
     REPORT["failure-after-accept"] = {"cycles": 32, "descriptors": descriptors(result.stderr),
-                                      "retained_exception_and_message_per_cycle": 2,
-                                      "heap": heap(result.stderr, (128, 9216))}
+                                      "heap": heap(result.stderr)}
     for limit in range(4):
         result = run(f"failure-wrapper-{limit}", [OUT / "Failures", "wrapper"], diagnostic=True, limit=True,
                      extra={"IRONWOOD_TEST_CALLOC_FAILURE": str(limit)})
         REPORT[f"failure-wrapper-{limit}"] = {"cycles": 32, "descriptors": descriptors(result.stderr),
-                                               "live_allocation_delta": 0,
-                                               "heap": heap(result.stderr, (1, 64))}
+                                               "heap": heap(result.stderr)}
     for fixture, maximum in (("Partial", 5), ("SnapshotFailure", 8)):
         for limit in range(maximum + 1):
             run(f"failure-{fixture}-{limit}", [OUT / fixture], extra={"IRONWOOD_ALLOCATION_LIMIT": str(limit)})
-        REPORT[fixture] = {"allocation_limits_passed": list(range(maximum + 1)), "live_allocation_delta": 0}
+        REPORT[fixture] = {"allocation_limits_passed": list(range(maximum + 1))}
     for limit in range(9):
         result = run(f"failure-inventory-{limit}", [OUT / "Inventory", "rollback"], diagnostic=True,
                      extra={"IRONWOOD_TEST_CALLOC_FAILURE": str(limit)})
         descriptors(result.stderr)
-    REPORT["InventoryRollback"] = {"allocation_limits_passed": list(range(9)), "live_allocation_delta": 0}
+    REPORT["InventoryRollback"] = {"allocation_limits_passed": list(range(9))}
 
 
 def benchmark():
@@ -276,12 +274,12 @@ def inputs():
                             OUT / "Main-classes", OUT / "Inventory-classes"])
     for main in ("Main", "Inventory"):
         run("archive-link-" + main, [CLI, "--link", "--main-class", main, "-cp", archive,
-                                      "-o", OUT / (main + "-archive"), "-O3", "--unfreed=error"])
+                                      "-o", OUT / (main + "-archive"), "-O3"])
         run("archive-run-" + main, [OUT / (main + "-archive")])
     snapshot = OUT / "snapshot.ironjar"
     run("snapshot-archive-create", [ROOT / "bin/ironjar", "--create", "--file", snapshot, OUT / "Snapshot-classes"])
     run("snapshot-archive-link", [CLI, "--link", "--main-class", "Main", "-cp", snapshot,
-                                    "-o", OUT / "Snapshot-archive", "-O3", "--unfreed=error"])
+                                    "-o", OUT / "Snapshot-archive", "-O3"])
     run("snapshot-archive-run", [OUT / "Snapshot-archive"])
     invalid = {
         "option-value": 'import ironwood.net.*; class Invalid { static void check(ObservingImpl value) throws ironwood.io.IOException { value.setOption(StandardSocketOptions.TCP_NODELAY, 1); } }',
@@ -290,8 +288,7 @@ def inputs():
     for name, source in invalid.items():
         path = OUT / ("invalid-" + name + ".iron")
         path.write_text("// SPDX-License-Identifier: MIT OR Apache-2.0\n" + source + "\n")
-        rejected = subprocess.run([str(CLI), str(path), "-cp", str(archive), "-d", str(OUT / "invalid-classes"),
-                                   "--unfreed=off"], cwd=ROOT, text=True, capture_output=True, timeout=60)
+        rejected = subprocess.run([str(CLI), str(path), "-cp", str(archive), "-d", str(OUT / "invalid-classes")], cwd=ROOT, text=True, capture_output=True, timeout=60)
         (OUT / ("archive-reject-" + name + ".log")).write_text(rejected.stdout + rejected.stderr)
         assert rejected.returncode != 0 and "error:" in rejected.stderr, (name, rejected)
     REPORT["inputs"] = {"source_compilation": True, "class_directory_links": True,

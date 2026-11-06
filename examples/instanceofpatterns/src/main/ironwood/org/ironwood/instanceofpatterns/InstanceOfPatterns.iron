@@ -59,10 +59,8 @@ public class InstanceOfPatterns {
         if (candidate instanceof NumberValue owned) {
             int result = owned.read();
             candidate = null; // End the original alias before freeing through the pattern.
-            free owned;
             return result;
         }
-        free candidate;
         return 0;
     }
 
@@ -78,8 +76,6 @@ public class InstanceOfPatterns {
         long afterPatterns = System.allocationCount();
         int result = guarded(number) + ownedMatch();
         // Reclaim the borrowed inputs after the checks and allocation measurement finish.
-        free values;
-        free box;
 
         if (matched && beforePatterns == afterPatterns && result == 42) {
             System.out.println("instanceof pattern result: 42");

@@ -4,7 +4,6 @@ package ironwood.compiler;
 
 import ironwood.compiler.backend.LlvmToolchain;
 import ironwood.compiler.backend.OptimizationLevel;
-import ironwood.compiler.bridge.BridgeExportSurface;
 import ironwood.compiler.bridge.BridgeCallbackCarrierSources;
 import ironwood.compiler.bridge.BridgeListenerProxies;
 import ironwood.compiler.diagnostic.Diagnostic;
@@ -29,7 +28,7 @@ final class BridgeProducerCommand {
         catch (IllegalArgumentException invalid) { err.println("error: " + invalid.getMessage()); usage(err); return 2; }
         var loaded = new SourceSetLoader(options.sources(), options.classes()).loadBridge(options.inputs(), options.exports());
         if (!loaded.diagnostics().isEmpty()) { diagnostics(loaded.diagnostics(), err); return 1; }
-        var pipeline = new CompilerPipeline(options.unfreed(), options.explain(), null);
+        var pipeline = new CompilerPipeline();
         var artifact = pipeline.analyzeForBridge(loaded.sources());
         diagnostics(artifact.diagnostics(), err);
         if (!artifact.valid()) return 1;
@@ -63,13 +62,13 @@ final class BridgeProducerCommand {
     }
 
     private record Options(List<Path> inputs, List<Path> sources, List<Path> classes, List<String> exports, Path output,
-                           Path llvmHome, OptimizationLevel optimization, UnfreedMode unfreed, boolean explain, List<Path> licenses,
+                           Path llvmHome, OptimizationLevel optimization, List<Path> licenses,
                            boolean criticalCalls) {}
 
     private static Options parse(String[] arguments) {
         var inputs = new ArrayList<Path>(); var exports = new ArrayList<String>(); var licenses = new ArrayList<Path>();
         List<Path> sources = List.of(Path.of(".")), classes = List.of(Path.of("."));
-        Path output = null, llvm = null; var optimization = OptimizationLevel.O0; var unfreed = UnfreedMode.WARN; boolean explain = false;
+        Path output = null, llvm = null; var optimization = OptimizationLevel.O0;
         boolean criticalCalls = false;
         try {
             for (int i = 0; i < arguments.length; i++) {
@@ -86,10 +85,12 @@ final class BridgeProducerCommand {
                     case "-O1" -> optimization = OptimizationLevel.O1;
                     case "-O2" -> optimization = OptimizationLevel.O2;
                     case "-O3" -> optimization = OptimizationLevel.O3;
-                    case "--explain-rejected-free" -> throw new IllegalArgumentException("manual reclamation options have been removed");
+                    case "--unfreed", "--explain-rejected-free" -> throw new IllegalArgumentException("manual reclamation options have been removed");
                     case "--help", "-h" -> throw new IllegalArgumentException("managed Java Bridge host builds support exact handles, listener registrations, copied values and borrowed views on qualified macos-arm64 and linux-x86_64");
                     default -> {
-                        if (option.startsWith("--unfreed=")) throw new IllegalArgumentException("--unfreed has been removed");
+                        if (option.startsWith("--unfreed=") || option.startsWith("--explain-rejected-free=")) {
+                            throw new IllegalArgumentException("manual reclamation options have been removed");
+                        }
                         else if (option.equals("--critical-calls=on")) criticalCalls = true;
                         else if (option.equals("--critical-calls=off")) criticalCalls = false;
                         else if (option.startsWith("-")) throw new IllegalArgumentException("unsupported Java Bridge option: " + option);
@@ -103,7 +104,7 @@ final class BridgeProducerCommand {
         } catch (InvalidPathException invalid) { throw new IllegalArgumentException("invalid Java Bridge input/output path", invalid); }
         if (exports.isEmpty()) throw new IllegalArgumentException("--java-bridge requires --export <exact-package>");
         if (output == null || output.getFileName() == null || !output.getFileName().toString().endsWith(".jar")) throw new IllegalArgumentException("--java-bridge requires -o <artifact.jar>");
-        return new Options(List.copyOf(inputs), sources, classes, List.copyOf(exports), output, llvm, optimization, unfreed, explain, List.copyOf(licenses),
+        return new Options(List.copyOf(inputs), sources, classes, List.copyOf(exports), output, llvm, optimization, List.copyOf(licenses),
                 criticalCalls);
     }
 

@@ -14,25 +14,24 @@ class AddressConstructorFailures {
             ServerSocket listener = new ServerSocket(0, 8, loopback);
             try {
                 Socket warm = new Socket();
-                try { warm.close(); } finally { free warm; }
-                long baseline = System.liveAllocationCount();
+                try { warm.close(); } finally { ; }
                 System.out.println("@tcp:wrapper_failure");
                 try {
                     if (args[0].equals("client")) {
                         Socket client = new Socket("::1", listener.getLocalPort());
-                        try { client.close(); } finally { free client; }
+                        try { client.close(); } finally { ; }
                     } else {
                         ServerSocket server = new ServerSocket(0, 8, loopback);
-                        try { server.close(); } finally { free server; }
+                        try { server.close(); } finally { ; }
                     }
                 } catch (OutOfMemoryError expected) {
                 }
                 System.out.println("@tcp:end");
-                if (System.liveAllocationCount() != baseline) return 1;
+
             } finally {
-                try { listener.close(); } finally { free listener; }
+                try { listener.close(); } finally { ; }
             }
-        } finally { free loopback; }
+        } finally { ; }
         return 0;
     }
 }

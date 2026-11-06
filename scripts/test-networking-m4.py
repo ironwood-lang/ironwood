@@ -42,9 +42,8 @@ def prepare():
     classes = OUT / "classes"
     if classes.exists():
         shutil.rmtree(classes)
-    run("compile", [CLI, CASES / "Client.iron", CASES / "Arguments.iron", CASES / "Factory.iron", CASES / "Checks.iron", "-d", classes, "--unfreed=error"])
-    run("link", [CLI, "--link", "-cp", classes, "--main-class", "ProxyClient", "--unfreed=error",
-                 "-O3", "-o", OUT / "ProxyClient", "--emit-llvm", OUT / "ProxyClient.ll"])
+    run("compile", [CLI, CASES / "Client.iron", CASES / "Arguments.iron", CASES / "Factory.iron", CASES / "Checks.iron", "-d", classes])
+    run("link", [CLI, "--link", "-cp", classes, "--main-class", "ProxyClient", "-O3", "-o", OUT / "ProxyClient", "--emit-llvm", OUT / "ProxyClient.ll"])
 
 
 def evidence():
@@ -91,29 +90,25 @@ def evidence():
                 first_measured = limit
             if "PROXY_COMPLETE" in result.stdout:
                 REPORT["rollback"][kind] = {"limits": [first_measured, limit], "cases": limit - first_measured + 1,
-                                           "warmup_failure_cases": first_measured, "live_delta": 0}
+                                           "warmup_failure_cases": first_measured}
                 break
         else:
             raise AssertionError(f"{kind}: allocation sweep never completed")
     source = (CASES / "Arguments.iron").read_text().replace("ironwood.net.", "java.net.")
-    source = re.sub(r"    destructor\s*\{[^}]*\}", "", source)
-    source = re.sub(r"\bfree\s+[^;]+;", "", source)
     source = source.replace("public static int main", "public static void main").replace("return 0;", "return;")
     java = OUT / "ProxyArguments.java"
     java.write_text(source)
     run("java-compile", ["javac", "--release", "21", "-d", OUT, java])
     expected = run("java-arguments", ["java", "-cp", OUT, "ProxyArguments"])
     for main in ("ProxyArguments", "ProxyFactoryCheck", "ironwood.net.ProxyChecks"):
-        run("link-" + main, [CLI, "--link", "-cp", OUT / "classes", "--main-class", main, "--unfreed=error",
-                            "-O3", "-o", OUT / main])
+        run("link-" + main, [CLI, "--link", "-cp", OUT / "classes", "--main-class", main, "-O3", "-o", OUT / main])
         actual = run("run-" + main, [OUT / main])
         if main == "ProxyArguments":
             assert actual.stdout == expected.stdout, (actual.stdout, expected.stdout)
     REPORT["java_argument_contracts"] = len(expected.stdout.splitlines())
     archive = OUT / "proxy-cases.ironjar"
     run("archive-create", [ROOT / "bin/ironjar", "--create", "--file", archive, OUT / "classes"])
-    run("archive-link", [CLI, "--link", "-cp", archive, "--main-class", "ProxyClient", "--unfreed=error",
-                         "-O3", "-o", OUT / "ProxyClient-archive"])
+    run("archive-link", [CLI, "--link", "-cp", archive, "--main-class", "ProxyClient", "-O3", "-o", OUT / "ProxyClient-archive"])
     exercise("archive-authenticated", {"kind": "socks-auth"}, executable=OUT / "ProxyClient-archive")
     run("disassembly", [objdump, "--disassemble", "--no-show-raw-insn", OUT / "ProxyClient"])
     run("native-assembly", [clang, "-std=c11", "-O3", "-S", ROOT / "runtime/src/ironwood_tcp.c", "-o", OUT / "tcp.s"])

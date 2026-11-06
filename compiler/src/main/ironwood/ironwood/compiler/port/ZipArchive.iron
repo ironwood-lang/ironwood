@@ -156,7 +156,6 @@ public final class ZipArchive {
         }
         boolean sized = result.length == size;
         if (!sized || this.crc(result, 0, size) != expected) {
-            free result;
             throw this.entryFailure(display, index, sized ? "fails its CRC-32 check" : "has the wrong size");
         }
         return result;
@@ -165,7 +164,6 @@ public final class ZipArchive {
     private IOException entryFailure(String display, int index, String problem) {
 
         StringBuilder message = new StringBuilder();
-        defer free message;
         message.append("invalid ZIP data in ").append(display).append(": entry '");
         this.names.appendTo(index, message);
         message.append("' ").append(problem);
@@ -234,8 +232,7 @@ public final class ZipArchive {
             if (position + 22 + u16(bytes, position + 20) == bytes.length) return position;
             long start = position - u32(bytes, position + 12);
             long first = start - u32(bytes, position + 16);
-            if (start >= 0 && first >= 0 && start <= bytes.length - 4 && first <= bytes.length - 4
-                    && u32(bytes, (int) start) == 0x02014b50 && u32(bytes, (int) first) == 0x04034b50) {
+            if (start >= 0 && first >= 0 && start <= bytes.length - 4 && first <= bytes.length - 4 && u32(bytes, (int) start) == 0x02014b50 && u32(bytes, (int) first) == 0x04034b50) {
                 return position;
             }
         }
@@ -311,7 +308,6 @@ public final class ZipArchive {
         int[] previous = this.table;
         this.table = new int[previous.length * 2];
         System.arraycopy(previous, 0, this.table, 0, previous.length);
-        free previous;
     }
 
     static int u16(byte[] bytes, int position) {
@@ -331,10 +327,4 @@ public final class ZipArchive {
         return value < 0 ? -1 : value;
     }
 
-    destructor {
-
-        free this.table;
-        free this.names;
-        free this.checksum;
-    }
 }

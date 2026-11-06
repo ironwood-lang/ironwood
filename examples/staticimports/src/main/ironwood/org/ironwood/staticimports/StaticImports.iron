@@ -19,11 +19,9 @@ public class StaticImports {
         switch (BASE) {
             case BASE: runtime += 1; break;
             default:
-                free result;
                 return 1;
         }
         int answer = result.value() + runtime + bonus();
-        free result;
         System.out.println("static imports: " + answer); // Unnamed temporary, reclaimed after println.
         return answer;
     }

@@ -98,7 +98,7 @@ final class BridgeEnumApiTests {
         }
         denied(() -> BridgeEnumConstants.prove(artifact, Map.of(IrType.reference("ironwood.lang.Object"), Map.of())));
         denied(() -> BridgeEnumConstants.discover(artifact, java.util.Set.of(side.enumConstants().getFirst().nativeType())));
-        var ordinary = new CompilerPipeline(UnfreedMode.OFF).analyze(List.of(source));
+        var ordinary = new CompilerPipeline().analyze(List.of(source));
         denied(() -> BridgeEnumConstants.discover(ordinary, types));
         var code = side.callables().stream().filter(method -> method.name().equals("code")).findFirst().orElseThrow();
         var dispatched = BridgeEnumDispatch.prove(artifact, sideType, code, mapping);
@@ -164,7 +164,7 @@ final class BridgeEnumApiTests {
     }
 
     private static CompilationArtifact analyze(List<SourceFile> sources) {
-        var artifact = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(sources);
+        var artifact = new CompilerPipeline().analyzeForBridge(sources);
         check(artifact.valid(), artifact.diagnostics().toString());
         return artifact;
     }

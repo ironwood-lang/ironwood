@@ -55,8 +55,7 @@ final class TypeSymbol {
     private final Map<String, List<CallableSymbol>> declaredMethodsByName = new LinkedHashMap<>();
     private final Set<String> placeholderLinkages = new LinkedHashSet<>();
     private List<CallableSymbol> constructors = List.of();
-    private Optional<CallableSymbol> destructor = Optional.empty();
-    private Optional<String> constructorRollback = Optional.empty();
+
     private Optional<CallableSymbol> staticInitializer = Optional.empty();
     private List<IrField> layoutFields = List.of();
     private Set<TypeSymbol> interfaceClosure = Set.of();
@@ -553,22 +552,6 @@ final class TypeSymbol {
 
     void setConstructors(List<CallableSymbol> values) {
         constructors = List.copyOf(values);
-    }
-
-    Optional<CallableSymbol> destructor() {
-        return destructor;
-    }
-
-    void setDestructor(CallableSymbol value) {
-        destructor = Optional.ofNullable(value);
-    }
-
-    Optional<String> constructorRollback() {
-        return constructorRollback;
-    }
-
-    void setConstructorRollback(String linkageName) {
-        constructorRollback = Optional.ofNullable(linkageName);
     }
 
     List<IrField> layoutFields() {

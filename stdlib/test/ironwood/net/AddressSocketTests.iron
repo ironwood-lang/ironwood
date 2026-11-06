@@ -11,19 +11,15 @@ public final class AddressSocketTests extends TestSuite {
     private static void checkLiteral(String input, String expected, boolean ipv6) throws Exception {
 
         InetAddress address = InetAddress.getByName(input);
-        defer free address;
         assertEquals(ipv6, address instanceof Inet6Address);
         String text = address.getHostAddress();
-        defer free text;
         assertEquals(expected, text);
     }
 
     private static InetAddress copiedInputs() throws Exception {
 
         byte[] bytes = {127, 0, 0, 1};
-        defer free bytes;
         String host = new String("copied-host");
-        defer free host;
         InetAddress result = InetAddress.getByAddress(host, bytes);
         bytes[0] = 8;
         return result;
@@ -32,7 +28,6 @@ public final class AddressSocketTests extends TestSuite {
     private static InetAddress parsedTemporaryLiteral() throws Exception {
 
         String input = new String("127.1");
-        defer free input;
         return InetAddress.parseLiteral(input);
     }
 
@@ -41,24 +36,20 @@ public final class AddressSocketTests extends TestSuite {
 
         assertNull(InetAddress.parseLiteral("does-not-exist.invalid"));
         InetAddress result = parsedTemporaryLiteral();
-        defer free result;
         assertTrue(result.isLoopbackAddress());
         boolean rejected = false;
         try {
             InetAddress invalid = InetAddress.parseLiteral("0x7f.0.0.1");
-            free invalid;
         } catch (UnknownHostException expected) { rejected = true; }
         assertTrue(rejected);
         rejected = false;
         try {
             InetAddress invalid = InetAddress.parseLiteral("");
-            free invalid;
         } catch (UnknownHostException expected) { rejected = true; }
         assertTrue(rejected);
         rejected = false;
         try {
             InetAddress invalid = InetAddress.parseLiteral(null);
-            free invalid;
         } catch (NullPointerException expected) { rejected = true; }
         assertTrue(rejected);
     }
@@ -67,14 +58,11 @@ public final class AddressSocketTests extends TestSuite {
     private void binaryFactoriesCopyBytesAndHostname() throws Exception {
 
         InetAddress address = copiedInputs();
-        defer free address;
         assertEquals("copied-host", address.getHostName());
         assertTrue(address.isLoopbackAddress());
         byte[] first = address.getAddress();
-        defer free first;
         first[0] = 8;
         byte[] second = address.getAddress();
-        defer free second;
         assertEquals(127, (int) second[0]);
     }
 
@@ -87,11 +75,9 @@ public final class AddressSocketTests extends TestSuite {
         checkLiteral("[2001:db8::1]", "2001:db8:0:0:0:0:0:1", true);
         checkLiteral("::ffff:192.0.2.1", "192.0.2.1", false);
         byte[] invalidBytes = new byte[0];
-        defer free invalidBytes;
         boolean caught = false;
         try {
             InetAddress invalid = InetAddress.getByAddress(invalidBytes);
-            free invalid;
         } catch (UnknownHostException expected) { caught = true; }
         assertTrue(caught);
     }
@@ -100,24 +86,19 @@ public final class AddressSocketTests extends TestSuite {
     private void addressPredicatesAndIndependentCopies() throws Exception {
 
         InetAddress local = InetAddress.getByName("10.20.30.40");
-        defer free local;
         assertTrue(local.isSiteLocalAddress());
         assertFalse(local.isLoopbackAddress());
         InetAddress copy = local.copy();
-        defer free copy;
         assertNotSame(local, copy);
         assertTrue(local.equals(copy));
         assertEquals(local.hashCode(), copy.hashCode());
         InetAddress link = InetAddress.getByName("169.254.1.2");
-        defer free link;
         assertTrue(link.isLinkLocalAddress());
         InetAddress group = InetAddress.getByName("224.0.0.1");
-        defer free group;
         assertTrue(group.isMulticastAddress());
         assertTrue(group.isMCLinkLocal());
         assertFalse(group.isMCGlobal());
         InetAddress wildcard = InetAddress.getByName("::");
-        defer free wildcard;
         assertTrue(wildcard.isAnyLocalAddress());
     }
 
@@ -125,22 +106,18 @@ public final class AddressSocketTests extends TestSuite {
     private void numericIpv6ScopesDoNotChangeEquality() throws Exception {
 
         InetAddress first = InetAddress.getByName("fe80::1%7");
-        defer free first;
         InetAddress second = InetAddress.getByName("fe80::1%8");
-        defer free second;
         assertTrue(first.equals(second));
         assertEquals(first.hashCode(), second.hashCode());
         assertEquals(7, ((Inet6Address) first).getScopeId());
         assertNull(((Inet6Address) first).getScopedInterface());
         InetAddress copy = first.copy();
-        defer free copy;
         assertEquals(7, ((Inet6Address) copy).getScopeId());
     }
 
     private static InetSocketAddress unresolved() {
 
         String host = new String("Unresolved.Example");
-        defer free host;
         return InetSocketAddress.createUnresolved(host, 80);
     }
 
@@ -148,9 +125,7 @@ public final class AddressSocketTests extends TestSuite {
     private void unresolvedAndWildcardEndpoints() throws Exception {
 
         InetSocketAddress first = unresolved();
-        defer free first;
         InetSocketAddress second = InetSocketAddress.createUnresolved("unresolved.example", 80);
-        defer free second;
         assertTrue(first.isUnresolved());
         assertNull(first.getAddress());
         assertEquals("Unresolved.Example", first.getHostString());
@@ -159,7 +134,6 @@ public final class AddressSocketTests extends TestSuite {
         assertEquals(first.hashCode(), second.hashCode());
         assertEquals(80, first.getPort());
         InetSocketAddress wildcard = new InetSocketAddress((InetAddress) null, 123);
-        defer free wildcard;
         assertTrue(wildcard.getAddress().isAnyLocalAddress());
         assertFalse(wildcard.isUnresolved());
     }
@@ -168,7 +142,6 @@ public final class AddressSocketTests extends TestSuite {
     private void localResolutionReturnsOwnedResultsInFamilyOrder() throws Exception {
 
         InetAddress loopback = InetAddress.getByName(null);
-        defer free loopback;
         assertTrue(loopback.isLoopbackAddress());
         InetAddress[] addresses = InetAddress.getAllByName("localhost");
         boolean valid = addresses.length > 0;
@@ -181,9 +154,7 @@ public final class AddressSocketTests extends TestSuite {
             if (!address.isLoopbackAddress()) valid = false;
             if (address instanceof Inet6Address) seenIpv6 = true;
             if (address instanceof Inet4Address && seenIpv6) valid = false;
-            free address;
         }
-        free addresses;
         assertTrue(valid);
     }
 
@@ -199,17 +170,13 @@ public final class AddressSocketTests extends TestSuite {
     private void allDestinationConstructorsExchangeBytes() throws Exception {
 
         InetAddress address = NetworkingSupport.loopback();
-        defer free address;
         ServerSocket listener = new ServerSocket(0, 8, address);
-        defer free listener;
         defer listener.close();
         listener.setSoTimeout(2000);
         for (int variant = 0; variant < 4; variant++) {
             Socket client = constructClient(variant, address, listener.getLocalPort());
-            defer free client;
             defer client.close();
             Socket peer = listener.accept();
-            defer free peer;
             defer peer.close();
             peer.setSoTimeout(2000);
             client.getOutputStream().write(40 + variant);
@@ -230,7 +197,6 @@ public final class AddressSocketTests extends TestSuite {
 
         for (int variant = 0; variant < 3; variant++) {
             ServerSocket listener = constructListener(variant);
-            defer free listener;
             defer listener.close();
             int port = listener.getLocalPort();
             assertTrue(port > 0);
@@ -239,7 +205,6 @@ public final class AddressSocketTests extends TestSuite {
             assertTrue(listener.isBound());
             assertEquals(port, listener.getLocalPort());
             SocketAddress endpoint = listener.getLocalSocketAddress();
-            defer free endpoint;
             assertEquals(port, ((InetSocketAddress) endpoint).getPort());
         }
     }
@@ -248,10 +213,8 @@ public final class AddressSocketTests extends TestSuite {
     private void urgentDataAndAdditionalOptions() throws Exception {
 
         Socket client = new Socket();
-        defer free client;
         defer client.close();
         Socket peer = NetworkingSupport.connectPair(client);
-        defer free peer;
         defer peer.close();
         peer.setSoTimeout(2000);
         peer.setOOBInline(true);

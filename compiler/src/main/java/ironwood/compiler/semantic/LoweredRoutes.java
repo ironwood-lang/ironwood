@@ -8,7 +8,6 @@ import ironwood.compiler.ast.BooleanLiteralExpression;
 import ironwood.compiler.ast.BreakStatement;
 import ironwood.compiler.ast.ContinueStatement;
 import ironwood.compiler.ast.DeferStatement;
-import ironwood.compiler.ast.DeferredFreeStatement;
 import ironwood.compiler.ast.DoWhileStatement;
 import ironwood.compiler.ast.EmptyStatement;
 import ironwood.compiler.ast.EnhancedForStatement;
@@ -16,7 +15,6 @@ import ironwood.compiler.ast.EnumConstantInitialization;
 import ironwood.compiler.ast.Expression;
 import ironwood.compiler.ast.ExpressionStatement;
 import ironwood.compiler.ast.ForStatement;
-import ironwood.compiler.ast.FreeStatement;
 import ironwood.compiler.ast.IfStatement;
 import ironwood.compiler.ast.LabeledStatement;
 import ironwood.compiler.ast.LocalClassDeclaration;
@@ -128,8 +126,8 @@ final class LoweredRoutes {
         }
         // Lowering always completes these; any other statement may not complete.
         return statement instanceof LocalVariableDeclaration || statement instanceof ExpressionStatement
-                || statement instanceof AssignmentStatement || statement instanceof FreeStatement
-                || statement instanceof DeferStatement || statement instanceof DeferredFreeStatement
+                || statement instanceof AssignmentStatement
+                || statement instanceof DeferStatement
                 || statement instanceof EnhancedForStatement || statement instanceof EmptyStatement
                 || statement instanceof LocalClassDeclaration || statement instanceof EnumConstantInitialization
                 || statement instanceof SuperConstructorInvocation

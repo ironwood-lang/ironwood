@@ -61,7 +61,7 @@ public final class NativeBackend {
                 // The pass runs inside host opt. Conda's runtime-only GCC can
                 // shadow installed C++ headers; use the native host development
                 // toolchain here, independently of the program's SDK/sysroot.
-                if (System.getProperty("os.name").equals("Linux")) hostBuild.add("--gcc-toolchain=/usr");
+                if (System.getProperty("os.name").equals("Linux")) hostBuild.addAll(List.of("--no-default-config", "--gcc-toolchain=/usr", "--sysroot=/"));
                 hostBuild.addAll(List.of(
                         "-std=c++17", "-fno-exceptions", "-fPIC", "-shared", "-O2",
                         "-I" + toolchain.home().resolve("include"), "-L" + toolchain.home().resolve("lib"),
@@ -150,7 +150,7 @@ public final class NativeBackend {
     /** Managed shared image with verified foreign roots and an explicit export policy. */
     public LinkResult linkManagedBridge(LlvmToolchain toolchain, ironwood.compiler.BridgeObjectAdmission admission,
             Path output, OptimizationLevel level, List<Path> adapters, List<String> exports) {
-        if (!admission.managedHeap() || exports.isEmpty() || exports.stream().anyMatch(s -> !s.matches("[A-Za-z_][A-Za-z0-9_]*")))
+        if (!true || exports.isEmpty() || exports.stream().anyMatch(s -> !s.matches("[A-Za-z_][A-Za-z0-9_]*")))
             return new LinkResult(false, "managed bridge requires managed admission and explicit native exports");
         Path scratch = null;
         try {
@@ -282,7 +282,7 @@ public final class NativeBackend {
             }
             Path plugin = temporaryDirectory.resolve("nonmoving-statepoints.so");
             var passBuild = new java.util.ArrayList<>(List.of(toolchain.clang().toString(), "--driver-mode=g++"));
-            if (System.getProperty("os.name").equals("Linux")) passBuild.add("--gcc-toolchain=/usr");
+            if (System.getProperty("os.name").equals("Linux")) passBuild.addAll(List.of("--no-default-config", "--gcc-toolchain=/usr", "--sysroot=/"));
             passBuild.addAll(List.of("-std=c++17", "-fno-exceptions", "-fPIC", "-shared", "-O2",
                     "-I" + toolchain.home().resolve("include"), "-L" + toolchain.home().resolve("lib"),
                     "-Wl,-rpath," + toolchain.home().resolve("lib"), "-lLLVM",

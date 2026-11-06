@@ -29,16 +29,16 @@ final class BridgeGcJavaSources {
                 + type.typeArguments().stream().map(BridgeGcJavaSources::typeIdentity).collect(Collectors.joining(",")) + ">");
         return type.displayName();
     }
-    static String javaType(IrType type, BridgeExportSurface surface) { return BridgePermanentJavaSources.javaType(type, surface); }
+    static String javaType(IrType type, BridgeExportSurface surface) { return BridgeFacadeSources.javaType(type, surface); }
     static boolean handle(BridgeObjectAdmission admission, IrType type) {
         return type.isTypeParameter() || BridgeRootCalls.rooted(admission, type);
     }
 
-    static BridgePermanentJavaSources.Sources generate(CompilationArtifact artifact, BridgeObjectAdmission admission, BridgeGeneration generation) {
-        if (!admission.managedHeap() || !generation.matchesObjects(artifact, admission)) throw new IllegalArgumentException("GC Java projection identity");
+    static BridgeFacadeSources.Sources generate(CompilationArtifact artifact, BridgeObjectAdmission admission, BridgeGeneration generation) {
+        if (!generation.matchesObjects(artifact, admission)) throw new IllegalArgumentException("GC Java projection identity");
         String support = generation.supportPackage();
         var surface = admission.surface();
-        String ensure = BridgePermanentJavaSources.unique(surface.types().stream().flatMap(t -> t.callables().stream())
+        String ensure = BridgeFacadeSources.unique(surface.types().stream().flatMap(t -> t.callables().stream())
                 .map(BridgeApiFacts.Callable::name).collect(Collectors.toCollection(HashSet::new)), "$ironwood$ensure");
         if (surface.types().stream().anyMatch(t -> t.packageName().equals("ironwood.bridge.generated") || t.packageName().startsWith("ironwood.bridge.generated.")))
             throw new IllegalArgumentException("reserved generated bridge namespace");
@@ -47,8 +47,8 @@ final class BridgeGcJavaSources {
         var types = new TreeSet<String>();
         var bindings = new ArrayList<BridgeJavaSources.Binding>();
         var natives = new ArrayList<BridgeJavaSources.NativeDeclaration>();
-        var facades = new ArrayList<BridgePermanentJavaSources.Facade>();
-        var enums = new ArrayList<BridgePermanentJavaSources.EnumFacade>();
+        var facades = new ArrayList<BridgeFacadeSources.Facade>();
+        var enums = new ArrayList<BridgeFacadeSources.EnumFacade>();
         var entries = admission.entries().primaryEntries().stream().collect(Collectors.toMap(e -> e.root().callable(), e -> e.function().linkageName()));
         var roots = new StringBuilder(HEADER).append("package ").append(support).append(";\n").append(annotation)
                 .append("public final class Roots {\n    private Roots() {}\n    static { Support.").append(ensure).append("(); }\n");
@@ -101,12 +101,12 @@ final class BridgeGcJavaSources {
         }
         if (!bindings.stream().map(BridgeJavaSources.Binding::entrySymbol).collect(Collectors.toSet()).equals(entries.values().stream().collect(Collectors.toSet())))
             throw new IllegalArgumentException("GC projection omitted a source entry");
-        var declarations = new BridgeJavaSources(sources, bindings, new ArrayList<>(types), ensure, List.of(), List.of(), natives);
+        var declarations = new BridgeJavaSources(sources, bindings, new ArrayList<>(types), ensure, natives);
         if (admission.entries().gcCallbacks().isPresent()) declarations = BridgeCallbackDispatchSources.add(declarations,
                 admission.entries().gcCallbacks().orElseThrow().listeners(), generation, surface);
         if (admission.batching().isPresent()) declarations = BridgeCallbackBatchSources.addDispatch(declarations,
                 admission.batching().orElseThrow(), generation, surface);
-        return new BridgePermanentJavaSources.Sources(declarations, facades, enums);
+        return new BridgeFacadeSources.Sources(declarations, facades, enums);
     }
 
     private static void put(Map<String, String> sources, Set<String> types, String name, String source) {
@@ -122,7 +122,7 @@ final class BridgeGcJavaSources {
     private static void emit(StringBuilder text, StringBuilder roots, StringBuilder listeners, BridgeApiFacts.Type type, CompilationArtifact artifact,
             BridgeObjectAdmission admission, BridgeGeneration generation, String annotation, Map<BridgeCallableId, String> entries,
             List<BridgeJavaSources.Binding> bindings, List<BridgeJavaSources.NativeDeclaration> natives,
-            List<BridgePermanentJavaSources.Facade> facades, List<BridgePermanentJavaSources.EnumFacade> enums,
+            List<BridgeFacadeSources.Facade> facades, List<BridgeFacadeSources.EnumFacade> enums,
             BridgeCustomSnapshotSources.Context custom, BridgeCriticalSources.Plan critical, String ensure, String indent) {
         String support = generation.supportPackage();
         var surface = admission.surface();
@@ -154,9 +154,9 @@ final class BridgeGcJavaSources {
             var occupied = type.callables().stream().map(BridgeApiFacts.Callable::name).collect(Collectors.toCollection(HashSet::new));
             type.fields().forEach(f -> occupied.add(f.name()));
             type.callables().forEach(m -> occupied.addAll(m.parameterNames()));
-            String address = BridgePermanentJavaSources.unique(occupied, "$ironwood$address");
-            String state = BridgePermanentJavaSources.unique(occupied, "$ironwood$state");
-            String typeName = BridgePermanentJavaSources.unique(occupied, "$ironwood$type");
+            String address = BridgeFacadeSources.unique(occupied, "$ironwood$address");
+            String state = BridgeFacadeSources.unique(occupied, "$ironwood$state");
+            String typeName = BridgeFacadeSources.unique(occupied, "$ironwood$type");
             text.append(indent).append(annotation).append(indent).append("public ").append(type.enclosingType().isPresent() ? "static " : "")
                     .append("final class ").append(simple).append(type.generic() ? "<" + variables + ">" : "").append(" {\n")
                     .append(indent).append("    static { ").append(ensure).append("(); }\n")
@@ -165,8 +165,8 @@ final class BridgeGcJavaSources {
                     .append(indent).append("    private final java.lang.String ").append(typeName).append(" = ").append(BridgeJavaSources.quote(type.binaryName())).append(";\n")
                     .append(indent).append("    private ").append(simple).append("(long address, ").append(support)
                     .append(".RootState state, java.lang.Void marker) { this.").append(address).append(" = address; this.").append(state).append(" = state; }\n");
-            facades.add(new BridgePermanentJavaSources.Facade(type.binaryName(), address, typeName, state, support + ".RootState"));
-            BridgePermanentJavaSources.identity(text, type, address, typeName, occupied, indent);
+            facades.add(new BridgeFacadeSources.Facade(type.binaryName(), address, typeName, state, support + ".RootState"));
+            BridgeFacadeSources.identity(text, type, address, typeName, occupied, indent);
             for (var field : type.fields()) text.append(indent).append("    public static final ").append(javaType(field.type(), surface))
                     .append(' ').append(field.name()).append(" = ").append(BridgeJavaSources.literal(field.constant().orElseThrow())).append(";\n");
             String retain = "$retain$" + facades.size();
@@ -174,7 +174,7 @@ final class BridgeGcJavaSources {
                     .append(support).append(".RootHandle<").append(facadeType).append("> retain(").append(facadeType).append(" value) {\n")
                     .append("        return value == null ? null : (").append(support).append(".RootHandle<").append(facadeType).append(">) ")
                     .append(retain).append("(value);\n    }\n    private static native RootHandle<?> ").append(retain).append('(')
-                    .append(BridgePermanentJavaSources.javaErasedType(type.exactType(), surface)).append(" value);\n");
+                    .append(BridgeFacadeSources.javaErasedType(type.exactType(), surface)).append(" value);\n");
             natives.add(new BridgeJavaSources.NativeDeclaration(support + ".Roots", retain,
                     "(" + BridgeJavaTypes.descriptor(type.exactType()) + ")L" + support.replace('.', '/') + "/RootHandle;"));
             var transport = new BridgeCriticalSources.Emitter(critical, occupied);
@@ -187,8 +187,8 @@ final class BridgeGcJavaSources {
                 boolean handle = constructor || handle(admission, method.result());
                 StringBuilder owner = retaining ? listeners : constructor ? roots : text;
                 String pad = constructor || retaining ? "" : indent;
-                String registration = BridgePermanentJavaSources.unique(occupied, "$ironwood$registration");
-                String receiver = BridgePermanentJavaSources.unique(occupied, "$ironwood$receiver");
+                String registration = BridgeFacadeSources.unique(occupied, "$ironwood$registration");
+                String receiver = BridgeFacadeSources.unique(occupied, "$ironwood$receiver");
                 var formals = new ArrayList<String>();
                 for (int i = 0; i < method.parameters().size(); i++) formals.add(javaType(method.parameters().get(i), surface) + " " + method.parameterNames().get(i));
                 var parameters = BridgeEnumArgumentSources.generate(owner, artifact, admission, method, occupied, pad);
@@ -196,7 +196,7 @@ final class BridgeGcJavaSources {
                 var nativeFormals = new ArrayList<>(parameters.nativeFormals());
                 String descriptor = parameters.descriptor();
                 if (!constructor && !method.isStatic()) {
-                    nativeFormals.addFirst(explicitReceiver ? BridgePermanentJavaSources.javaErasedType(type.exactType(), surface) + " " + receiver : "long receiver");
+                    nativeFormals.addFirst(explicitReceiver ? BridgeFacadeSources.javaErasedType(type.exactType(), surface) + " " + receiver : "long receiver");
                     arguments.addFirst(explicitReceiver ? receiver : "this." + address);
                     descriptor = (explicitReceiver ? BridgeJavaTypes.descriptor(type.exactType()) : "J") + descriptor;
                 }
@@ -206,16 +206,16 @@ final class BridgeGcJavaSources {
                     nativeFormals.addFirst("long " + registration);
                     arguments.addFirst(registration + ".requireOpen()"); descriptor = "J" + descriptor;
                 }
-                String batchName = BridgePermanentJavaSources.unique(occupied, "$ironwood$batch");
+                String batchName = BridgeFacadeSources.unique(occupied, "$ironwood$batch");
                 if (batch != null) {
                     nativeFormals.add("java.nio.LongBuffer " + batchName);
                     arguments.add(batchName); descriptor += "Ljava/nio/LongBuffer;";
                 }
-                String nativeName = BridgePermanentJavaSources.unique(occupied, "$ironwood$native$" + bindings.size());
+                String nativeName = BridgeFacadeSources.unique(occupied, "$ironwood$native$" + bindings.size());
                 String result = constructor ? support + ".RootHandle<" + facadeType + ">"
                         : handle ? support + ".RootHandle<" + javaType(method.result(), surface) + ">" : javaType(method.result(), surface);
                 String nativeResult = handle ? support + ".RootHandle<?>" : BridgeGenericDomain.dependent(method.result())
-                        ? BridgePermanentJavaSources.javaErasedType(method.result(), surface) : result;
+                        ? BridgeFacadeSources.javaErasedType(method.result(), surface) : result;
                 String throwsClause = method.thrownTypes().isEmpty() ? "" : " throws "
                         + method.thrownTypes().stream().map(t -> javaType(t, surface)).collect(Collectors.joining(", "));
                 boolean plain = !retaining && !constructor && !handle && !method.result().isReference()
@@ -244,10 +244,10 @@ final class BridgeGcJavaSources {
                 owner.append(pad).append("    }\n").append(pad).append("    private static native ").append(nativeResult).append(' ').append(nativeName)
                         .append('(').append(String.join(", ", nativeFormals)).append(')').append(throwsClause).append(";\n");
                 if (reserved != null) transport.emit(owner, reserved, nativeName, nativeFormals, nativeResult,
-                        BridgeCriticalSources.Carrier.of(false, method.result()), throwsClause, pad);
+                        BridgeCriticalSources.Carrier.of(method.result()), throwsClause, pad);
                 bindings.add(new BridgeJavaSources.Binding(retaining ? support + ".Listeners" : constructor ? support + ".Roots" : type.binaryName(), nativeName,
                         "(" + descriptor + ")" + (handle ? "L" + support.replace('.', '/') + "/RootHandle;" : BridgeJavaTypes.descriptor(method.result())),
-                        method, entries.get(method.target().orElseThrow()), "", parameters.tokens(), Map.of(), reserved == null ? -1 : reserved.index()));
+                        method, entries.get(method.target().orElseThrow()), parameters.tokens(), Map.of(), reserved == null ? -1 : reserved.index()));
             }
         }
         for (var nested : surface.types()) if (nested.enclosingType().filter(type.binaryName()::equals).isPresent())

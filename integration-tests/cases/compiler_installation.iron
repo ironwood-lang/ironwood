@@ -20,33 +20,26 @@ class Main {
     static void report(Path location) {
 
         StringBuilder error = new StringBuilder();
-        defer free error;
         Path runtime = Installation.runtimeSource(location, error);
         if (runtime != null) {
             System.out.println("runtime " + runtime.toString());
-            free runtime;
         } else {
             String message = error.toString();
             System.out.println("error " + message);
-            free message;
         }
         LibraryRoots roots = new LibraryRoots();
-        defer free roots;
         Installation.librarySourceRoots(location, roots);
         System.out.println("roots " + roots.size());
         for (int index = 0; index < roots.size(); index++) System.out.println("root " + roots.root(index).toString());
     }
 
     public static int main(String[] args) {
-
-        long live = System.liveAllocationCount();
         if (args[0].equals("-")) {
             report(null);
         } else {
             Path location = Path.of(args[0]);
             report(location);
-            free location;
         }
-        return System.liveAllocationCount() == live ? 42 : 1;
+        return 42;
     }
 }

@@ -54,7 +54,7 @@ def run(name, command, *, controlled=False, mode=None, limit=None, expected=0):
 
 
 def link(main, classes, suffix=""):
-    run("link-" + main + suffix, [CLI, "--link", "-cp", classes, "--main-class", main, "--unfreed=error", "-O3",
+    run("link-" + main + suffix, [CLI, "--link", "-cp", classes, "--main-class", main, "-O3",
                                 "-o", OUT / (main + suffix), "--emit-llvm", OUT / (main + suffix + ".ll")])
 
 
@@ -69,7 +69,7 @@ def main():
     if classes.exists():
         shutil.rmtree(classes)
     sources = [CASES / (name + ".iron") for name in ("Main", "Controlled", "Arguments", "Probe", "Failures", "Benchmark")]
-    run("compile", [CLI, *sources, "-d", classes, "--unfreed=error"])
+    run("compile", [CLI, *sources, "-d", classes])
     for entry in ("Main", "HostControlled", "HostArguments", "HostProbe", "HostFailures", "HostBenchmark"):
         link(entry, classes)
     command = [clang, "-std=c11", "-O2", "-Wall", "-Wextra", "-Werror", "-fPIC",
@@ -104,12 +104,12 @@ def main():
         run("failure-" + (mode or argument), [OUT / "HostFailures", argument], controlled=True, mode=mode)
     for limit in range(allocations + 1):
         run("oom-" + str(limit), [OUT / "HostControlled"], controlled=True, limit=limit)
-    REPORT["managed_rollback"] = {"allocation_limits": [0, allocations], "cases": allocations + 1, "live_delta": 0}
+    REPORT["partial_construction"] = {"allocation_limits": [0, allocations], "cases": allocations + 1}
 
     # This original argument fixture has no networking calls after validation.
     # Only imports, entry-point returns and Ironwood cleanup differ for Java.
     java = (CASES / "Arguments.iron").read_text().replace("ironwood.net.", "java.net.")
-    java = re.sub(r"\bfree\s+[^;]+;", "", java).replace("public static int main", "public static void main")
+    java = java.replace("public static int main", "public static void main")
     java = java.replace("return 0;", "return;")
     java = re.sub(r"return ([1-9][0-9]*);", r"throw new AssertionError(\1);", java)
     java_path = OUT / "HostArguments.java"
@@ -131,11 +131,11 @@ def main():
         invalid = OUT / "Invalid.iron"
         invalid.write_text("// SPDX-License-Identifier: MIT OR Apache-2.0\nimport ironwood.util.Enumeration;\n"
                            "class Invalid { Enumeration<int> values; }\n")
-        result = run("bounds-" + label, [CLI, invalid, "-cp", dependency, "-d", OUT / "invalid", "--unfreed=off"], expected=1)
+        result = run("bounds-" + label, [CLI, invalid, "-cp", dependency, "-d", OUT / "invalid"], expected=1)
         assert "error:" in result.stderr and "int" in result.stderr
         invalid.write_text("// SPDX-License-Identifier: MIT OR Apache-2.0\npackage ironwood.util;\n"
                            "class Invalid { EnumerationIterator<int> values; }\n")
-        result = run("helper-bounds-" + label, [CLI, invalid, "-cp", dependency, "-d", OUT / "invalid", "--unfreed=off"], expected=1)
+        result = run("helper-bounds-" + label, [CLI, invalid, "-cp", dependency, "-d", OUT / "invalid"], expected=1)
         assert "error:" in result.stderr and "int" in result.stderr
     REPORT["artifacts"] = "source, class directory and archive; primitive enumeration rejected"
     run("HostProbe-disassembly", [objdump, "--disassemble", "--no-show-raw-insn", OUT / "HostProbe"])

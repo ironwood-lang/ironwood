@@ -71,7 +71,7 @@ final class BridgeGenericFactsTests {
     private BridgeGenericFactsTests() {}
 
     private static CompilationArtifact analyze(String source) {
-        var artifact = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(sources(source));
+        var artifact = new CompilerPipeline().analyzeForBridge(sources(source));
         check(artifact.valid(), artifact.diagnostics().toString());
         return artifact;
     }
@@ -191,7 +191,7 @@ final class BridgeGenericFactsTests {
         for (String declaration : List.of(
                 "public final class Only<T> { private Only() {} public static int value() { return 1; } }",
                 "public final class Only { private Only() {} public static <T> int value() { return 1; } }")) {
-            var only = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(
+            var only = new CompilerPipeline().analyzeForBridge(
                     List.of(SourceFile.of("Only.iron", "package boundary; " + declaration)));
             check(only.valid() && BridgeExportSurface.staticValues(only, List.of("boundary")).surface().isEmpty()
                     && BridgeExportSurface.objectValues(only, List.of("boundary")).surface().isEmpty(),
@@ -232,7 +232,7 @@ final class BridgeGenericFactsTests {
                 var reconstructed = new SourceSetLoader(List.of(), inputs).loadBridge(List.of(), List.of("genericfacts"));
                 check(reconstructed.diagnostics().isEmpty(), reconstructed.diagnostics().toString());
                 var loaded = variant.equals("source") ? original
-                        : new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(reconstructed.sources());
+                        : new CompilerPipeline().analyzeForBridge(reconstructed.sources());
                 check(loaded.valid() && expected.equals(shape(loaded)), "generic metadata changed after " + variant);
                 for (var declaration : original.bridgeApiFacts().orElseThrow().types().values()) {
                     if (!declaration.packageName().equals("genericfacts")) continue;
@@ -248,14 +248,14 @@ final class BridgeGenericFactsTests {
                 check(BridgeExportSurface.objectValues(loaded, List.of("genericfacts")).surface().isEmpty(),
                         "metadata-only phase admitted generic facades");
                 Path output = directory.resolve("preserved.jar"); Files.writeString(output, "preserved");
-                var args = new java.util.ArrayList<>(List.of("--java-bridge", "--export", "genericfacts", "--unfreed=off", "-o", output.toString()));
+                var args = new java.util.ArrayList<>(List.of("--java-bridge", "--export", "genericfacts", "-o", output.toString()));
                 if (variant.equals("source")) {
                     try (var files = Files.list(inputSource)) {
                         files.sorted().map(Path::toString).forEach(args::add);
                     }
                 }
                 else args.addAll(List.of("--source-path", directory.resolve("absent").toString(), "-cp", inputs.stream().map(Path::toString).collect(java.util.stream.Collectors.joining(java.io.File.pathSeparator))));
-                BridgeProducerTests.command(directory, "refused-" + variant, 1, args.toArray(String[]::new));
+                GcTestProcesses.command(directory, "refused-" + variant, 1, args.toArray(String[]::new));
                 check(Files.readString(output).equals("preserved"), "refused generic producer replaced existing output");
             }
             var absent = new CompilationArtifact(original.program(), original.llvmIr(), original.diagnostics(), original.bridgeConstructionFacts());

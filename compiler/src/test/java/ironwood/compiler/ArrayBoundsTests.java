@@ -16,14 +16,14 @@ final class ArrayBoundsTests {
         Path root = Path.of("integration-tests/target/unsigned-array-bounds").toAbsolutePath();
         Files.createDirectories(root);
         Path classes = root.resolve("classes");
-        cli("integration-tests/cases/unsigned_array_bounds.iron", "--unfreed=error", "-d", classes.toString());
+        cli("integration-tests/cases/unsigned_array_bounds.iron", "-d", classes.toString());
         Path archive = root.resolve("bounds.ironjar");
         IronJar.create(archive, List.of(classes));
         for (int level : List.of(0, 3)) {
             Path binary = root.resolve("bounds-O" + level);
             Path llvm = root.resolve("bounds-O" + level + ".ll");
             cli("--link", "-cp", (level == 0 ? classes : archive).toString(), "--main-class", "Main",
-                    "--unfreed=error", "-O" + level, "--emit-llvm", llvm.toString(), "-o", binary.toString());
+                    "-O" + level, "--emit-llvm", llvm.toString(), "-o", binary.toString());
             String ir = Files.readString(llvm);
             require(ir.contains("icmp ult i32") && !ir.contains("array.index.nonnegative"),
                     "bounds lowering still has separate signed checks");

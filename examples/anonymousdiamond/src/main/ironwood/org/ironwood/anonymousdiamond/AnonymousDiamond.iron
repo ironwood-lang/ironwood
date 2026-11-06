@@ -40,8 +40,6 @@ public class AnonymousDiamond {
                     }
                 };
         int result = inferred.value().length() + expected.code();
-        free expected;
-        free inferred;
         return result;
     }
 }

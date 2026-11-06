@@ -51,14 +51,6 @@ public class ArrayInitializers {
                 + first[0] + second[0] + second[1] + reading.value - 12;
         int emptyLength = creationForm.length;
 
-        free reading;
-        free references;
-        free first;
-        free second;
-        free nested;
-        free creationForm;
-        free declarationForm;
-
         if (order != 5 || after - before != 7L || emptyLength != 0) return 1;
         return result;
     }

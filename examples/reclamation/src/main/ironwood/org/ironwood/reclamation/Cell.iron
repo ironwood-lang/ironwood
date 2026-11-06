@@ -4,7 +4,6 @@ package org.ironwood.reclamation;
 
 public class Cell {
 
-    private static int destroyed;
     private int value;
     private int[] scratch;
 
@@ -19,14 +18,6 @@ public class Cell {
         return value;
     }
 
-    public static int destroyed() {
 
-        return destroyed;
-    }
 
-    destructor {
-
-        destroyed = destroyed + 1;
-        free this.scratch;
-    }
 }

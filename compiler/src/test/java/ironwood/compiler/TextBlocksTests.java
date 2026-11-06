@@ -22,16 +22,11 @@ final class TextBlocksTests {
 
     static void ownership() throws Exception {
         SourceFile helper = SourceFile.of("test/TextBlocks.iron", Files.readString(Path.of(HELPER)));
-        String prefix = """
-                import ironwood.compiler.port.TextBlocks;
-                class Main { public static int main(String[] args) {
-                    StringBuilder builder = new StringBuilder(); builder.append("  a\\n  b");
-                    String input = builder.toString(); free builder;
-                    String output = TextBlocks.stripIndent(input);
-                """;
-        for (UnfreedMode mode : UnfreedMode.values()) {
-            require(mode, helper, prefix + "free input; int length = output.length(); free output; return length; }}", null);
-            require(mode, helper, prefix + "free output; free input; return output.length(); }}", "after its allocation was freed");
+        String prefix = "import ironwood.compiler.port.TextBlocks;\nclass Main { public static int main(String[] args) {\n    StringBuilder builder = new StringBuilder(); builder.append(\"  a\\n  b\");\n    String input = builder.toString(); ;\n    String output = TextBlocks.stripIndent(input);\n";
+        // This fixture scope preserves independent local names.
+{
+            require(helper, prefix + "; int length = output.length(); ; return length; }}", null);
+            require(helper, prefix + "; ; return output.length(); }}", null);
         }
     }
 
@@ -40,7 +35,7 @@ final class TextBlocksTests {
         Path root = Files.createTempDirectory("ironwood-text-blocks-");
         try {
             Path classes = root.resolve("classes");
-            run(List.of(HELPER, "integration-tests/cases/compiler_text_blocks.iron", "--unfreed=warn", "-d", classes.toString()));
+            run(List.of(HELPER, "integration-tests/cases/compiler_text_blocks.iron", "-d", classes.toString()));
             Path archive = root.resolve("text.ironjar");
             ByteArrayOutputStream ignored = new ByteArrayOutputStream();
             if (IronJarMain.run(new String[]{"--create", "--file", archive.toString(), classes.toString()},
@@ -49,8 +44,7 @@ final class TextBlocksTests {
             }
             for (Path input : List.of(classes, archive)) {
                 Path executable = root.resolve(input.getFileName() + "-program");
-                run(List.of("--link", "-cp", input.toString(), "--main-class", "Main", "--unfreed=warn",
-                        "-O3", "-o", executable.toString()));
+                run(List.of("--link", "-cp", input.toString(), "--main-class", "Main", "-O3", "-o", executable.toString()));
                 Process process = new ProcessBuilder(executable.toString()).redirectErrorStream(true).start();
                 byte[] output = process.getInputStream().readAllBytes();
                 if (!process.waitFor(60, TimeUnit.SECONDS)) {
@@ -115,13 +109,13 @@ final class TextBlocksTests {
         }
     }
 
-    private static void require(UnfreedMode mode, SourceFile helper, String source, String rejection) {
-        CompilationArtifact artifact = new CompilerPipeline(mode)
+    private static void require(SourceFile helper, String source, String rejection) {
+        CompilationArtifact artifact = new CompilerPipeline()
                 .compile(List.of(helper, SourceFile.of("test/Main.iron", source)));
         String messages = String.join("; ", artifact.diagnostics().stream()
                 .map(diagnostic -> diagnostic.message()).toList());
         if (rejection == null ? !artifact.successful() : artifact.successful() || !messages.contains(rejection)) {
-            throw new AssertionError("text block ownership under " + mode + ": " + messages + "\n" + source);
+            throw new AssertionError("text block ownership under " + "GC" + ": " + messages + "\n" + source);
         }
     }
 }

@@ -9,23 +9,19 @@ import ironwood.io.OutputStream;
 
 // The local peer supplies an explicit test CA path, port and verified identity.
 // Echo one byte and 257 binary bytes, returning 42 on success. Stream views
-// borrow the client, which owns TLS state and its transport. Close before free.
 public final class TlsEcho {
 
     public static int main(String[] args) throws Exception {
 
         TlsClient client = new TlsClient(Proxy.NO_PROXY, args[0]);
-        defer free client;
         defer client.close();
         InetSocketAddress endpoint = new InetSocketAddress("127.0.0.1", Integer.parseInt(args[1]));
-        defer free endpoint;
         return exchange(client, endpoint, args[2]);
     }
 
     private static int exchange(TlsClient client, InetSocketAddress endpoint, String identity) throws Exception {
 
         byte[] bytes = new byte[257];
-        defer free bytes;
         client.connect(endpoint, identity, 2000);
         client.setReadTimeout(2000);
         client.setWriteTimeout(2000);

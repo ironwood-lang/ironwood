@@ -65,7 +65,7 @@ final class BridgePackageTests {
             check(sourceLoader.loadBridge(List.of(), List.of("api", "other")).sources().stream()
                             .map(SourceFile::path).toList().equals(loaded.sources().stream().map(SourceFile::path).toList()),
                     "export order or repeated exports affect discovery");
-            var pipeline = new CompilerPipeline(UnfreedMode.OFF);
+            var pipeline = new CompilerPipeline();
             var analyzed = pipeline.analyzeForBridge(loaded.sources());
             check(analyzed.valid(), analyzed.diagnostics().toString());
             var signatures = signatures(analyzed);

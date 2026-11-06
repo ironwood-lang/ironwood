@@ -17,14 +17,14 @@ With `ironwoodc` on PATH, run from this directory:
 
 The native program prints `TCP loopback exchanged 4 bytes in both directions.`
 and exits with status `42`. The run script checks that status and exits with
-status `0` on success. Compilation and the O3 link use `--unfreed=error`.
+status `0` on success. Compilation and the O3 link use the managed model.
 
 The listener's backlog lets the local connection complete before `accept`, so
 this small exchange needs no second process. Its four-byte request and response
 are sent sequentially. General blocking clients and servers run in separate
 processes; this pattern does not provide concurrent application progress.
 
-The source closes and frees the listener before using the accepted connection.
+The source closes the listener before using the accepted connection.
 Stream getters return borrowed views, while endpoint snapshots are independently
 owned. Nested cleanup closes descriptors and then frees socket graphs even when
 an operation fails. See [TcpLoopback.iron](src/main/ironwood/org/ironwood/tcp/TcpLoopback.iron)

@@ -22,16 +22,12 @@ class TlsProbe {
                         password[0] = 0;
                         return result;
                     } finally {
-                        free proxy;
                     }
                 } finally {
-                    free password;
                 }
             } finally {
-                free username;
             }
         } finally {
-            free endpoint;
         }
     }
 
@@ -57,7 +53,6 @@ class TlsProbe {
             return exercise(kind, ca, proxyPort, port, identity, mode, rounds, transfers, endpoint,
                     args.length > 8 && args[8].equals("hostname"));
         } finally {
-            free endpoint;
         }
     }
 
@@ -68,7 +63,6 @@ class TlsProbe {
         try {
             for (int index = 0; index < bytes.length; index++) bytes[index] = (byte) index;
             for (int round = 0; round < rounds; round++) {
-                long live = System.liveAllocationCount();
                 long before = System.allocationCount();
                 System.out.println("@tls:setup");
                 TlsClient client = configured(kind, proxyPort, ca);
@@ -127,22 +121,17 @@ class TlsProbe {
                         System.out.println("TLS_REJECTED");
                     }
                 } finally {
-                    try { client.close(); } finally { free client; }
+                    try { client.close(); } finally { ; }
                 }
                 System.out.println("@tls:end");
                 if (mode.equals("success") || mode.equals("untimed") || mode.endsWith("close") || mode.equals("eof")) {
-                    if (System.liveAllocationCount() != live) {
-                        System.out.print("TLS_LIVE ");
-                        System.out.println(System.liveAllocationCount() - live);
-                        if (round > 0) return 9;
-                    }
+
                     System.out.print("TLS_ALLOC ");
                     System.out.println(System.allocationCount() - before);
                 }
             }
             return 42;
         } finally {
-            free bytes;
         }
     }
 

@@ -1,0 +1,443 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.ds;
+
+import ironwood.testing.Assertions;
+import ironwood.testing.TestSuite;
+
+class RetainedDataItem {
+
+    int value;
+
+    RetainedDataItem(int value) {
+
+        this.value = value;
+    }
+
+    @Override
+    public int hashCode() {
+
+        return this.value;
+    }
+
+}
+
+/** Ironwood-native coverage for container storage and shared-item retention. */
+public final class CollectionRetentionTests extends TestSuite {
+
+    @Test
+    private void arrayListRetainsSharedItems() {
+
+        RetainedDataItem item = new RetainedDataItem(42);
+
+        ArrayList<RetainedDataItem> list = new ArrayList<RetainedDataItem>(1);
+        list.add(item);
+        list.add(item);
+        list.clear();
+        list.add(item);
+        Assertions.assertEquals(1, list.size());
+
+        Assertions.assertEquals(42, item.value);
+
+    }
+
+    @Test
+    private void arrayListRemoveFirstPreservesValues() {
+
+        ArrayList<String> list = new ArrayList<String>(2);
+        list.add("a");
+        String removed = list.removeFirst();
+        Assertions.assertEquals("a", removed);
+        Assertions.assertEquals(0, list.size());
+
+    }
+
+    @Test
+    private void intArrayListReusesStorage() {
+
+        IntArrayList list = new IntArrayList(1);
+        for (int index = 0; index < 32; index++) list.add(index);
+        list.clear();
+        list.add(42);
+        Assertions.assertEquals(42, list.iterator().next().get());
+
+    }
+
+    @Test
+    private void longArrayListReusesStorage() {
+
+        LongArrayList list = new LongArrayList(1);
+        for (int index = 0; index < 32; index++) list.add((long) index);
+        list.clear();
+        list.add(42L);
+        Assertions.assertEquals(42L, list.iterator().next().get());
+
+    }
+
+    @Test
+    private void linkedListReusesEntriesAndSharesItems() {
+
+        RetainedDataItem item = new RetainedDataItem(42);
+
+        LinkedList<RetainedDataItem> list = new LinkedList<RetainedDataItem>(1);
+        list.add(item);
+        list.addFirst(item);
+        list.addLast(item);
+        list.clear();
+        list.add(item);
+        Assertions.assertEquals(1, list.size());
+
+        Assertions.assertEquals(42, item.value);
+
+    }
+
+    @Test
+    private void intLinkedListReusesEntries() {
+
+        IntLinkedList list = new IntLinkedList(1);
+        for (int index = 0; index < 16; index++) list.add(index);
+        list.clear();
+        list.add(42);
+        Assertions.assertEquals(42, list.iterator().next().get());
+
+    }
+
+    @Test
+    private void longLinkedListReusesEntries() {
+
+        LongLinkedList list = new LongLinkedList(1);
+        for (int index = 0; index < 16; index++) list.add((long) index);
+        list.clear();
+        list.add(42L);
+        Assertions.assertEquals(42L, list.iterator().next().get());
+
+    }
+
+    @Test
+    private void arrayLinkedListRetainsSharedItems() {
+
+        RetainedDataItem item = new RetainedDataItem(42);
+
+        ArrayLinkedList<RetainedDataItem> list =
+                new ArrayLinkedList<RetainedDataItem>(1);
+        list.addLast(item);
+        list.addLast(item);
+        list.clear(true);
+        list.addLast(item);
+        Assertions.assertEquals(1, list.size());
+
+        Assertions.assertEquals(42, item.value);
+
+    }
+
+    @Test
+    private void mapReusesEntriesAndSharesItems() {
+
+        RetainedDataItem item = new RetainedDataItem(42);
+
+        HashMap<RetainedDataItem, RetainedDataItem> map =
+                new HashMap<RetainedDataItem, RetainedDataItem>(1);
+        map.put(item, item);
+        map.clear();
+        map.put(item, item);
+        Assertions.assertEquals(1, map.size());
+
+        Assertions.assertEquals(42, item.value);
+
+    }
+
+    @Test
+    private void identityMapReusesEntriesAndSharesItems() {
+
+        RetainedDataItem item = new RetainedDataItem(42);
+
+        IdentityHashMap<RetainedDataItem, RetainedDataItem> map =
+                new IdentityHashMap<RetainedDataItem, RetainedDataItem>(1);
+        map.put(item, item);
+        map.clear();
+        map.put(item, item);
+        Assertions.assertEquals(1, map.size());
+
+        Assertions.assertEquals(42, item.value);
+
+    }
+
+    @Test
+    private void linkedMapReusesEntriesAndSharesItems() {
+
+        RetainedDataItem item = new RetainedDataItem(42);
+
+        LinkedHashMap<RetainedDataItem, RetainedDataItem> map =
+                new LinkedHashMap<RetainedDataItem, RetainedDataItem>(1);
+        map.put(item, item);
+        map.clear();
+        map.put(item, item);
+        Assertions.assertEquals(1, map.size());
+
+        Assertions.assertEquals(42, item.value);
+
+    }
+
+    @Test
+    private void intMapReusesEntriesAndSharesValues() {
+
+        RetainedDataItem item = new RetainedDataItem(42);
+
+        IntMap<RetainedDataItem> map = new IntMap<RetainedDataItem>(1);
+        map.put(1, item);
+        map.put(2, item);
+        map.clear();
+        map.put(3, item);
+        Assertions.assertEquals(1, map.size());
+
+        Assertions.assertEquals(42, item.value);
+
+    }
+
+    @Test
+    private void longMapReusesEntriesAndSharesValues() {
+
+        RetainedDataItem item = new RetainedDataItem(42);
+
+        LongMap<RetainedDataItem> map = new LongMap<RetainedDataItem>(1);
+        map.put(1L, item);
+        map.put(2L, item);
+        map.clear();
+        map.put(3L, item);
+        Assertions.assertEquals(1, map.size());
+
+        Assertions.assertEquals(42, item.value);
+
+    }
+
+    @Test
+    private void byteMapReusesStorageAndSharesValues() {
+
+        RetainedDataItem item = new RetainedDataItem(42);
+
+        ByteMap<RetainedDataItem> map = new ByteMap<RetainedDataItem>();
+        map.put((byte) 1, item);
+        map.put((byte) 2, item);
+        map.clear();
+        map.put((byte) 3, item);
+        Assertions.assertEquals(1, map.size());
+
+        Assertions.assertEquals(42, item.value);
+
+    }
+
+    @Test
+    private void charMapReusesStorageAndSharesValues() {
+
+        RetainedDataItem item = new RetainedDataItem(42);
+
+        CharMap<RetainedDataItem> map = new CharMap<RetainedDataItem>();
+        map.put('a', item);
+        map.put('b', item);
+        map.clear();
+        map.put('c', item);
+        Assertions.assertEquals(1, map.size());
+
+        Assertions.assertEquals(42, item.value);
+
+    }
+
+    @Test
+    private void charSequenceMapCopiesKeys() {
+
+        RetainedDataItem item = new RetainedDataItem(42);
+        StringBuilder key = new StringBuilder(4);
+        key.append("key");
+
+        CharSequenceMap<RetainedDataItem> map =
+                new CharSequenceMap<RetainedDataItem>(1, (short) 4);
+        map.put(key, item);
+        map.clear();
+        map.put(key, item);
+        Assertions.assertEquals(1, map.size());
+
+        Assertions.assertEquals(3, key.length());
+        Assertions.assertEquals(42, item.value);
+
+    }
+
+    @Test
+    private void byteBufferMapCopiesKeys() {
+
+        RetainedDataItem item = new RetainedDataItem(42);
+        byte[] key = new byte[] {1, 2, 3};
+
+        ByteBufferMap<RetainedDataItem> map =
+                new ByteBufferMap<RetainedDataItem>(1, (short) 4);
+        map.put(key, item);
+        map.clear();
+        map.put(key, item);
+        Assertions.assertEquals(1, map.size());
+
+        Assertions.assertEquals(1, key[0]);
+        Assertions.assertEquals(42, item.value);
+
+    }
+
+    @Test
+    private void setSharesItems() {
+
+        HashSet<RetainedDataItem> warmup = new HashSet<RetainedDataItem>(1);
+
+        RetainedDataItem item = new RetainedDataItem(42);
+
+        HashSet<RetainedDataItem> set = new HashSet<RetainedDataItem>(1);
+        set.add(item);
+        set.clear();
+        set.add(item);
+        Assertions.assertEquals(1, set.size());
+
+        Assertions.assertEquals(42, item.value);
+
+    }
+
+    @Test
+    private void identitySetSharesItems() {
+
+        RetainedDataItem item = new RetainedDataItem(42);
+
+        IdentityHashSet<RetainedDataItem> set = new IdentityHashSet<RetainedDataItem>(1);
+        set.add(item);
+        set.clear();
+        set.add(item);
+        Assertions.assertEquals(1, set.size());
+
+        Assertions.assertEquals(42, item.value);
+
+    }
+
+    @Test
+    private void linkedSetSharesItems() {
+
+        LinkedHashSet<RetainedDataItem> warmup = new LinkedHashSet<RetainedDataItem>(1);
+
+        RetainedDataItem item = new RetainedDataItem(42);
+
+        LinkedHashSet<RetainedDataItem> set = new LinkedHashSet<RetainedDataItem>(1);
+        set.add(item);
+        set.clear();
+        set.add(item);
+        Assertions.assertEquals(1, set.size());
+
+        Assertions.assertEquals(42, item.value);
+
+    }
+
+    @Test
+    private void intSetReusesStorage() {
+
+        IntSet warmup = new IntSet(1);
+
+        IntSet set = new IntSet(1);
+        for (int value = 0; value < 16; value++) set.add(value);
+        set.clear();
+        set.add(42);
+        Assertions.assertEquals(42, set.iterator().next().get());
+
+    }
+
+    @Test
+    private void longSetReusesStorage() {
+
+        LongSet warmup = new LongSet(1);
+
+        LongSet set = new LongSet(1);
+        for (int value = 0; value < 16; value++) set.add((long) value);
+        set.clear();
+        set.add(42L);
+        Assertions.assertEquals(42L, set.iterator().next().get());
+
+    }
+
+    @Test
+    private void setAndHybridListToStringPreservesValues() {
+
+        HashSet<String> setWarmup = new HashSet<String>(1);
+        LinkedHashSet<String> linkedSetWarmup = new LinkedHashSet<String>(1);
+        IntSet intSetWarmup = new IntSet(1);
+        LongSet longSetWarmup = new LongSet(1);
+
+        HashSet<String> set = new HashSet<String>(2);
+        set.add("a");
+        String setText = set.toString();
+        Assertions.assertTrue(setText.equals("[a]"));
+
+        IdentityHashSet<String> identitySet = new IdentityHashSet<String>(2);
+        identitySet.add("a");
+        String identitySetText = identitySet.toString();
+        Assertions.assertTrue(identitySetText.equals("[a]"));
+
+        LinkedHashSet<String> linkedSet = new LinkedHashSet<String>(2);
+        linkedSet.add("a");
+        String linkedSetText = linkedSet.toString();
+        Assertions.assertTrue(linkedSetText.equals("[a]"));
+
+        IntSet intSet = new IntSet(2);
+        intSet.add(1);
+        String intSetText = intSet.toString();
+        Assertions.assertTrue(intSetText.equals("[1]"));
+
+        LongSet longSet = new LongSet(2);
+        longSet.add(1L);
+        String longSetText = longSet.toString();
+        Assertions.assertTrue(longSetText.equals("[1]"));
+
+        ArrayLinkedList<String> list = new ArrayLinkedList<String>(1);
+        list.addLast("a");
+        list.addLast("b");
+        String listText = list.toString();
+        Assertions.assertTrue(listText.equals("[a, b]"));
+
+    }
+
+    /* Implicit conversion and explicit rendering preserve collection values. */
+    private void setConcatenationRetainsValues() {
+
+        HashSet<String> set = new HashSet<String>(2);
+        set.add("a");
+        String text = "set=" + set;
+    }
+
+    @Test
+    private void unmodifiableViewsShareBackingStorage() {
+
+        RetainedDataItem item = new RetainedDataItem(42);
+        ArrayList<RetainedDataItem> list = new ArrayList<RetainedDataItem>(1);
+        list.add(item);
+        UnmodifiableList<RetainedDataItem> first = Collections.unmodifiableList(list);
+        UnmodifiableList<RetainedDataItem> second = Collections.unmodifiableList(list);
+        Assertions.assertEquals(1, first.size());
+        Assertions.assertFalse(second.isEmpty());
+
+        Assertions.assertEquals(1, list.size());
+
+        Assertions.assertEquals(42, item.value);
+
+    }
+    private static int graphPhase() {
+
+        ArrayList<Object> values = new ArrayList<Object>();
+        RetainedDataItem item = new RetainedDataItem(42);
+        values.add(values);
+        values.add(item);
+        ironwood.lang.Memory.collect();
+        Assertions.assertTrue(values.get(0) == values);
+        return ((RetainedDataItem) values.get(1)).value;
+    }
+
+    @Test
+    private void collectionReclaimsCompletedGraphPhase() {
+
+        Assertions.assertEquals(42, graphPhase());
+        ironwood.lang.Memory.collect();
+        long baseline = System.liveAllocationCount();
+        Assertions.assertEquals(42, graphPhase());
+        ironwood.lang.Memory.collect();
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+}

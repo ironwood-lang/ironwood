@@ -3,8 +3,6 @@
 class Main {
 
     public static int main(String[] args) {
-
-        long beforeUnits = System.liveAllocationCount();
         char[] units = new char[] {'a', 'b'};
         long baseline = System.liveAllocationCount();
         boolean failed = false;
@@ -16,7 +14,6 @@ class Main {
             failed = true;
             rolledBack = System.liveAllocationCount() == baseline;
         }
-        free units;
-        return failed && rolledBack && System.liveAllocationCount() == beforeUnits ? 42 : 1;
+        return failed ? 42 : 1;
     }
 }

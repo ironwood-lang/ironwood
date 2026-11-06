@@ -23,9 +23,7 @@ public class IntMapBenchmark {
         long total = (long) warmup + measurements;
         if (total > Integer.MAX_VALUE) throw new IllegalArgumentException("too many iterations");
         IntMap<String> map = new IntMap<String>(capacity);
-        defer free map;
         Bench bench = new Bench(warmup);
-        defer free bench;
         System.out.println("Benchmarking put...");
         for (int index = 0; index < total; index++) {
             bench.mark();

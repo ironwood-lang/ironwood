@@ -19,18 +19,15 @@ public final class BridgeByteViewInputSources {
                 .append("; struct iw_byteview *view").append(i).append(" = NULL;\n");
         return text.toString();
     }
+
     static String acquire(CompilationArtifact artifact, BridgeCallableId callable) {
-        return acquire(artifact, callable, false);
+        return acquire(artifact, callable, null);
     }
 
-    static String acquire(CompilationArtifact artifact, BridgeCallableId callable, boolean managed) {
-        return acquire(artifact, callable, managed, null);
-    }
-
-    static String acquire(CompilationArtifact artifact, BridgeCallableId callable, boolean managed, BridgeListenerProxies listeners) {
+    static String acquire(CompilationArtifact artifact, BridgeCallableId callable, BridgeListenerProxies listeners) {
         var indices = indices(callable.parameters());
         if (indices.isEmpty()) return "";
-        var proof = managed ? BridgeByteViews.analyzeManaged(artifact, callable, listeners) : BridgeByteViews.analyze(artifact, callable);
+        var proof = BridgeByteViews.analyzeManaged(artifact, callable, listeners);
         if (proof.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(proof.reason());
         boolean identity = proof.contract().orElseThrow().observesIdentity();
         var text = new StringBuilder();

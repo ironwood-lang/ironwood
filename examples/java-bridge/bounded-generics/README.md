@@ -5,8 +5,9 @@
 `Holder<T extends Value>` has a public constructor and setter. Value is an
 exported final native class, so every legal Java type argument has the same
 native representation. Java calls use the source API without handwritten JNI
-or loading code. A holder retains its input root until replacement or `free()`;
-destroy holders before their retained values. `echo` preserves input identity.
+or loading code. The holder's managed field keeps its input reachable until
+replacement. Independent generated handles anchor Java facade uses; closing an
+anchor does not close a source resource. `echo` preserves input identity.
 
 With a supported JDK 21 to 25 selected in `JAVA_HOME` and LLVM 23 on PATH, and the prepared support SDK
 on Linux, run from the repository root:
@@ -31,7 +32,7 @@ python3 examples/java-bridge/bounded-generics/benchmark.py --output examples/jav
 
 Use `--cpu 1` on Linux to pin timing children. Use `--quick` only for smoke.
 The directory must be new. Generic and nongeneric setters alternate the same
-two native roots, exercising existing retention commits on every call. Three
+two native roots, exercising the managed setter on every call. Three
 independent JVMs per path each run five warmup batches and seven measured batches
 of two million calls. Full measurements require zero Java and native allocations.
 The runner records batch-average latency, throughput, final-value checks,

@@ -113,18 +113,12 @@ final class DocHelperTests {
         String prefix = "import ironwood.compiler.port.*;\n" + renderer + "class Main { static String render(LinkRenderer"
                 + " links, String reference) { return links.link(reference, true); }"
                 + " public static int main(String[] args) { String input = new String(args[0]); ";
-        for (UnfreedMode mode : UnfreedMode.values()) {
-            PortFixtures.require(mode, helpers, prefix + "String head = DocText.head(input); String tail ="
-                    + " DocText.tail(input); int[] lines = DocText.lineFields(input); String text ="
-                    + " DocText.entities(input); free input; int r = head.length() + tail.length() + lines.length"
-                    + " + text.length(); free head; free tail; free lines; free text; return r; }}", null);
-            PortFixtures.require(mode, helpers, prefix + "Brackets brackets = new Brackets(); String link ="
-                    + " render(brackets, input); free input; int r = link.length(); free link; free brackets;"
-                    + " return r; }}", null);
-            PortFixtures.require(mode, helpers, prefix + "String head = DocText.head(input); free head; free input;"
-                    + " return head.length(); }}", "after its allocation was freed");
-            PortFixtures.require(mode, helpers, prefix + "String anchor = DocText.anchor(input); free anchor;"
-                    + " free anchor; free input; return 0; }}", "allocation was already freed");
+        // This fixture scope preserves independent local names.
+{
+            PortFixtures.require(helpers, prefix + "String head = DocText.head(input); String tail = DocText.tail(input); int[] lines = DocText.lineFields(input); String text = DocText.entities(input); ; int r = head.length() + tail.length() + lines.length + text.length(); ; ; ; ; return r; }}", null);
+            PortFixtures.require(helpers, prefix + "Brackets brackets = new Brackets(); String link = render(brackets, input); ; int r = link.length(); ; ; return r; }}", null);
+            PortFixtures.require(helpers, prefix + "String head = DocText.head(input); ; ; return head.length(); }}", null);
+            PortFixtures.require(helpers, prefix + "String anchor = DocText.anchor(input); ; ; ; return 0; }}", null);
         }
     }
 

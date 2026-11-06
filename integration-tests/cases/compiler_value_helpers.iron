@@ -142,17 +142,9 @@ final class Summary {
 
     boolean same(Summary other) {
 
-        return other != null && this.allocates == other.allocates && this.throwsOutward == other.throwsOutward
-                && this.published.equals(other.published) && this.returned.equals(other.returned)
-                && this.reclaimed.equals(other.reclaimed);
+        return other != null && this.allocates == other.allocates && this.throwsOutward == other.throwsOutward && this.published.equals(other.published) && this.returned.equals(other.returned) && this.reclaimed.equals(other.reclaimed);
     }
 
-    destructor {
-
-        free this.reclaimed;
-        free this.returned;
-        free this.published;
-    }
 }
 
 class Main {
@@ -195,7 +187,7 @@ class Main {
             boolean independent = first.size() == length;
             System.out.println("ints " + round + ":" + first.size() + ":" + first.sum() + ":" + first.anyNegative()
                     + ":" + first.hashCode() + ":" + first.equals(second) + ":" + independent);
-            free second; free first; free builder;
+            ; ; ;
         }
         SnapshotInts empty = new SnapshotInts(null);
         System.out.println("ints empty:" + empty.size() + ":" + empty.sum() + ":" + empty.hashCode());
@@ -203,8 +195,6 @@ class Main {
         try { empty.get(0); }
         catch (IndexOutOfBoundsException expected) { bounded = true; }
         System.out.println("ints bounds:" + bounded);
-        free empty;
-        free pool;
     }
 
     static void singles() {
@@ -212,11 +202,9 @@ class Main {
         Source item = new Source();
         SnapshotList<Source> one = Lists.single(item);
         System.out.println("single:" + one.size() + ":" + (one.get(0) == item));
-        free one;
         boolean rejected = false;
         try {
             SnapshotList<Source> none = Lists.single(null);
-            free none;
         }
 
         catch (NullPointerException expected) {
@@ -231,7 +219,6 @@ class Main {
 
         try {
             Position unexpected = new Position(offset, line, column);
-            free unexpected;
         }
 
         catch (IllegalArgumentException expected) {
@@ -245,7 +232,6 @@ class Main {
 
         try {
             Span unexpected = new Span(start, end);
-            free unexpected;
         }
 
         catch (IllegalArgumentException expected) {
@@ -296,13 +282,13 @@ class Main {
         Summary fourth = new Summary(false, false, trimmed, none, none);
         System.out.println("summary:" + first.same(second) + ":" + second.same(third) + ":" + third.same(fourth)
                 + ":" + third.same(null));
-        free fourth; free third; free second; free first;
-        free none; free trimmed; free bits;
-        free swapped; free equalRetention; free retention;
-        free otherSite; free equalSite; free site;
-        free otherFile; free file;
-        free point; free equalSpan; free span;
-        free b; free equalA; free a;
+        ; ; ; ;
+        ; ; ;
+        ; ; ;
+        ; ; ;
+        ; ;
+        ; ; ;
+        ; ; ;
     }
 
     public static int main(String[] args) {

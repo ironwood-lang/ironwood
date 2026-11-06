@@ -41,11 +41,6 @@ class DiamondOuter {
         int result = value.value().length() + anonymous.value().length()
                 + explicit.value().length() + implicit.value().length()
                 + implicitAnonymous.value().length() + 30;
-        free implicitAnonymous;
-        free implicit;
-        free explicit;
-        free anonymous;
-        free value;
         return result;
     }
 }

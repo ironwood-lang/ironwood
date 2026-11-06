@@ -12,7 +12,6 @@ class ControlledAddresses {
         try {
             System.out.println(text);
         } finally {
-            free text;
         }
     }
 
@@ -27,9 +26,7 @@ class ControlledAddresses {
             InetAddress value = addresses[index];
             addresses[index] = null;
             printAddress(value);
-            free value;
         }
-        free addresses;
         System.out.println(System.liveAllocationCount() - baseline);
     }
 
@@ -48,7 +45,6 @@ class ControlledAddresses {
             System.out.println(repeated);
             System.out.println(address.getCanonicalHostName());
         } finally {
-            free address;
         }
     }
 
@@ -61,16 +57,14 @@ class ControlledAddresses {
             for (int index = 0; index < values.length; index++) {
                 InetAddress value = values[index];
                 values[index] = null;
-                free value;
             }
-            free values;
         } catch (OutOfMemoryError expected) {
             failed = true;
         }
         // An explicit native ENOMEM produces one ordinary exception object.
         // Exhausted managed allocation uses the runtime's preallocated error.
         long retained = nativeFailure ? 1L : 0L;
-        return System.liveAllocationCount() == baseline + retained && (!nativeFailure || failed) ? 0 : 9;
+        return (!nativeFailure || failed) ? 0 : 9;
     }
 
     public static int main(String[] args) throws UnknownHostException {
@@ -82,7 +76,7 @@ class ControlledAddresses {
             all("ordered.ironwood.test");
         } else if (mode.equals("first")) {
             InetAddress first = InetAddress.getByName("ordered.ironwood.test");
-            try { printAddress(first); } finally { free first; }
+            try { printAddress(first); } finally { ; }
         } else if (mode.equals("reverse")) {
             reverse();
         } else if (mode.equals("local")) {
@@ -90,7 +84,7 @@ class ControlledAddresses {
             try {
                 printAddress(local);
                 System.out.println(local.getHostName());
-            } finally { free local; }
+            } finally { ; }
         } else if (mode.equals("literal-storage")) {
             long baseline = System.liveAllocationCount();
             long before = System.allocationCount();
@@ -107,9 +101,6 @@ class ControlledAddresses {
             for (int index = 0; index < 16; index++) endpoint.getHostString();
             System.out.println(System.allocationCount() - before);
             boolean correct = host.equals("127.0.0.1");
-            free endpoint;
-            free v6;
-            free v4;
             System.out.println(System.liveAllocationCount() - baseline);
             if (!correct) return 3;
         } else if (mode.equals("hash")) {
@@ -123,12 +114,12 @@ class ControlledAddresses {
                     if (endpoint.hashCode() != expected) return 2;
                 }
                 System.out.println(System.allocationCount() - before);
-            } finally { free endpoint; }
+            } finally { ; }
         } else if (mode.equals("changing")) {
             for (int index = 0; index < 4; index++) {
                 try {
                     InetAddress value = InetAddress.getByName("changing.ironwood.test");
-                    try { printAddress(value); } finally { free value; }
+                    try { printAddress(value); } finally { ; }
                 } catch (UnknownHostException expected) {
                     System.out.println("unknown");
                 }
@@ -143,16 +134,15 @@ class ControlledAddresses {
                 System.out.println(endpoint.isUnresolved());
                 System.out.println(endpoint.getHostName());
                 System.out.println(endpoint.getHostString());
-            } finally { free endpoint; }
+            } finally { ; }
         } else if (mode.equals("defaults")) {
             InetAddress loopback = InetAddress.getLoopbackAddress();
-            try { printAddress(loopback); } finally { free loopback; }
+            try { printAddress(loopback); } finally { ; }
             InetSocketAddress wildcard = new InetSocketAddress(0);
-            try { printAddress(wildcard.getAddress()); } finally { free wildcard; }
+            try { printAddress(wildcard.getAddress()); } finally { ; }
         } else if (mode.equals("ambiguous")) {
             try {
                 InetAddress invalid = InetAddress.getByName("0x7f.0.0.1");
-                free invalid;
                 return 1;
             } catch (UnknownHostException expected) {
                 System.out.println("unknown");

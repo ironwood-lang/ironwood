@@ -43,8 +43,6 @@ public class NestedInterfaces {
         InterfaceContainer.Answer answer = new InterfaceContainer.Constant();
         InterfaceNamespace.Marker marker = new MarkedValue();
         int result = marker.marked() != 42 ? 1 : answer.value();
-        free marker;
-        free answer;
         return result;
     }
 }

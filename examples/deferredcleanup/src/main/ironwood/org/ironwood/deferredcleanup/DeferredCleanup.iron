@@ -39,22 +39,12 @@ class Resource implements AutoCloseable {
         if (this.failOnClose) throw new CloseFailure();
     }
 
-    destructor {
-
-        // Reclamation records a separate event; it does not implicitly close.
-        order = order * 10 + 3;
-    }
 }
 
 class PooledValue {
 
-    static int destroyed;
     int uses;
 
-    destructor {
-
-        destroyed++;
-    }
 }
 
 class ValueBuilder implements ObjectBuilder<PooledValue> {
@@ -66,18 +56,15 @@ class ValueBuilder implements ObjectBuilder<PooledValue> {
     }
 }
 
-// Demonstrates separate close, free, and pool release. Five checked summary lines
-// and exit 42 mean cleanup order, failure precedence, reuse, and live counts pass.
+// Demonstrates explicit close and pool release. Exit 42 verifies cleanup order,
+// failure precedence and allocation-free reuse. Collection happens after phases.
 public class DeferredCleanup {
 
     static int useResource(boolean failBody, boolean failClose) throws BodyFailure, CloseFailure {
 
         byte[] buffer = new byte[2];
-        defer free buffer;
         Resource resource = new Resource(failClose);
-        // Declare in reverse cleanup order: close, free resource, free buffer.
         // Each reached action still runs if the body or another action throws.
-        defer free resource;
         defer resource.close();
 
         resource.write(buffer);
@@ -89,15 +76,12 @@ public class DeferredCleanup {
     static boolean reusePool() {
 
         ValueBuilder builder = new ValueBuilder();
-        defer free builder;
         ArrayObjectPool<PooledValue> pool = new ArrayObjectPool<PooledValue>(1, builder);
-        defer free pool;
         long allocated = System.allocationCount();
         int sum = 0;
         for (int i = 0; i < 3; i++) {
             PooledValue value = pool.get();
-            // Release at each iteration's exit, including continue. Never free
-            // a borrowed item: the pool owns it and destroys it with the pool.
+            // Release at each iteration's exit, including continue, for reuse.
             defer pool.release(value);
             if (value.uses != i) return false;
             value.uses++;
@@ -109,7 +93,6 @@ public class DeferredCleanup {
 
     static boolean checkFailure(boolean failBody, boolean failClose) {
 
-        long live = System.liveAllocationCount();
         Resource.order = 0;
         try {
             useResource(failBody, failClose);
@@ -120,32 +103,25 @@ public class DeferredCleanup {
         } catch (CloseFailure primary) {
             if (failBody || !failClose || primary.getSecondaryExceptionCount() != 0) return false;
         }
-        // Caught exception objects escape and remain live under ordinary rules.
-        // Account for those explicitly while proving resource and buffer free.
-        int exceptions = (failBody ? 1 : 0) + (failClose ? 1 : 0);
-        return Resource.order == 123 && System.liveAllocationCount() == live + exceptions;
+        return Resource.order == 12;
     }
 
     public static int main(String[] args) throws BodyFailure, CloseFailure {
 
-        long live = System.liveAllocationCount();
-        if (useResource(false, false) != 42 || Resource.order != 123
-                || System.liveAllocationCount() != live) return 1;
-        System.out.println("normal: body -> close -> free");
+        if (useResource(false, false) != 42 || Resource.order != 12) return 1;
+        System.out.println("normal: body -> close");
 
         if (!checkFailure(true, false)) return 2;
-        System.out.println("body failure: primary preserved, resource reclaimed");
+        System.out.println("body failure: primary preserved, resource closed");
         if (!checkFailure(false, true)) return 3;
-        System.out.println("close failure: primary preserved, resource reclaimed");
+        System.out.println("close failure: primary preserved, resource closed");
         if (!checkFailure(true, true)) return 4;
-        System.out.println("body + close failure: body primary, close secondary, resource reclaimed");
+        System.out.println("body + close failure: body primary, close secondary, resource closed");
 
-        long poolLive = System.liveAllocationCount();
-        int destroyed = PooledValue.destroyed;
         if (!reusePool()) return 5;
-        // Method exit destroys the pool, then its borrowed builder.
-        if (PooledValue.destroyed != destroyed + 1 || System.liveAllocationCount() != poolLive) return 5;
-        System.out.println("pool: 3 checkouts, no new allocations, all storage reclaimed");
+
+        System.out.println("pool: 3 checkouts, no new allocations");
+        ironwood.lang.Memory.collect();
         return 42;
     }
 }

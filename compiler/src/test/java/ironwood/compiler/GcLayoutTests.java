@@ -43,7 +43,7 @@ public final class GcLayoutTests {
         for (int index = 0; index < 160; index++) large.append(index % 2 == 0 ? " Object " : " long ")
                 .append("slot").append(index).append(';');
         source += large.append('}');
-        var result = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(List.of(SourceFile.of("gc2.iron", source)));
+        var result = new CompilerPipeline().analyzeForBridge(List.of(SourceFile.of("gc2.iron", source)));
         check(result.valid(), result.diagnostics().toString());
         return result.program().orElseThrow();
     }
@@ -70,7 +70,7 @@ public final class GcLayoutTests {
         layouts.add(IrAllocationLayout.of(input.classes().stream().filter(type -> type.name().equals("Large")).findFirst().orElseThrow()));
         for (var element : List.of(IrType.I1, IrType.I8, IrType.I16, IrType.U16, IrType.I32,
                 IrType.I64, IrType.F32, IrType.F64, IrType.reference("Shape"), IrType.array(IrType.I32))) {
-            layouts.add(IrAllocationLayout.of(new IrArrayType(IrType.array(element), 0, List.of(), List.of(), false)));
+            layouts.add(IrAllocationLayout.of(new IrArrayType(IrType.array(element), 0, List.of(), List.of())));
         }
         var string = input.classes().stream().filter(candidate -> candidate.name().equals("ironwood.lang.String")).findFirst().orElseThrow();
         layouts.add(IrAllocationLayout.of(string));
@@ -102,7 +102,7 @@ public final class GcLayoutTests {
             check(IrAllocationLayout.of(type).equals(IrAllocationLayout.of(before)), "clone/prune changed physical map");
         }
         var cloneSource = Files.readString(Path.of("integration-tests/cases/enum_argument_specialization.iron"));
-        var cloneArtifact = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(List.of(SourceFile.of("clones.iron", cloneSource)));
+        var cloneArtifact = new CompilerPipeline().analyzeForBridge(List.of(SourceFile.of("clones.iron", cloneSource)));
         check(cloneArtifact.valid(), cloneArtifact.diagnostics().toString());
         var cloneInput = cloneArtifact.program().orElseThrow();
         var clones = NativeLinkTransformation.apply(cloneInput).program();
@@ -122,7 +122,7 @@ public final class GcLayoutTests {
         var inheritedFailure = new IrClass("DerivedFailure", IrTypeKind.CLASS, Optional.of(throwable.name()), List.of(),
                 throwable.fields(), 0, List.of(), List.of(), throwable.sourceSpan());
         IrAllocationLayout.of(inheritedFailure).requireSupported();
-        var view = new IrArrayType(IrType.array(IrType.reference("ironwood.bridge.ByteView")), 0, List.of(), List.of(), false);
+        var view = new IrArrayType(IrType.array(IrType.reference("ironwood.bridge.ByteView")), 0, List.of(), List.of());
         denied(() -> IrAllocationLayout.of(view).requireSupported());
         var badField = new IrField("Bad", "hole", IrType.I64, 3, throwable.sourceSpan());
         var bad = new IrClass("Bad", IrTypeKind.CLASS, Optional.empty(), List.of(), List.of(badField), 0, List.of(), List.of(), throwable.sourceSpan());

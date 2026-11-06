@@ -5,7 +5,6 @@ package ironwood.compiler.backend;
 import ironwood.compiler.CompilerPipeline;
 import ironwood.compiler.IronJarMain;
 import ironwood.compiler.Main;
-import ironwood.compiler.UnfreedMode;
 import ironwood.compiler.source.SourceFile;
 
 import java.io.ByteArrayOutputStream;
@@ -108,18 +107,12 @@ public final class NativeTargetTests {
     public static void mixedObjectsAcrossArtifacts() throws Exception {
         Path fixture = Path.of("integration-tests/cases/native_target_layout.iron");
         String source = Files.readString(fixture);
-        String unsafe = source.replace("defer free child;", "defer free child; free child;");
-        require(!source.equals(unsafe), "unsafe cleanup mutation missed");
-        for (UnfreedMode mode : UnfreedMode.values()) {
-            var safeResult = new CompilerPipeline(mode).compile(SourceFile.of(fixture.toString(), source));
-            require(safeResult.successful(), mode + " safe cleanup: " + safeResult.diagnostics());
-            var unsafeResult = new CompilerPipeline(mode).compile(SourceFile.of(fixture.toString(), unsafe));
-            require(!unsafeResult.successful(), mode + " accepted double free");
-        }
+        var managed = new CompilerPipeline().compile(SourceFile.of(fixture.toString(), source));
+        require(managed.successful(), managed.diagnostics().toString());
         Path root = Files.createTempDirectory("ironwood-target-objects-");
         try {
             Path classes = root.resolve("classes");
-            cli(fixture.toString(), "-d", classes.toString(), "--unfreed=error");
+            cli(fixture.toString(), "-d", classes.toString());
             Path archive = root.resolve("layout.ironjar");
             var errors = new ByteArrayOutputStream();
             require(IronJarMain.run(new String[]{"--create", "--file", archive.toString(), classes.toString()},
@@ -131,8 +124,7 @@ public final class NativeTargetTests {
                         Path binary = root.resolve("program");
                         Path llvm = root.resolve("program.ll");
                         var arguments = new ArrayList<>(List.of("--link", "-cp", artifact.toString(),
-                                "--main-class", "Main", "-o", binary.toString(), "--unfreed=error",
-                                "--emit-llvm", llvm.toString(), level));
+                                "--main-class", "Main", "-o", binary.toString(), "--emit-llvm", llvm.toString(), level));
                         if (machine == TargetMachine.NATIVE) arguments.add("-march=native");
                         cli(arguments.toArray(String[]::new));
                         require(!Files.readString(llvm).contains("target triple ="), "raw LLVM became host-specific");

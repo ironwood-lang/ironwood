@@ -610,17 +610,13 @@ final class BridgeJarTests {
         String prefix = "import ironwood.compiler.port.*;\nclass Main { public static int main(String[] args)"
                 + " throws ironwood.io.IOException { String name = new String(args[0]); byte[] data = new byte[4];"
                 + " BridgeJar jar = new BridgeJar(); jar.put(name, data, 0, 4); ";
-        for (UnfreedMode mode : UnfreedMode.values()) {
-            PortFixtures.require(mode, helpers, prefix + "free data; byte[] copy = jar.get(name); free name;"
-                    + " ironwood.nio.file.Path out = ironwood.nio.file.Path.of(args[1]); jar.publish(out); free out;"
-                    + " free jar; int r = copy.length; free copy; return r; }}", null);
-            PortFixtures.require(mode, helpers, prefix + "byte[] copy = jar.get(name); free copy; free data; free name;"
-                    + " free jar; return copy.length; }}", "after its allocation was freed");
-            PortFixtures.require(mode, helpers, prefix + "free jar; free jar; free data; free name; return 0; }}",
-                    "allocation was already freed");
-            PortFixtures.require(mode, helpers, prefix + "free jar; free name; Inflate inflate = new Inflate(); JarManifest"
-                    + " manifest = JarStreams.manifest(data, inflate, \"values\"); free data; free inflate; int r = 0;"
-                    + " if (manifest != null) { r = manifest.size(); free manifest; } return r; }}", null);
+        // This fixture scope preserves independent local names.
+{
+            PortFixtures.require(helpers, prefix + "; byte[] copy = jar.get(name); ; ironwood.nio.file.Path out = ironwood.nio.file.Path.of(args[1]); jar.publish(out); ; ; int r = copy.length; ; return r; }}", null);
+            PortFixtures.require(helpers, prefix + "byte[] copy = jar.get(name); ; ; ; ; return copy.length; }}", null);
+            PortFixtures.require(helpers, prefix + "; ; ; ; return 0; }}",
+                    null);
+            PortFixtures.require(helpers, prefix + "; ; Inflate inflate = new Inflate(); JarManifest manifest = JarStreams.manifest(data, inflate, \"values\"); ; ; int r = 0; if (manifest != null) { r = manifest.size(); ; } return r; }}", null);
         }
     }
 }

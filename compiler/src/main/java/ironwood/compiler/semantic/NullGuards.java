@@ -41,10 +41,9 @@ import java.util.stream.Stream;
  * change, and the reference conversions of them.
  *
  * <p>A final instance field read from one receiver value is named by the receiver and
- * the field. Only constructors store such a field, whose loads are not named, and a
- * destructor that frees an owned field of its class, which stores null. A guard of a
- * field the function may store therefore ends where lowering frees the field, and does
- * not cover a loop entered after it, whose back edge may bring a later free around.
+ * the field. Only constructors store such a field, whose loads are not named
+ * until construction completes. Store and loop tracking verify these facts on
+ * the completed graph before a redundant check is omitted.
  *
  * <p>Dominance is judged on the control-flow graph lowered so far. Lowering places code
  * in a block only after every forward edge into it exists; edges added later are loop

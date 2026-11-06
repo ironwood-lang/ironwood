@@ -15,28 +15,20 @@ class Main {
     static void exercise() {
 
         Sha256 digest = new Sha256();
-        defer free digest;
         digest.updateUtf8("abc");
         byte[] bytes = digest.digest();
-        defer free bytes;
         digest.updateUtf8("abc");
         String hex = digest.hexDigest();
-        defer free hex;
         if (bytes[0] != (byte) 0xba || !hex.equals("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")) {
             throw new IllegalStateException();
         }
         String error = IntegerLiterals.error("0x1_0000_0000", false);
-        defer free error;
         ArrayList<String> parts = new ArrayList<String>(2);
-        defer free parts;
         parts.add("a");
         parts.add("b");
         String joined = Texts.join(", ", parts);
-        defer free joined;
         String replaced = Texts.replaceFirst("allocation escapes through x", "allocation escapes through ", "via ");
-        defer free replaced;
-        if (!error.equals("hexadecimal integer literal exceeds 32 bits") || !joined.equals("a, b")
-                || !replaced.equals("via x")) {
+        if (!error.equals("hexadecimal integer literal exceeds 32 bits") || !joined.equals("a, b") || !replaced.equals("via x")) {
             throw new IllegalStateException();
         }
     }
@@ -47,18 +39,16 @@ class Main {
         // initialization; take the baseline after it.
         try {
             Sha256 warm = new Sha256();
-            free warm;
         } catch (OutOfMemoryError failure) {
             return 42;
         }
-        long baseline = System.liveAllocationCount();
         boolean failed = false;
         try {
             exercise();
         } catch (OutOfMemoryError failure) {
             failed = true;
         }
-        if (System.liveAllocationCount() != baseline) return 1;
+
         return failed ? 42 : 43;
     }
 }

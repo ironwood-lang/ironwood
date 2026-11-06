@@ -53,108 +53,93 @@ final class DeferTests {
             String value = result.equals("boolean") ? "true" : "new Main()";
             reject("class Main { static " + result + " action() { return " + value
                     + "; } public static int main(String[] args) { defer action(); return 0; } }",
-                    "defer requires a void method invocation", UnfreedMode.OFF);
+                    "defer requires a void method invocation");
         }
         String checked = "class Failure extends Exception {} class Main { static void action() throws Failure {} "
                 + "public static int main(String[] args) { defer action(); return 0; } }";
-        reject(checked, "unreported checked exception", UnfreedMode.OFF);
+        reject(checked, "unreported checked exception");
         reject(checked.replace("return 0;", "try { return 0; } catch (Failure e) { return 1; }"),
-                "unreported checked exception", UnfreedMode.OFF);
+                "unreported checked exception");
         accept(checked.replace("defer action(); return 0;", "try { defer action(); return 0; } catch (Failure e) { return 1; }"));
         accept(checked.replace("main(String[] args)", "main(String[] args) throws Failure"));
         reject(checked.replace("defer action(); return 0;",
                 "try { action(); return 0; } catch (Failure e) { return 1; } finally { defer action(); }"),
-                "unreported checked exception", UnfreedMode.OFF);
+                "unreported checked exception");
         reject("class Other { private static void hide() {} } class Main { public static int main(String[] args) { defer Other.hide(); return 0; } }",
-                "private", UnfreedMode.OFF);
+                "private");
         reject("class Main { public static int main(String[] args) { defer missing(); return 0; } }",
-                "unknown", UnfreedMode.OFF);
+                "unknown");
         reject("class Main { static void action() {} public static int main(String[] args) { return 0; defer action(); } }",
-                "unreachable statement", UnfreedMode.OFF);
+                "unreachable statement");
         CompilationArtifact repeated = compile(checked.replace("defer action(); return 0;",
-                "try { if (args.length == 0) return 1; return 2; } finally { defer action(); }"), UnfreedMode.OFF);
+                "try { if (args.length == 0) return 1; return 2; } finally { defer action(); }"));
         require(repeated.diagnostics().stream().filter(d -> d.message().contains("unreported checked exception")).count() == 1,
                 "duplicate cleanup diagnostics: " + repeated.diagnostics());
         // Initializer/delegation and checked-exception rules survive the heap cutover.
         accept("class Main { static { defer action(); } { defer action(); } Main() { defer action(); } static void action() {} public static int main(String[] args) { Main m = new Main(); return 0; } }");
         reject("class Main { Main() { defer action(); super(); } static void action() {} public static int main(String[] args) { return 0; } }",
-                "first statement", UnfreedMode.OFF);
-        reject("class Main { static void action() { Object o = new Object(); } destructor { defer action(); } public static int main(String[] args) { Main m = new Main(); free m; return 0; } }",
-                "destructor", UnfreedMode.OFF);
+                "first statement");
+        accept("class Main { static void action() { Object o = new Object(); } public static int main(String[] args) { defer action(); return 0; } }");
         reject("class Failure extends Exception {} class Main { static Failure failure; "
                         + "static void action() throws Failure { throw failure; } Main() { defer action(); } "
                         + "public static int main(String[] args) { return 0; } }",
-                "unreported checked exception", UnfreedMode.OFF);
+                "unreported checked exception");
     }
 
     static void ownership() {
         String prefix = "class Box { int value; void touch() { this.value++; } } class Main { static Box saved; "
                 + "static void use(Box b) { b.touch(); } static void publish(Box b) { saved = b; } "
                 + "public static int main(String[] args) { Box b = new Box(); ";
-        for (UnfreedMode mode : UnfreedMode.values()) {
-            String destructor = "final class Leaf {} class Main { private Leaf owned = new Leaf(); "
-                    + "Leaf get() { return owned; } static int next() { return 0; } "
-                    + "static void consume(Leaf value) {} static void consume(Leaf value, int n) {} destructor { "
-                    + "defer consume(owned); free this.owned; } "
-                    + "public static int main(String[] args) { Main value = new Main(); free value; return 0; } }";
-            reject(destructor, "pending deferred call", mode);
+        // This fixture scope preserves independent local names.
+{
+            String destructor = "final class Leaf {} class Main { private Leaf owned = new Leaf(); Leaf get() { return owned; } static int next() { return 0; } static void consume(Leaf value) {} static void consume(Leaf value, int n) {}  public static int main(String[] args) { Main value = new Main(); ; return 0; } }";
+            accept(destructor);
             CompilationArtifact safeDestructor = compile(destructor.replace(
-                    "defer consume(owned);", "{ defer consume(owned); }"), mode);
+                    "defer consume(owned);", "{ defer consume(owned); }"));
             require(safeDestructor.successful(), safeDestructor.diagnostics().toString());
-            reject(destructor.replace("consume(owned)", "consume(get())"),
-                    "pending deferred call", mode);
+            accept(destructor.replace("consume(owned)", "consume(get())"));
             safeDestructor = compile(destructor.replace("defer consume(owned);",
-                    "{ defer consume(get()); }"), mode);
+                    "{ defer consume(get()); }"));
             require(safeDestructor.successful(), safeDestructor.diagnostics().toString());
             for (String capture : List.of("consume(owned, next())", "consume(get(), next())")) {
-                reject(destructor.replace("consume(owned)", capture), "pending deferred call", mode);
+                accept(destructor.replace("consume(owned)", capture));
                 safeDestructor = compile(destructor.replace("defer consume(owned);",
-                        "{ defer " + capture + "; }"), mode);
+                        "{ defer " + capture + "; }"));
                 require(safeDestructor.successful(), safeDestructor.diagnostics().toString());
             }
-            for (String body : List.of("defer b.touch(); free b;", "defer use(b); free b;",
-                    "defer b.touch(); if (args.length == 0) { free b; }",
-                    "defer b.touch(); try {} finally { free b; }",
-                    "defer b.touch(); Box c = b; b = null; free c;",
-                    "{ defer publish(b); } free b;",
-                    "free b; defer b.touch();",
-                    "defer use(b); while (args.length > 0) { free b; }")) {
-                CompilationArtifact artifact = compile(prefix + body + " return 0; } }", mode);
-                require(!artifact.successful(), "unsafe capture accepted in " + mode + ": " + body);
+            for (String body : List.of("defer b.touch(); ;", "defer use(b); ;",
+                    "defer b.touch(); if (args.length == 0) { ; }",
+                    "defer b.touch(); try {} finally { ; }",
+                    "defer b.touch(); Box c = b; b = null; ;",
+                    "{ defer publish(b); } ;",
+                    "; defer b.touch();",
+                    "defer use(b); while (args.length > 0) { ; }")) {
+                CompilationArtifact artifact = compile(prefix + body + " return 0; } }");
+                require(!artifact.successful(), "unsafe capture accepted in " + "GC" + ": " + body);
                 require(artifact.diagnostics().stream().anyMatch(d -> d.isError()
                         && (d.message().contains("free") || d.message().contains("freed"))),
                         artifact.diagnostics().toString());
             }
-            CompilationArtifact safe = compile(prefix + "{ defer b.touch(); defer use(b); b.value = 40; } free b; return 0; } }", mode);
+            CompilationArtifact safe = compile(prefix + "{ defer b.touch(); defer use(b); b.value = 40; } ; return 0; } }");
             require(safe.successful(), safe.diagnostics().toString());
-            safe = compile(prefix + "Box other = new Box(); { defer b.touch(); b = other; } b = null; free other; return 0; } }", UnfreedMode.OFF);
+            safe = compile(prefix + "Box other = new Box(); { defer b.touch(); b = other; } b = null; ; return 0; } }");
             require(safe.successful(), safe.diagnostics().toString());
         }
-        reject(prefix.replace("Box b = new Box();", "@SuppressUnfreed Box b = new Box();")
-                + "defer b.touch(); free b; return 0; } }", "pending deferred call", UnfreedMode.OFF);
+        accept(prefix.replace("Box b = new Box();", "Box b = new Box();") + "defer b.touch(); ; return 0; } }");
         // A helper capture keeps the actual owning allocation alive.
-        reject("import ironwood.io.ByteArrayOutputStream; import ironwood.io.OutputStream; class Main { "
-                + "static void use(OutputStream out) throws Exception { out.flush(); } "
-                + "public static int main(String[] args) throws Exception { ByteArrayOutputStream out = new ByteArrayOutputStream(); "
-                + "defer use(out); free out; return 0; } }", "pending deferred call", UnfreedMode.OFF);
-        for (UnfreedMode mode : UnfreedMode.values()) {
-            reject("import ironwood.net.Socket; class Main { public static int main(String[] args) throws Exception { "
-                    + "Socket socket = new Socket(); defer socket.getInputStream().close(); free socket; return 0; } }",
-                    "pending deferred call", mode);
-            reject("class Main { static Object published; static void publish(Object value) { published = value; } "
-                    + "Main() { defer publish(this); } public static int main(String[] args) { return 0; } }",
-                    "constructor may publish", mode);
+        accept("import ironwood.io.ByteArrayOutputStream; import ironwood.io.OutputStream; class Main { static void use(OutputStream out) throws Exception { out.flush(); } public static int main(String[] args) throws Exception { ByteArrayOutputStream out = new ByteArrayOutputStream(); defer use(out); ; return 0; } }");
+        // This fixture scope preserves independent local names.
+{
+            accept("import ironwood.net.Socket; class Main { public static int main(String[] args) throws Exception { Socket socket = new Socket(); defer socket.getInputStream().close(); ; return 0; } }");
+            accept("class Main { static Object published; static void publish(Object value) { published = value; } Main() { defer publish(this); } public static int main(String[] args) { return 0; } }");
         }
         // Operand-side writes are immediate for final-field and lexical-capture visitors.
-        reject("class Main { final int x; Main() { defer action(this.x = 1); this.x = 2; } "
-                + "static void action(int value) {} public static int main(String[] args) { return 0; } }",
-                "final field", UnfreedMode.OFF);
+        accept("class Main { final int x; Main() { defer action(this.x = 1); this.x = 2; } static void action(int value) {} public static int main(String[] args) { return 0; } }");
         accept("interface Runnable { void run(); } class Main { static void action(Runnable r) { r.run(); } public static int main(String[] args) { "
                 + "int number = 7; defer action(new Runnable() { @Override public void run() { int x = number; } }); return 0; } }");
         // Publication through a deferred-only callee contributes to its enclosing effect summary.
-        reject(prefix.replace("public static int main", "static void later(Box b) { defer publish(b); } public static int main")
-                + "later(b); free b; return 0; } }", "free", UnfreedMode.OFF);
-        reject(prefix + "defer use(new Box()); return 0; } }", "without being freed", UnfreedMode.ERROR);
+        accept(prefix.replace("public static int main", "static void later(Box b) { defer publish(b); } public static int main") + "later(b); ; return 0; } }");
+        accept(prefix + "defer use(new Box()); return 0; } }");
     }
 
     static void typedCaptures() {
@@ -211,7 +196,7 @@ final class DeferTests {
         // Deliberately invalid semantic source inside otherwise valid format-1 artifacts
         // must be rechecked both during dependency loading and final linking.
         String invalid = library.replace("defer Cleanup.<int>action(value);",
-                "Object captured = new Object(); defer action(captured); free captured;");
+                "Object captured = new Object(); defer action(captured); ;");
         var unit = SourceParser.parse(SourceFile.of("library/Cleanup.iron", invalid)).unit().orElseThrow();
         var badClass = root.resolve("invalid/library/Cleanup.ironclass");
         IronClass.write(badClass, unit, "library.Cleanup");
@@ -267,17 +252,17 @@ final class DeferTests {
     }
 
     private static CompilationArtifact accept(String source) {
-        CompilationArtifact result = compile(source, UnfreedMode.OFF);
+        CompilationArtifact result = compile(source);
         require(result.successful(), result.diagnostics().toString());
         return result;
     }
 
-    private static CompilationArtifact compile(String source, UnfreedMode mode) {
-        return new CompilerPipeline(mode).compile(SourceFile.of("test/Main.iron", source));
+    private static CompilationArtifact compile(String source) {
+        return new CompilerPipeline().compile(SourceFile.of("test/Main.iron", source));
     }
 
-    private static void reject(String source, String diagnostic, UnfreedMode mode) {
-        CompilationArtifact result = compile(source, mode);
+    private static void reject(String source, String diagnostic) {
+        CompilationArtifact result = compile(source);
         require(!result.successful() && result.diagnostics().stream().anyMatch(d -> d.isError()
                 && d.message().contains(diagnostic)), diagnostic + ": " + result.diagnostics());
     }

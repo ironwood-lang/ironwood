@@ -4,7 +4,6 @@ package ironwood.compiler.semantic;
 
 import ironwood.compiler.CompilationArtifact;
 import ironwood.compiler.CompilerPipeline;
-import ironwood.compiler.UnfreedMode;
 import ironwood.compiler.bridge.*;
 import ironwood.compiler.ir.*;
 import ironwood.compiler.source.SourceFile;
@@ -29,10 +28,10 @@ public final class BridgeControlFlowTests {
         var done = new IrReturnTerminator(Optional.empty(), span);
         var zero = new IrConstant(IrType.I32, 0, span);
         var functions = new ArrayList<IrFunction>();
-        functions.add(new IrFunction("Flow", "cleanup", "cleanup", IrType.VOID, parameters,
-                List.of(new IrBasicBlock("entry", List.of(new IrReleaseOwnedToStringResultInstruction(object, text, span)), done, span)), span));
+        functions.add(new IrFunction("Flow", "leaf", "leaf", IrType.VOID, parameters,
+                List.of(new IrBasicBlock("entry", List.of(new IrReferenceConversionInstruction(result, text, span)), done, span)), span));
         functions.add(new IrFunction("Flow", "helper", "helper", IrType.VOID, parameters,
-                List.of(new IrBasicBlock("entry", List.of(new IrCallInstruction(Optional.empty(), "cleanup", IrType.VOID, arguments, span)), done, span)), span));
+                List.of(new IrBasicBlock("entry", List.of(new IrCallInstruction(Optional.empty(), "leaf", IrType.VOID, arguments, span)), done, span)), span));
         functions.add(new IrFunction("Flow", "allocating", "allocating", IrType.VOID, parameters,
                 List.of(new IrBasicBlock("entry", List.of(new IrStringCopyInstruction(result, text, span)), done, span)), span));
         functions.add(new IrFunction("Flow", "throwing", "throwing", IrType.VOID, parameters,
@@ -42,7 +41,7 @@ public final class BridgeControlFlowTests {
         functions.add(new IrFunction("Flow", "unknownHelper", "unknownHelper", IrType.VOID, parameters,
                 List.of(new IrBasicBlock("entry", List.of(new IrCallInstruction(Optional.empty(), "unknown", IrType.VOID, arguments, span)), done, span)), span));
         var literal = new IrStringConstant(0, "literal", 7, 7, span);
-        for (String callee : List.of("cleanup", "helper", "allocating", "throwing", "unknown", "unknownHelper", "missing")) {
+        for (String callee : List.of("leaf", "helper", "allocating", "throwing", "unknown", "unknownHelper", "missing")) {
             String name = "caller" + callee;
             var exception = new IrValueReference(3, IrType.EXCEPTION, span);
             var occurrence = new IrValueReference(4, IrType.EXCEPTION, span);
@@ -61,7 +60,7 @@ public final class BridgeControlFlowTests {
         mixedParameters.add(new IrParameter("flag", flag, span));
         var mixed = new IrFunction("Flow", "mixed", "mixed", string, mixedParameters, List.of(
                 new IrBasicBlock("entry", List.of(), new IrBranch(flag, "safe", "unsafe", span), span),
-                new IrBasicBlock("safe", List.of(), new IrInvokeTerminator(new IrCallInstruction(Optional.empty(), "cleanup",
+                new IrBasicBlock("safe", List.of(), new IrInvokeTerminator(new IrCallInstruction(Optional.empty(), "leaf",
                         IrType.VOID, arguments, span), "done", "failure", span), span),
                 new IrBasicBlock("unsafe", List.of(), new IrInvokeTerminator(new IrCallInstruction(Optional.empty(), "allocating",
                         IrType.VOID, arguments, span), "done", "failure", span), span),
@@ -79,23 +78,19 @@ public final class BridgeControlFlowTests {
         var roots = BridgeRootSet.resolve(program, functions.stream().filter(function -> function.sourceName().startsWith("caller"))
                 .map(BridgeCallableId::of).toList());
         var proofs = BridgeRetentionAnalyzer.analyze(program, roots);
-        var immortal = BridgeRetentionAnalyzer.immortalStringResults(program, roots);
         var flow = new BridgeControlFlow(program);
         var failurePhi = (IrPhiInstruction) flow.blocks(mixed).stream().filter(block -> block.label().equals("failure"))
                 .findFirst().orElseThrow().instructions().getFirst();
         check(failurePhi.incoming().size() == 1 && failurePhi.incoming().getFirst().predecessor().equals("unsafe"),
                 "a reachable predecessor with a removed unwind edge remained in the phi");
-        check(BridgeRetentionAnalyzer.immortalStringResults(program, BridgeRootSet.resolve(program, List.of(BridgeCallableId.of(mixed))))
-                .contains(BridgeCallableId.of(mixed)), "removed unwind edge contaminated String result origins");
         for (var entry : proofs.entrySet()) {
-            boolean safe = entry.getKey().name().equals("callercleanup") || entry.getKey().name().equals("callerhelper");
+            boolean safe = entry.getKey().name().equals("callerleaf") || entry.getKey().name().equals("callerhelper");
             check((entry.getValue().status() == BridgeProof.Status.PROVED) == safe, entry.toString());
-            check(immortal.contains(entry.getKey()) == safe, "dead/live phi input changed result origin: " + entry);
             var function = functions.stream().filter(value -> value.linkageName().equals(entry.getKey().linkage())).findFirst().orElseThrow();
             check(flow.blocks(function).stream().anyMatch(block -> block.label().equals("failure")) != safe,
                     "unwind edge proof incomplete: " + entry.getKey());
         }
-        var artifact = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(List.of(SourceFile.of("Failures.iron", """
+        var artifact = new CompilerPipeline().analyzeForBridge(List.of(SourceFile.of("Failures.iron", """
                 class Failures {
                     static int parsed() { throw new ironwood.time.format.DateTimeParseException("detail", "text", 2); }
                 }

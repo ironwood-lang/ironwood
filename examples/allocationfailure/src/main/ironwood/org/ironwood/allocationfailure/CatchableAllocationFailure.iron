@@ -24,7 +24,6 @@ public class CatchableAllocationFailure {
         try {
             Cell cell = new Cell(++evaluationOrder);
             int result = cell.value;
-            free cell;
             return result;
         } catch (OutOfMemoryError expected) {
 
@@ -34,7 +33,6 @@ public class CatchableAllocationFailure {
         try {
             int[] values = new int[++evaluationOrder];
             int result = values.length;
-            free values;
             return result;
         } catch (OutOfMemoryError expected) {
 
@@ -44,7 +42,6 @@ public class CatchableAllocationFailure {
         try {
             String value = "step=" + (++evaluationOrder);
             int result = value.length();
-            free value;
             return result;
         } catch (OutOfMemoryError expected) {
 

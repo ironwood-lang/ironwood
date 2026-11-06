@@ -10,7 +10,6 @@ class Main {
     public static int main(String[] args) throws IOException {
 
         Path path = Path.of(args[1]);
-        long baseline = System.liveAllocationCount();
         boolean failed = false;
         try {
             try {
@@ -19,9 +18,8 @@ class Main {
                     try {
                         try {
                             String line = reader.readLine();
-                            free line;
                         } finally { reader.close(); }
-                    } finally { free reader; }
+                    } finally { ; }
                 } else if (args[0].equals("bytes")) {
 
                     ByteArrayOutputStream output = new ByteArrayOutputStream(1);
@@ -29,26 +27,24 @@ class Main {
                         output.write(1);
                         output.write(2);
                         byte[] snapshot = output.toByteArray();
-                        free snapshot;
-                    } finally { free output; }
+                    } finally { ; }
                 } else if (args[0].equals("text")) {
 
                     StringWriter output = new StringWriter(1);
                     try {
                         output.write("four");
                         String snapshot = output.toString();
-                        free snapshot;
-                    } finally { free output; }
+                    } finally { ; }
                 } else {
                     BufferedWriter writer = Files.newBufferedWriter(path);
-                    try { writer.close(); } finally { free writer; }
+                    try { writer.close(); } finally { ; }
                 }
             } catch (OutOfMemoryError expected) {
 
                 failed = true;
             }
-            if (System.liveAllocationCount() != baseline) return 1;
-        } finally { free path; }
+
+        } finally { ; }
         if (failed) return 42;
         return 0;
     }

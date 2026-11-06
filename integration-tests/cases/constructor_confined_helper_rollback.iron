@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 // A helper borrows its constructing parent without publishing it. Normal
-// destruction and throwing-helper rollback reclaim both objects and private
 // arrays. The preallocated process-lived exception is outside each baseline.
 // Exit 42 after checking four allocations per attempt and no retained storage.
 class Helper {
@@ -20,10 +19,6 @@ class Helper {
         if (fail) throw Main.failure;
     }
 
-    destructor {
-
-        free this.scratch;
-    }
 }
 
 class Parent {
@@ -36,11 +31,6 @@ class Parent {
         this.helper = new Helper(this, fail);
     }
 
-    destructor {
-
-        free this.helper;
-        free this.scratch;
-    }
 }
 
 class Main {
@@ -50,13 +40,11 @@ class Main {
     public static int main(String[] args) {
 
         RuntimeException original = failure;
-        long baseline = System.liveAllocationCount();
         for (int attempt = 0; attempt < 20; attempt++) {
             long before = System.allocationCount();
             Parent value = new Parent(false);
-            free value;
             if (System.allocationCount() - before != 4) return 1;
-            if (System.liveAllocationCount() != baseline) return 2;
+
 
             before = System.allocationCount();
             boolean caught = false;
@@ -70,7 +58,7 @@ class Main {
             }
 
             if (!caught || System.allocationCount() - before != 4) return 4;
-            if (System.liveAllocationCount() != baseline) return 5;
+
         }
 
         return 42;

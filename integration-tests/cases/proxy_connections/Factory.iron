@@ -25,16 +25,16 @@ class ProxyFactoryCheck {
         Socket.setSocketImplFactory(FACTORY);
         Socket direct = new Socket(Proxy.NO_PROXY);
         try { if (FACTORY.creations != 1) return 1; }
-        finally { try { direct.close(); } finally { free direct; } }
+        finally { try { direct.close(); } finally { ; } }
         InetSocketAddress endpoint = new InetSocketAddress("127.0.0.1", 1080);
         try {
             Proxy proxy = new Proxy(Proxy.Type.SOCKS, endpoint);
             try {
                 Socket socket = new Socket(proxy);
                 try { if (FACTORY.creations != 1) return 2; }
-                finally { try { socket.close(); } finally { free socket; } }
-            } finally { free proxy; }
-        } finally { free endpoint; }
+                finally { try { socket.close(); } finally { ; } }
+            } finally { ; }
+        } finally { ; }
         return 0;
     }
 }

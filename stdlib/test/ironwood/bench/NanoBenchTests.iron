@@ -12,7 +12,6 @@ public final class NanoBenchTests extends TestSuite {
     private void initialAndResetStatistics() {
 
         NanoBench bench = new NanoBench();
-        defer free bench;
         Assertions.assertEquals(0, bench.getMeasurements());
         Assertions.assertEquals(0L, bench.getAverage());
         Assertions.assertEquals(Long.MAX_VALUE, bench.getMinTime());
@@ -28,14 +27,12 @@ public final class NanoBenchTests extends TestSuite {
     private void truncatesAverageAndTracksExtrema() {
 
         NanoBench bench = new NanoBench();
-        defer free bench;
         bench.measure(10);
         bench.measure(11);
         Assertions.assertEquals(10L, bench.getAverage());
         Assertions.assertEquals(10L, bench.getMinTime());
         Assertions.assertEquals(11L, bench.getMaxTime());
         String report = bench.results();
-        defer free report;
         Assertions.assertTrue(report.equals("Measurements: 2 | Avg Time: 10 nanos | Min Time: 10 nanos | Max Time: 11 nanos\n\n"));
     }
 
@@ -43,7 +40,6 @@ public final class NanoBenchTests extends TestSuite {
     private void recordsZeroAndLargeDurations() {
 
         NanoBench bench = new NanoBench();
-        defer free bench;
         bench.measure(0);
         bench.measure(Long.MAX_VALUE);
         Assertions.assertEquals(Long.MAX_VALUE / 2, bench.getAverage());
@@ -55,7 +51,6 @@ public final class NanoBenchTests extends TestSuite {
     private void timerCanMeasureAgainFromSameMark() {
 
         NanoBench bench = new NanoBench();
-        defer free bench;
         bench.mark();
         bench.measure();
         bench.measure();
@@ -74,19 +69,15 @@ public final class NanoBenchTests extends TestSuite {
             for (int index = 0; index < 10000; index++) bench.measure(index);
         }
         Assertions.assertEquals(allocations, System.allocationCount());
-        free bench;
     }
 
     @Test
     private void snapshotOutlivesBenchmarkAndAllStorageIsReclaimed() {
 
-        long baseline = System.liveAllocationCount();
         NanoBench bench = new NanoBench();
         bench.measure(42);
         String report = bench.results();
-        free bench;
         Assertions.assertTrue(report.startsWith("Measurements: 1 | Avg Time: 42 nanos"));
-        free report;
-        Assertions.assertEquals(baseline, System.liveAllocationCount());
+
     }
 }

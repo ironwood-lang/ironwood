@@ -6,7 +6,7 @@ Read [the benchmark guide](../../docs/BENCH.md) for timing semantics, warmup,
 percentiles, and ownership. Each program prints a report and exits 0.
 
 With `ironwoodc` on PATH, run `./compile.sh`, `./link.sh`, and `./run.sh`.
-The scripts compile with strict missing-free diagnostics and link at `-O3`.
+The scripts compile with the managed model and link at `-O3`.
 `run.sh` uses small deterministic smoke workloads and checks counts/checksums;
 latencies vary by machine and are not compared to fixed thresholds.
 

@@ -84,40 +84,32 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
     }
 
     public static Selection managedObjects(CompilationArtifact artifact, List<String> exports) {
-        return select(artifact, exports, Shape.OBJECT_VALUE, true);
+        return select(artifact, exports, Shape.OBJECT_VALUE);
     }
 
     public static Selection managedObjects(CompilationArtifact artifact, List<String> exports, BridgeListenerProxies listeners) {
-        return select(artifact, exports, Shape.OBJECT_VALUE, true, listeners);
+        return select(artifact, exports, Shape.OBJECT_VALUE, listeners);
     }
 
     /** P5 signature inventory only; callback invocation and lifetime proofs remain mandatory. */
-    public static Selection synchronousCallbacks(CompilationArtifact artifact, List<String> exports) {
-        return select(artifact, exports, Shape.CALLBACK);
-    }
+
 
     /** Stateful P5 inventory only; complete storage, slots, guards and adapters remain separate. */
-    public static Selection ownedCallbacks(CompilationArtifact artifact, List<String> exports) {
-        return select(artifact, exports, Shape.OWNED_CALLBACK);
-    }
 
-    private enum Shape { SCALAR, VALUE, CONCRETE, OBJECT_VALUE, CALLBACK, OWNED_CALLBACK }
+
+    private enum Shape { SCALAR, VALUE, CONCRETE, OBJECT_VALUE }
 
     private static boolean objects(Shape shape) {
-        return shape == Shape.CONCRETE || shape == Shape.OBJECT_VALUE || shape == Shape.OWNED_CALLBACK;
+        return shape == Shape.CONCRETE || shape == Shape.OBJECT_VALUE;
     }
 
-    private static boolean callbacks(Shape shape) { return shape == Shape.CALLBACK || shape == Shape.OWNED_CALLBACK; }
+
 
     private static Selection select(CompilationArtifact artifact, List<String> exports, Shape shape) {
-        return select(artifact, exports, shape, false);
+        return select(artifact, exports, shape, null);
     }
 
-    private static Selection select(CompilationArtifact artifact, List<String> exports, Shape shape, boolean managed) {
-        return select(artifact, exports, shape, managed, null);
-    }
-
-    private static Selection select(CompilationArtifact artifact, List<String> exports, Shape shape, boolean managed, BridgeListenerProxies listeners) {
+    private static Selection select(CompilationArtifact artifact, List<String> exports, Shape shape, BridgeListenerProxies listeners) {
         if (!artifact.valid() || artifact.bridgeApiFacts().isEmpty()
                 || !artifact.bridgeApiFacts().orElseThrow().matches(artifact.program().orElseThrow())) {
             return new Selection(Optional.empty(), List.of(Diagnostic.global(
@@ -171,7 +163,7 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
                 } else signatures.put(method.signature(), proof.contract().orElseThrow());
             }
             if (signatures.size() != type.callables().size()) continue;
-            if ((callbacks(shape) || managed) && type.kind() == BridgeApiFacts.Kind.INTERFACE) {
+            if ((true) && type.kind() == BridgeApiFacts.Kind.INTERFACE) {
                 if (type.generic() || !type.fields().isEmpty() || !type.supertypes().isEmpty()
                         || type.enclosingType().isPresent()) {
                     error(diagnostics, type.source(), type.span(), "listener requires a top-level nongeneric interface without fields or inheritance");
@@ -180,7 +172,7 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
                     if (method.owner().equals("ironwood.lang.Object")) continue;
                     if (method.isStatic() || method.generic() || method.target().isPresent() || method.dispatchSlot().isEmpty()
                             || !scalar(method.result()) || method.parameters().stream().anyMatch(parameter -> !parameter.isPrimitive()
-                            && !((shape == Shape.OWNED_CALLBACK || managed) && BridgeListenerProxies.ownerArgument(parameter, facts)))
+                            && !((true) && BridgeListenerProxies.ownerArgument(parameter, facts)))
                             || method.thrownTypes().stream().anyMatch(thrown -> !isBuiltinThrowable(thrown))) {
                         error(diagnostics, method.source(), method.span(), "listener requires abstract methods with admitted callback values");
                     }
@@ -263,7 +255,7 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
                         || !(supported(method.result(), shape, false, facts) || generics.contains(method.result())
                             || type.generic() && method.result().equals(type.exactType())) || method.parameters().stream()
                         .anyMatch(parameter -> !supported(parameter, shape, true, facts) && !genericInputs.contains(parameter)
-                            && !(managed && managedListener(parameter, facts)))) {
+                            && !(managedListener(parameter, facts)))) {
                     error(diagnostics, method.source(), method.span(), "public member '" + member
                             + (objects(shape) ? "' is outside the concrete-object Java Bridge signature surface"
                             : "' is outside the static " + (shape == Shape.VALUE ? "primitive/String-value"
@@ -275,8 +267,7 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
                     error(diagnostics, method.source(), method.span(), "public member '" + member
                             + "' has no exact resolved native target");
                 } else if (method.result().isArray() || method.parameters().stream().anyMatch(IrType::isArray)) {
-                    var proof = managed ? ironwood.compiler.semantic.BridgeArrayInputs.managedValues(artifact, nativeTarget.orElseThrow(), listeners)
-                            : ironwood.compiler.semantic.BridgeArrayInputs.values(artifact, nativeTarget.orElseThrow());
+                    var proof = ironwood.compiler.semantic.BridgeArrayInputs.managedValues(artifact, nativeTarget.orElseThrow(), listeners);
                     if (proof.status() != BridgeProof.Status.PROVED) error(diagnostics, method.source(), method.span(), proof.reason());
                     else requested.add(nativeTarget.orElseThrow());
                 } else requested.add(nativeTarget.orElseThrow());
@@ -320,15 +311,6 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
         }
         if ((shape == Shape.VALUE || shape == Shape.OBJECT_VALUE)
                 && ironwood.compiler.semantic.BridgeArrayInputs.primitiveArray(type)) return true;
-        if (callbacks(shape)) {
-            if (type.equals(STRING)) return parameter;
-            var listener = type.isNominalReference() ? facts.types().get(type.referenceName()) : null;
-            return parameter && type.typeArguments().isEmpty() && listener != null
-                    && (listener.kind() == BridgeApiFacts.Kind.INTERFACE || shape == Shape.OWNED_CALLBACK
-                    && listener.kind() == BridgeApiFacts.Kind.CLASS && listener.finalType() && !listener.abstractType()
-                    && !listener.throwable() && listener.enclosingType().isEmpty())
-                    && listener.accessible() && !listener.generic();
-        }
         if (type.equals(STRING)) return parameter || shape != Shape.SCALAR;
         if (!objects(shape) || !type.isNominalReference() || !type.typeArguments().isEmpty()) return false;
         var declaration = facts.types().get(type.referenceName());

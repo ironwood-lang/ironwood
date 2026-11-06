@@ -13,7 +13,6 @@ public class DeadIteratorLocal {
         ArrayList<String> list = new ArrayList<String>();
         Iterator<String> iterator = list.iterator();
         boolean empty = !iterator.hasNext(); // This is iterator's last use.
-        free list; // Valid even though iterator remains declared in this method.
         return empty ? 42 : 1;
     }
 }

@@ -3,9 +3,9 @@
 package ironwood.testing;
 
 import ironwood.ds.DataStructureTests;
-import ironwood.ds.DataStructureDestructionTests;
+import ironwood.ds.CollectionRetentionTests;
 import ironwood.pool.PoolTests;
-import ironwood.pool.PoolDestructionTests;
+import ironwood.pool.PoolRetentionTests;
 import ironwood.bench.BenchTests;
 import ironwood.bench.NanoBenchTests;
 import ironwood.net.TcpFoundationTests;
@@ -26,9 +26,9 @@ public final class StandardLibraryTests {
         if (suite.equals("framework-pass")) return FrameworkPassingTests.main(args);
         if (suite.equals("framework-failure")) return FrameworkFailureTests.main(args);
         if (suite.equals("pool")) return PoolTests.main(args);
-        if (suite.equals("pool-destruction")) return PoolDestructionTests.main(args);
+        if (suite.equals("pool-retention")) return PoolRetentionTests.main(args);
         if (suite.equals("data-structures")) return DataStructureTests.main(args);
-        if (suite.equals("data-structure-destruction")) return DataStructureDestructionTests.main(args);
+        if (suite.equals("collection-retention")) return CollectionRetentionTests.main(args);
         if (suite.equals("bench")) return BenchTests.main(args);
         if (suite.equals("nano-bench")) return NanoBenchTests.main(args);
         if (suite.equals("networking-m1")) return TcpFoundationTests.main(args);

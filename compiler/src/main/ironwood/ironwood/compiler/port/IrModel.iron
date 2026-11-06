@@ -13,7 +13,7 @@ package ironwood.compiler.port;
  * so a record or enum added here without a treatment, or a deleted treatment,
  * fails compilation. Consumers that dispatch on IR variants use the same
  * pattern: the S2 walkers must follow exactly {@link #walked(Record)}, and the
- * pilot admission functions in {@link OperationVariants} keep their own lists.
+ * {@link OperationVariants} catalog is generated from the same current model.
  * Names keep the Java binary name in upper snake case; a nested type's
  * {@code $} becomes a double underscore.
  */
@@ -30,8 +30,8 @@ public final class IrModel {
 
     /** Every IR record, in source-name order. */
     public enum Record {
-        IR_ADD_SECONDARY_EXCEPTION_INSTRUCTION, IR_ALLOCATE_INSTRUCTION,
-        IR_ALLOCATION_COUNT_INSTRUCTION, IR_ARRAY_ALLOCATE_INSTRUCTION,
+        GC_EFFECTS__EFFECT, IR_ADD_SECONDARY_EXCEPTION_INSTRUCTION, IR_ALLOCATE_INSTRUCTION,
+        IR_ALLOCATION_COUNT_INSTRUCTION, IR_ALLOCATION_LAYOUT, IR_ARRAY_ALLOCATE_INSTRUCTION,
         IR_ARRAY_BOUNDS_CHECK_INSTRUCTION, IR_ARRAY_LENGTH_CHECK_INSTRUCTION,
         IR_ARRAY_LENGTH_INSTRUCTION, IR_ARRAY_LOAD_INSTRUCTION, IR_ARRAY_STORE_INSTRUCTION,
         IR_ARRAY_TYPE, IR_ARRAY_TYPE_TEST_INSTRUCTION, IR_BASIC_BLOCK, IR_BINARY_INSTRUCTION,
@@ -39,23 +39,23 @@ public final class IrModel {
         IR_BRIDGE_FAILURE_SNAPSHOT_INSTRUCTION, IR_BRIDGE_RESULT_STORE_INSTRUCTION,
         IR_BRIDGE_SLOT_STORE_INSTRUCTION, IR_BRIDGE_STRING_COPY_INSTRUCTION,
         IR_BYTE_VIEW_INSTRUCTION, IR_CALL_INSTRUCTION, IR_CHARACTER_INSTRUCTION, IR_CLASS,
-        IR_CONSTANT, IR_DESTROY_ARRAY_ELEMENTS_INSTRUCTION, IR_DISPATCH_ENTRY, IR_DISPATCH_SLOT,
-        IR_ENSURE_TYPE_INITIALIZED_INSTRUCTION, IR_ENUM_CONSTANT, IR_EXCEPTION_CAUGHT_INSTRUCTION,
-        IR_EXCEPTION_LANDING_PAD_INSTRUCTION, IR_FIELD, IR_FIELD_LOAD_INSTRUCTION,
-        IR_FIELD_STORE_INSTRUCTION, IR_FILE_INSTRUCTION, IR_FLOATING_BITS_INSTRUCTION,
-        IR_FLOATING_PARSE_INSTRUCTION, IR_FOREIGN_CALL_INSTRUCTION, IR_FREE_INSTRUCTION,
-        IR_FUNCTION, IR_IDENTITY_HASH_CODE_INSTRUCTION, IR_IMMORTAL_OBJECT,
-        IR_INSTANCE_OF_INSTRUCTION, IR_INTERFACE_CALL_INSTRUCTION, IR_INVOKE_TERMINATOR, IR_JUMP,
+        IR_CONSTANT, IR_DISPATCH_ENTRY, IR_DISPATCH_SLOT, IR_ENSURE_TYPE_INITIALIZED_INSTRUCTION,
+        IR_ENUM_CONSTANT, IR_EXCEPTION_CAUGHT_INSTRUCTION, IR_EXCEPTION_LANDING_PAD_INSTRUCTION,
+        IR_FIELD, IR_FIELD_LOAD_INSTRUCTION, IR_FIELD_STORE_INSTRUCTION, IR_FILE_INSTRUCTION,
+        IR_FLOATING_BITS_INSTRUCTION, IR_FLOATING_PARSE_INSTRUCTION, IR_FOREIGN_CALL_INSTRUCTION,
+        IR_FUNCTION, IR_GC_COLLECT_INSTRUCTION, IR_GC_PROJECTION_INSTRUCTION,
+        IR_GC_READ_PROJECTION_INSTRUCTION, IR_GC_ROOT_LOAD_INSTRUCTION,
+        IR_GC_ROOT_SLOT_INSTRUCTION, IR_GC_TEST_EXCEPTION_INSTRUCTION, IR_GC_UNWIND_INSTRUCTION,
+        IR_IDENTITY_HASH_CODE_INSTRUCTION, IR_IMMORTAL_OBJECT, IR_INSTANCE_OF_INSTRUCTION,
+        IR_INTERFACE_CALL_INSTRUCTION, IR_INVOKE_TERMINATOR, IR_JUMP,
         IR_LIVE_ALLOCATION_COUNT_INSTRUCTION, IR_MATH_BINARY_INSTRUCTION,
         IR_MATH_UNARY_INSTRUCTION, IR_NULL, IR_NULL_CHECK_INSTRUCTION,
         IR_NUMERIC_CONVERSION_INSTRUCTION, IR_OBJECT_HASH_CODE_INSTRUCTION,
         IR_OBJECT_TO_STRING_INSTRUCTION, IR_PARAMETER, IR_PHI_INCOMING, IR_PHI_INSTRUCTION,
         IR_PRINT_STREAM_CHECK_ERROR_INSTRUCTION, IR_PRINT_STREAM_FLUSH_INSTRUCTION,
         IR_PRINT_STREAM_PRINTLN_INSTRUCTION, IR_PRINT_STREAM_WRITE_INSTRUCTION,
-        IR_PROCESS_INSTRUCTION, IR_PROGRAM, IR_RAW_DEALLOCATE_INSTRUCTION,
-        IR_REFERENCE_CONVERSION_INSTRUCTION, IR_RELEASE_OWNED_THROWABLE_MESSAGE_INSTRUCTION,
-        IR_RELEASE_OWNED_TO_STRING_RESULT_INSTRUCTION, IR_RETURN_TERMINATOR,
-        IR_ROLLBACK_INSTRUCTION, IR_SECONDARY_EXCEPTION_AT_INSTRUCTION,
+        IR_PROCESS_INSTRUCTION, IR_PROGRAM, IR_REFERENCE_CONVERSION_INSTRUCTION,
+        IR_RETURN_TERMINATOR, IR_SECONDARY_EXCEPTION_AT_INSTRUCTION,
         IR_SECONDARY_EXCEPTION_COUNT_INSTRUCTION, IR_STATIC_FIELD,
         IR_STATIC_FIELD_LOAD_INSTRUCTION, IR_STATIC_FIELD_STORE_INSTRUCTION, IR_STREAM_INSTRUCTION,
         IR_STRING_CASE_INSTRUCTION, IR_STRING_CHAR_AT_INSTRUCTION, IR_STRING_CONCAT_INSTRUCTION,
@@ -76,24 +76,26 @@ public final class IrModel {
 
     /** Every IR enum, top-level and nested, in source-name order. */
     public enum Enumeration {
-        IR_BINARY_OPERATOR, IR_BRIDGE_RESULT_STORE_INSTRUCTION__SLOT,
+        IR_ALLOCATION_LAYOUT__SHAPE, IR_BINARY_OPERATOR, IR_BRIDGE_RESULT_STORE_INSTRUCTION__SLOT,
         IR_BYTE_VIEW_INSTRUCTION__OPERATION, IR_CALL_KIND, IR_CALLABLE_KIND,
         IR_CHARACTER_INSTRUCTION__OPERATION, IR_FILE_INSTRUCTION__OPERATION,
-        IR_FLOATING_BITS_INSTRUCTION__OPERATION, IR_MATH_BINARY_INSTRUCTION__OPERATION,
-        IR_MATH_UNARY_INSTRUCTION__OPERATION, IR_STREAM_INSTRUCTION__OPERATION,
-        IR_STRING_CONCAT_PART_KIND, IR_SYSTEM_CLOCK_INSTRUCTION__CLOCK,
-        IR_TCP_INSTRUCTION__OPERATION, IR_THROWABLE_TRACE_INSTRUCTION__OPERATION,
-        IR_TLS_INSTRUCTION__OPERATION, IR_TYPE__KIND, IR_TYPE__WILDCARD_KIND, IR_TYPE_KIND,
-        IR_UNARY_OPERATOR
+        IR_FLOATING_BITS_INSTRUCTION__OPERATION, IR_GC_TEST_EXCEPTION_INSTRUCTION__OPERATION,
+        IR_MATH_BINARY_INSTRUCTION__OPERATION, IR_MATH_UNARY_INSTRUCTION__OPERATION,
+        IR_STREAM_INSTRUCTION__OPERATION, IR_STRING_CONCAT_PART_KIND,
+        IR_SYSTEM_CLOCK_INSTRUCTION__CLOCK, IR_TCP_INSTRUCTION__OPERATION,
+        IR_THROWABLE_TRACE_INSTRUCTION__OPERATION, IR_TLS_INSTRUCTION__OPERATION, IR_TYPE__KIND,
+        IR_TYPE__WILDCARD_KIND, IR_TYPE_KIND, IR_UNARY_OPERATOR
     }
 
     /** @return the sealed root the record implements */
     public static Root root(Record record) {
 
         return switch (record) {
+            case GC_EFFECTS__EFFECT -> Root.NONE;
             case IR_ADD_SECONDARY_EXCEPTION_INSTRUCTION -> Root.INSTRUCTION;
             case IR_ALLOCATE_INSTRUCTION -> Root.INSTRUCTION;
             case IR_ALLOCATION_COUNT_INSTRUCTION -> Root.INSTRUCTION;
+            case IR_ALLOCATION_LAYOUT -> Root.NONE;
             case IR_ARRAY_ALLOCATE_INSTRUCTION -> Root.INSTRUCTION;
             case IR_ARRAY_BOUNDS_CHECK_INSTRUCTION -> Root.INSTRUCTION;
             case IR_ARRAY_LENGTH_CHECK_INSTRUCTION -> Root.INSTRUCTION;
@@ -116,7 +118,6 @@ public final class IrModel {
             case IR_CHARACTER_INSTRUCTION -> Root.INSTRUCTION;
             case IR_CLASS -> Root.NONE;
             case IR_CONSTANT -> Root.OPERAND;
-            case IR_DESTROY_ARRAY_ELEMENTS_INSTRUCTION -> Root.INSTRUCTION;
             case IR_DISPATCH_ENTRY -> Root.NONE;
             case IR_DISPATCH_SLOT -> Root.NONE;
             case IR_ENSURE_TYPE_INITIALIZED_INSTRUCTION -> Root.INSTRUCTION;
@@ -130,8 +131,14 @@ public final class IrModel {
             case IR_FLOATING_BITS_INSTRUCTION -> Root.INSTRUCTION;
             case IR_FLOATING_PARSE_INSTRUCTION -> Root.INSTRUCTION;
             case IR_FOREIGN_CALL_INSTRUCTION -> Root.INSTRUCTION;
-            case IR_FREE_INSTRUCTION -> Root.INSTRUCTION;
             case IR_FUNCTION -> Root.NONE;
+            case IR_GC_COLLECT_INSTRUCTION -> Root.INSTRUCTION;
+            case IR_GC_PROJECTION_INSTRUCTION -> Root.INSTRUCTION;
+            case IR_GC_READ_PROJECTION_INSTRUCTION -> Root.INSTRUCTION;
+            case IR_GC_ROOT_LOAD_INSTRUCTION -> Root.INSTRUCTION;
+            case IR_GC_ROOT_SLOT_INSTRUCTION -> Root.INSTRUCTION;
+            case IR_GC_TEST_EXCEPTION_INSTRUCTION -> Root.INSTRUCTION;
+            case IR_GC_UNWIND_INSTRUCTION -> Root.INSTRUCTION;
             case IR_IDENTITY_HASH_CODE_INSTRUCTION -> Root.INSTRUCTION;
             case IR_IMMORTAL_OBJECT -> Root.OPERAND;
             case IR_INSTANCE_OF_INSTRUCTION -> Root.INSTRUCTION;
@@ -155,12 +162,8 @@ public final class IrModel {
             case IR_PRINT_STREAM_WRITE_INSTRUCTION -> Root.INSTRUCTION;
             case IR_PROCESS_INSTRUCTION -> Root.INSTRUCTION;
             case IR_PROGRAM -> Root.NONE;
-            case IR_RAW_DEALLOCATE_INSTRUCTION -> Root.INSTRUCTION;
             case IR_REFERENCE_CONVERSION_INSTRUCTION -> Root.INSTRUCTION;
-            case IR_RELEASE_OWNED_THROWABLE_MESSAGE_INSTRUCTION -> Root.INSTRUCTION;
-            case IR_RELEASE_OWNED_TO_STRING_RESULT_INSTRUCTION -> Root.INSTRUCTION;
             case IR_RETURN_TERMINATOR -> Root.TERMINATOR;
-            case IR_ROLLBACK_INSTRUCTION -> Root.INSTRUCTION;
             case IR_SECONDARY_EXCEPTION_AT_INSTRUCTION -> Root.INSTRUCTION;
             case IR_SECONDARY_EXCEPTION_COUNT_INSTRUCTION -> Root.INSTRUCTION;
             case IR_STATIC_FIELD -> Root.NONE;
@@ -212,9 +215,11 @@ public final class IrModel {
     public static String javaName(Record record) {
 
         return switch (record) {
+            case GC_EFFECTS__EFFECT -> "Effect";
             case IR_ADD_SECONDARY_EXCEPTION_INSTRUCTION -> "IrAddSecondaryExceptionInstruction";
             case IR_ALLOCATE_INSTRUCTION -> "IrAllocateInstruction";
             case IR_ALLOCATION_COUNT_INSTRUCTION -> "IrAllocationCountInstruction";
+            case IR_ALLOCATION_LAYOUT -> "IrAllocationLayout";
             case IR_ARRAY_ALLOCATE_INSTRUCTION -> "IrArrayAllocateInstruction";
             case IR_ARRAY_BOUNDS_CHECK_INSTRUCTION -> "IrArrayBoundsCheckInstruction";
             case IR_ARRAY_LENGTH_CHECK_INSTRUCTION -> "IrArrayLengthCheckInstruction";
@@ -237,7 +242,6 @@ public final class IrModel {
             case IR_CHARACTER_INSTRUCTION -> "IrCharacterInstruction";
             case IR_CLASS -> "IrClass";
             case IR_CONSTANT -> "IrConstant";
-            case IR_DESTROY_ARRAY_ELEMENTS_INSTRUCTION -> "IrDestroyArrayElementsInstruction";
             case IR_DISPATCH_ENTRY -> "IrDispatchEntry";
             case IR_DISPATCH_SLOT -> "IrDispatchSlot";
             case IR_ENSURE_TYPE_INITIALIZED_INSTRUCTION -> "IrEnsureTypeInitializedInstruction";
@@ -251,8 +255,14 @@ public final class IrModel {
             case IR_FLOATING_BITS_INSTRUCTION -> "IrFloatingBitsInstruction";
             case IR_FLOATING_PARSE_INSTRUCTION -> "IrFloatingParseInstruction";
             case IR_FOREIGN_CALL_INSTRUCTION -> "IrForeignCallInstruction";
-            case IR_FREE_INSTRUCTION -> "IrFreeInstruction";
             case IR_FUNCTION -> "IrFunction";
+            case IR_GC_COLLECT_INSTRUCTION -> "IrGcCollectInstruction";
+            case IR_GC_PROJECTION_INSTRUCTION -> "IrGcProjectionInstruction";
+            case IR_GC_READ_PROJECTION_INSTRUCTION -> "IrGcReadProjectionInstruction";
+            case IR_GC_ROOT_LOAD_INSTRUCTION -> "IrGcRootLoadInstruction";
+            case IR_GC_ROOT_SLOT_INSTRUCTION -> "IrGcRootSlotInstruction";
+            case IR_GC_TEST_EXCEPTION_INSTRUCTION -> "IrGcTestExceptionInstruction";
+            case IR_GC_UNWIND_INSTRUCTION -> "IrGcUnwindInstruction";
             case IR_IDENTITY_HASH_CODE_INSTRUCTION -> "IrIdentityHashCodeInstruction";
             case IR_IMMORTAL_OBJECT -> "IrImmortalObject";
             case IR_INSTANCE_OF_INSTRUCTION -> "IrInstanceOfInstruction";
@@ -276,12 +286,8 @@ public final class IrModel {
             case IR_PRINT_STREAM_WRITE_INSTRUCTION -> "IrPrintStreamWriteInstruction";
             case IR_PROCESS_INSTRUCTION -> "IrProcessInstruction";
             case IR_PROGRAM -> "IrProgram";
-            case IR_RAW_DEALLOCATE_INSTRUCTION -> "IrRawDeallocateInstruction";
             case IR_REFERENCE_CONVERSION_INSTRUCTION -> "IrReferenceConversionInstruction";
-            case IR_RELEASE_OWNED_THROWABLE_MESSAGE_INSTRUCTION -> "IrReleaseOwnedThrowableMessageInstruction";
-            case IR_RELEASE_OWNED_TO_STRING_RESULT_INSTRUCTION -> "IrReleaseOwnedToStringResultInstruction";
             case IR_RETURN_TERMINATOR -> "IrReturnTerminator";
-            case IR_ROLLBACK_INSTRUCTION -> "IrRollbackInstruction";
             case IR_SECONDARY_EXCEPTION_AT_INSTRUCTION -> "IrSecondaryExceptionAtInstruction";
             case IR_SECONDARY_EXCEPTION_COUNT_INSTRUCTION -> "IrSecondaryExceptionCountInstruction";
             case IR_STATIC_FIELD -> "IrStaticField";
@@ -333,16 +339,18 @@ public final class IrModel {
     public static String components(Record record) {
 
         return switch (record) {
+            case GC_EFFECTS__EFFECT -> "mayCollect:boolean,unknown:boolean";
             case IR_ADD_SECONDARY_EXCEPTION_INSTRUCTION -> "primary:IrOperand,secondary:IrOperand,sourceSpan:SourceSpan";
             case IR_ALLOCATE_INSTRUCTION -> "result:IrValueReference,className:String,sourceSpan:SourceSpan";
             case IR_ALLOCATION_COUNT_INSTRUCTION -> "result:IrValueReference,sourceSpan:SourceSpan";
+            case IR_ALLOCATION_LAYOUT -> "name:String,shape:IrAllocationLayout.Shape,fields:List<IrField>,elementType:IrType,refusal:String";
             case IR_ARRAY_ALLOCATE_INSTRUCTION -> "result:IrValueReference,elementType:IrType,length:IrOperand,sourceSpan:SourceSpan";
             case IR_ARRAY_BOUNDS_CHECK_INSTRUCTION -> "result:IrValueReference,array:IrOperand,index:IrOperand,sourceSpan:SourceSpan";
             case IR_ARRAY_LENGTH_CHECK_INSTRUCTION -> "result:IrValueReference,length:IrOperand,sourceSpan:SourceSpan";
             case IR_ARRAY_LENGTH_INSTRUCTION -> "result:IrValueReference,array:IrOperand,sourceSpan:SourceSpan";
             case IR_ARRAY_LOAD_INSTRUCTION -> "result:IrValueReference,array:IrOperand,index:IrOperand,sourceSpan:SourceSpan";
             case IR_ARRAY_STORE_INSTRUCTION -> "array:IrOperand,index:IrOperand,value:IrOperand,sourceSpan:SourceSpan";
-            case IR_ARRAY_TYPE -> "type:IrType,typeId:int,typeMembership:List<Integer>,dispatchEntries:List<IrDispatchEntry>,toStringReturnsOwnedFresh:boolean";
+            case IR_ARRAY_TYPE -> "type:IrType,typeId:int,typeMembership:List<Integer>,dispatchEntries:List<IrDispatchEntry>";
             case IR_ARRAY_TYPE_TEST_INSTRUCTION -> "result:IrValueReference,value:IrOperand,targetType:IrType,sourceSpan:SourceSpan";
             case IR_BASIC_BLOCK -> "label:String,instructions:List<IrInstruction>,terminator:IrTerminator,sourceSpan:SourceSpan";
             case IR_BINARY_INSTRUCTION -> "result:IrValueReference,operator:IrBinaryOperator,left:IrOperand,right:IrOperand,sourceSpan:SourceSpan";
@@ -356,9 +364,8 @@ public final class IrModel {
             case IR_BYTE_VIEW_INSTRUCTION -> "result:Optional<IrValueReference>,operation:IrByteViewInstruction.Operation,view:IrOperand,arguments:List<IrOperand>,sourceSpan:SourceSpan";
             case IR_CALL_INSTRUCTION -> "result:Optional<IrValueReference>,targetLinkageName:String,returnType:IrType,arguments:List<IrOperand>,callKind:IrCallKind,devirtualizedFrom:Optional<String>,specializationArguments:Map<String, IrType>,sourceSpan:SourceSpan";
             case IR_CHARACTER_INSTRUCTION -> "result:IrValueReference,operation:IrCharacterInstruction.Operation,codePoint:IrOperand,sourceSpan:SourceSpan";
-            case IR_CLASS -> "name:String,kind:IrTypeKind,superclass:Optional<String>,interfaces:List<String>,fields:List<IrField>,typeId:int,typeMembership:List<Integer>,dispatchEntries:List<IrDispatchEntry>,destructorChain:Optional<String>,constructorRollback:Optional<String>,toStringReturnsOwnedFresh:boolean,localizedMessageReturnsOwnedFresh:boolean,sourceSpan:SourceSpan";
+            case IR_CLASS -> "name:String,kind:IrTypeKind,superclass:Optional<String>,interfaces:List<String>,fields:List<IrField>,typeId:int,typeMembership:List<Integer>,dispatchEntries:List<IrDispatchEntry>,sourceSpan:SourceSpan";
             case IR_CONSTANT -> "type:IrType,value:Number,sourceSpan:SourceSpan";
-            case IR_DESTROY_ARRAY_ELEMENTS_INSTRUCTION -> "array:IrOperand,sourceSpan:SourceSpan";
             case IR_DISPATCH_ENTRY -> "slot:IrDispatchSlot,targetLinkageName:String";
             case IR_DISPATCH_SLOT -> "index:int,key:String,methodName:String,returnType:IrType,parameterTypes:List<IrType>,sourceSpan:SourceSpan";
             case IR_ENSURE_TYPE_INITIALIZED_INSTRUCTION -> "typeName:String,sourceSpan:SourceSpan";
@@ -372,8 +379,14 @@ public final class IrModel {
             case IR_FLOATING_BITS_INSTRUCTION -> "result:IrValueReference,operation:IrFloatingBitsInstruction.Operation,value:IrOperand,sourceSpan:SourceSpan";
             case IR_FLOATING_PARSE_INSTRUCTION -> "result:IrValueReference,text:IrOperand,sourceSpan:SourceSpan";
             case IR_FOREIGN_CALL_INSTRUCTION -> "result:Optional<IrValueReference>,targetLinkageName:String,returnType:IrType,arguments:List<IrOperand>,invocationContext:Optional<IrOperand>,sourceSpan:SourceSpan";
-            case IR_FREE_INSTRUCTION -> "allocation:IrOperand,sourceSpan:SourceSpan";
             case IR_FUNCTION -> "ownerClass:String,sourceName:String,linkageName:String,returnType:IrType,parameters:List<IrParameter>,blocks:List<IrBasicBlock>,sourceSpan:SourceSpan,sourceFileName:String,kind:IrCallableKind";
+            case IR_GC_COLLECT_INSTRUCTION -> "sourceSpan:SourceSpan";
+            case IR_GC_PROJECTION_INSTRUCTION -> "result:IrValueReference,base:IrOperand,field:IrField,sourceSpan:SourceSpan";
+            case IR_GC_READ_PROJECTION_INSTRUCTION -> "result:IrValueReference,address:IrValueReference,sourceSpan:SourceSpan";
+            case IR_GC_ROOT_LOAD_INSTRUCTION -> "result:IrValueReference,slot:IrValueReference,sourceSpan:SourceSpan";
+            case IR_GC_ROOT_SLOT_INSTRUCTION -> "slot:IrValueReference,value:IrOperand,sourceSpan:SourceSpan";
+            case IR_GC_TEST_EXCEPTION_INSTRUCTION -> "operation:IrGcTestExceptionInstruction.Operation,sourceSpan:SourceSpan";
+            case IR_GC_UNWIND_INSTRUCTION -> "handle:IrValueReference,begin:boolean,sourceSpan:SourceSpan";
             case IR_IDENTITY_HASH_CODE_INSTRUCTION -> "result:IrValueReference,object:IrOperand,sourceSpan:SourceSpan";
             case IR_IMMORTAL_OBJECT -> "symbol:String,type:IrType,storageType:IrType,fieldValues:Map<String, IrConstant>,sourceSpan:SourceSpan";
             case IR_INSTANCE_OF_INSTRUCTION -> "result:IrValueReference,value:IrOperand,targetTypeName:String,targetTypeId:int,exactTargetType:Optional<IrType>,sourceSpan:SourceSpan";
@@ -397,12 +410,8 @@ public final class IrModel {
             case IR_PRINT_STREAM_WRITE_INSTRUCTION -> "stream:IrOperand,value:Optional<IrStringConcatPart>,newline:boolean,sourceSpan:SourceSpan";
             case IR_PROCESS_INSTRUCTION -> "result:IrValueReference,command:IrOperand,directory:IrOperand,output:IrOperand,sourceSpan:SourceSpan";
             case IR_PROGRAM -> "moduleName:String,classes:List<IrClass>,staticFields:List<IrStaticField>,typeInitializations:List<IrTypeInitialization>,arrayTypes:List<IrArrayType>,stringConstants:List<IrStringConstant>,dispatchSlots:List<IrDispatchSlot>,functions:List<IrFunction>,entryPoint:Optional<IrFunction>,allocationFailure:Optional<IrImmortalObject>,exportRoots:Set<String>";
-            case IR_RAW_DEALLOCATE_INSTRUCTION -> "allocation:IrOperand,sourceSpan:SourceSpan";
             case IR_REFERENCE_CONVERSION_INSTRUCTION -> "result:IrValueReference,value:IrOperand,sourceSpan:SourceSpan";
-            case IR_RELEASE_OWNED_THROWABLE_MESSAGE_INSTRUCTION -> "throwable:IrOperand,message:IrOperand,sourceSpan:SourceSpan";
-            case IR_RELEASE_OWNED_TO_STRING_RESULT_INSTRUCTION -> "object:IrOperand,result:IrOperand,sourceSpan:SourceSpan";
             case IR_RETURN_TERMINATOR -> "value:Optional<IrOperand>,sourceSpan:SourceSpan";
-            case IR_ROLLBACK_INSTRUCTION -> "allocation:IrOperand,sourceSpan:SourceSpan";
             case IR_SECONDARY_EXCEPTION_AT_INSTRUCTION -> "result:IrValueReference,primary:IrOperand,index:IrOperand,sourceSpan:SourceSpan";
             case IR_SECONDARY_EXCEPTION_COUNT_INSTRUCTION -> "result:IrValueReference,primary:IrOperand,sourceSpan:SourceSpan";
             case IR_STATIC_FIELD -> "ownerClass:String,name:String,type:IrType,isFinal:boolean,compileTimeConstant:boolean,preinitializedIntrinsic:boolean,initialValue:IrOperand,sourceSpan:SourceSpan";
@@ -459,9 +468,11 @@ public final class IrModel {
     public static String walked(Record record) {
 
         return switch (record) {
+            case GC_EFFECTS__EFFECT -> "";
             case IR_ADD_SECONDARY_EXCEPTION_INSTRUCTION -> "primary,secondary";
             case IR_ALLOCATE_INSTRUCTION -> "result";
             case IR_ALLOCATION_COUNT_INSTRUCTION -> "result";
+            case IR_ALLOCATION_LAYOUT -> "fields,elementType";
             case IR_ARRAY_ALLOCATE_INSTRUCTION -> "result,elementType,length";
             case IR_ARRAY_BOUNDS_CHECK_INSTRUCTION -> "result,array,index";
             case IR_ARRAY_LENGTH_CHECK_INSTRUCTION -> "result,length";
@@ -484,7 +495,6 @@ public final class IrModel {
             case IR_CHARACTER_INSTRUCTION -> "result,codePoint";
             case IR_CLASS -> "fields,dispatchEntries";
             case IR_CONSTANT -> "type";
-            case IR_DESTROY_ARRAY_ELEMENTS_INSTRUCTION -> "array";
             case IR_DISPATCH_ENTRY -> "slot";
             case IR_DISPATCH_SLOT -> "returnType,parameterTypes";
             case IR_ENSURE_TYPE_INITIALIZED_INSTRUCTION -> "";
@@ -498,8 +508,14 @@ public final class IrModel {
             case IR_FLOATING_BITS_INSTRUCTION -> "result,value";
             case IR_FLOATING_PARSE_INSTRUCTION -> "result,text";
             case IR_FOREIGN_CALL_INSTRUCTION -> "result,returnType,arguments,invocationContext";
-            case IR_FREE_INSTRUCTION -> "allocation";
             case IR_FUNCTION -> "returnType,parameters,blocks";
+            case IR_GC_COLLECT_INSTRUCTION -> "";
+            case IR_GC_PROJECTION_INSTRUCTION -> "result,base,field";
+            case IR_GC_READ_PROJECTION_INSTRUCTION -> "result,address";
+            case IR_GC_ROOT_LOAD_INSTRUCTION -> "result,slot";
+            case IR_GC_ROOT_SLOT_INSTRUCTION -> "slot,value";
+            case IR_GC_TEST_EXCEPTION_INSTRUCTION -> "";
+            case IR_GC_UNWIND_INSTRUCTION -> "handle";
             case IR_IDENTITY_HASH_CODE_INSTRUCTION -> "result,object";
             case IR_IMMORTAL_OBJECT -> "type,storageType";
             case IR_INSTANCE_OF_INSTRUCTION -> "result,value,exactTargetType";
@@ -523,12 +539,8 @@ public final class IrModel {
             case IR_PRINT_STREAM_WRITE_INSTRUCTION -> "stream,value";
             case IR_PROCESS_INSTRUCTION -> "result,command,directory,output";
             case IR_PROGRAM -> "classes,staticFields,typeInitializations,arrayTypes,stringConstants,dispatchSlots,functions,entryPoint,allocationFailure";
-            case IR_RAW_DEALLOCATE_INSTRUCTION -> "allocation";
             case IR_REFERENCE_CONVERSION_INSTRUCTION -> "result,value";
-            case IR_RELEASE_OWNED_THROWABLE_MESSAGE_INSTRUCTION -> "throwable,message";
-            case IR_RELEASE_OWNED_TO_STRING_RESULT_INSTRUCTION -> "object,result";
             case IR_RETURN_TERMINATOR -> "value";
-            case IR_ROLLBACK_INSTRUCTION -> "allocation";
             case IR_SECONDARY_EXCEPTION_AT_INSTRUCTION -> "result,primary,index";
             case IR_SECONDARY_EXCEPTION_COUNT_INSTRUCTION -> "result,primary";
             case IR_STATIC_FIELD -> "type,initialValue";
@@ -580,21 +592,23 @@ public final class IrModel {
     public static String constants(Enumeration enumeration) {
 
         return switch (enumeration) {
+            case IR_ALLOCATION_LAYOUT__SHAPE -> "FIXED,ARRAY,STRING,REFUSED";
             case IR_BINARY_OPERATOR -> "ADD,SUBTRACT,MULTIPLY,DIVIDE,REMAINDER,SHIFT_LEFT,SHIFT_RIGHT,UNSIGNED_SHIFT_RIGHT,BITWISE_AND,BITWISE_XOR,BITWISE_OR,EQUAL,NOT_EQUAL,SIGNED_LESS,SIGNED_LESS_EQUAL,SIGNED_GREATER,SIGNED_GREATER_EQUAL";
             case IR_BRIDGE_RESULT_STORE_INSTRUCTION__SLOT -> "VALUE,EXCEPTION";
             case IR_BYTE_VIEW_INSTRUCTION__OPERATION -> "LENGTH,READ_ONLY,READ,WRITE";
             case IR_CALL_KIND -> "DIRECT,DEVIRTUALIZED_VIRTUAL,DEVIRTUALIZED_INTERFACE";
-            case IR_CALLABLE_KIND -> "METHOD,CONSTRUCTOR,DESTRUCTOR,CLASS_INITIALIZER,CONSTRUCTOR_ROLLBACK";
+            case IR_CALLABLE_KIND -> "METHOD,CONSTRUCTOR,CLASS_INITIALIZER";
             case IR_CHARACTER_INSTRUCTION__OPERATION -> "DIGIT,LETTER,UPPER,LOWER,TO_UPPER,TO_LOWER,DIGIT_VALUE,NUMERIC_VALUE";
             case IR_FILE_INSTRUCTION__OPERATION -> "READ_ALL_BYTES,READ_STRING,WRITE_BYTES,WRITE_STRING,WRITE_CHARS,DELETE,CREATE_DIRECTORIES,COPY,MOVE,OPEN_DIRECTORY,DIRECTORY_HAS_NEXT,NEXT_DIRECTORY_ENTRY,CLOSE_DIRECTORY,READ_ATTRIBUTES,FILE_KIND,FILE_KIND_NOFOLLOW,FILE_SIZE,SAME_FILE,LAST_ERROR,CURRENT_DIRECTORY,NORMALIZE_SYNTAX,NORMALIZE_PATH,FILE_NAME,PARENT,RESOLVE,RESOLVE_SIBLING,ABSOLUTE_PATH,CREATE_TEMP_FILE,CREATE_TEMP_DIRECTORY,REAL_PATH,ACCESS,MOVE_ATOMIC,MOVE_REPLACING,MOVE_EXCLUSIVE";
             case IR_FLOATING_BITS_INSTRUCTION__OPERATION -> "FLOAT_TO_RAW_INT,INT_TO_FLOAT,DOUBLE_TO_RAW_LONG,LONG_TO_DOUBLE";
+            case IR_GC_TEST_EXCEPTION_INSTRUCTION__OPERATION -> "RAISE_SCALAR,CATCH_SCALAR";
             case IR_MATH_BINARY_INSTRUCTION__OPERATION -> "ATAN2,POW,HYPOT";
             case IR_MATH_UNARY_INSTRUCTION__OPERATION -> "SIN,COS,TAN,EXP,LOG,LOG10,SQRT,CBRT,RINT";
             case IR_STREAM_INSTRUCTION__OPERATION -> "OPEN,READ_BYTE,READ_BYTES,WRITE_BYTE,WRITE_BYTES,AVAILABLE,POSITION,SEEK,LENGTH,SET_LENGTH,CLOSE,PRINT_BYTE,PRINT_BYTES";
             case IR_STRING_CONCAT_PART_KIND -> "STRING,BOOLEAN,CHARACTER,INTEGER,FLOAT,DOUBLE";
             case IR_SYSTEM_CLOCK_INSTRUCTION__CLOCK -> "CURRENT_TIME_MILLIS,NANO_TIME";
             case IR_TCP_INSTRUCTION__OPERATION -> "CREATE,BIND,CONNECT,LISTEN,ACCEPT,COMPLETE_CONNECT,READ_BYTE,TRY_READ_BYTE,READ_BYTES,TRY_READ_BYTES,PEEK_BYTES,WRITE_BYTE,WRITE_BYTES,URGENT,GET_TRAFFIC_CLASS,SET_TRAFFIC_CLASS,REUSE_PORT_SUPPORTED,AVAILABLE,SHUTDOWN,CLOSE,WAIT,BLOCKING,RESTORE_FLAGS,GET_BOOLEAN,SET_BOOLEAN,GET_INTEGER,SET_INTEGER,ENDPOINT,RESOLVE_START,RESOLVE_ADDRESS,RESOLVE_RELEASE,REVERSE_NAME,LOCAL_NAME,SCOPE_ID,PREFERRED_FAMILY,INTERFACES_START,INTERFACE_NEXT,INTERFACE_ADDRESS,INTERFACES_RELEASE,INTERFACE_FLAGS,INTERFACE_MTU,INTERFACE_HARDWARE,REACHABLE,ERROR_KIND";
-            case IR_THROWABLE_TRACE_INSTRUCTION__OPERATION -> "CAPTURE,RELEASE,COMMON,PRINT,EMERGENCY,ARRAY";
+            case IR_THROWABLE_TRACE_INSTRUCTION__OPERATION -> "CAPTURE,COMMON,PRINT,EMERGENCY,ARRAY";
             case IR_TLS_INSTRUCTION__OPERATION -> "CREATE,CONFIGURE,ATTACH,HANDSHAKE,READ_BYTE,READ_BYTES,WRITE_BYTE,WRITE_BYTES,AVAILABLE,WAIT,CLOSE";
             case IR_TYPE__KIND -> "I1,I8,I16,U16,I32,I64,F32,F64,VOID,NULL,EXCEPTION,REFERENCE,TYPE_PARAMETER,WILDCARD,ARRAY";
             case IR_TYPE__WILDCARD_KIND -> "UNBOUNDED,EXTENDS,SUPER";

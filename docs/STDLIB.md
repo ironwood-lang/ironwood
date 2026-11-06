@@ -7,7 +7,7 @@ Canonical Memory.collect() is the only reclamation point. There is no source
 free, destructor, implicit temporary destruction or managed constructor rollback.
 General defer, initialization, native resource and pool protocols remain.
 Historical proof discussions and examples mentioning those removed forms are
-pre-GC5 records awaiting GC7 consumer migration, not alternate supported semantics.
+superseded by the completed GC7 consumer migration, not alternate supported semantics.
 Native bridge/shared-library output remains refused until GC6 qualification.
 
 The compiler builds the bundled Java-shaped standard library from 255
@@ -68,7 +68,7 @@ public class Main {
         IntMap<String> names = new IntMap<String>();
         names.put(42, "Ironwood");
         System.out.println(names.get(42));
-        free names;
+
         return 0;
     }
 }
@@ -101,17 +101,17 @@ references can also widen to `Object`. Primitive values are not objects.
 
 | Type | Current surface |
 | --- | --- |
-| `Object` | Public constructor plus identity-based `equals(Object)`, stable opaque `hashCode()`, and Java-shaped `toString()` defaults. A default runtime-created identity String is a caller-owned allocation eligible for compiler-checked `free`. |
+| `Object` | Public constructor plus identity-based `equals(Object)`, stable opaque `hashCode()`, and Java-shaped `toString()` defaults. A default runtime-created identity String has ordinary managed lifetime. |
 | `CharSequence` | Interface declaring `length()`, `charAt(int)`, `subSequence(int, int)`, and `toString()`. |
 | `Comparable<T>` | Interface declaring `compareTo(T)`; `String`, `Path`, and `Instant` implement their corresponding forms. |
 | `String` | Final immutable UTF-16 text with copy, UTF-8 `byte[]`, and checked `char[]` constructors; length/character access; caller-owned substring, array-export, concat, and explicit `formatDecimal(long, int)`/`formatFixed(double, int, int)` numeric-field results; common contains/search/prefix/suffix/subsequence/copy operations; primitive/Object `valueOf`; lexicographic comparison; exact UTF-8 `byteLength`; content equality/hash; and identity `toString()`. Equal decoded literals and String constant expressions are pooled immortal objects; dynamic `+`/`+=` results are ordinary exact-size allocations. Runtime `intern()` is deliberately absent. |
-| `StringBuilder` | Mutable UTF-16 text with empty, capacity, `String`, and `CharSequence` constructors; length/capacity queries and mutation; `isEmpty`, `charAt`, `setCharAt`, `ensureCapacity`, append and insert overloads, `delete`, `deleteCharAt`, `replace`, surrogate-aware `reverse`, and whole/offset `indexOf`. Append and insert cover `char`, whole/ranged `char[]`, `String`, whole/ranged `CharSequence`, `Object`, `boolean`, `int`, `long`, `float`, and `double`. `toString`, whole/ranged `substring`, and `subSequence` produce caller-owned String snapshots; destruction and failed-construction rollback reclaim backing storage. |
+| `StringBuilder` | Mutable UTF-16 text with empty, capacity, `String`, and `CharSequence` constructors; length/capacity queries and mutation; `isEmpty`, `charAt`, `setCharAt`, `ensureCapacity`, append and insert overloads, `delete`, `deleteCharAt`, `replace`, surrogate-aware `reverse`, and whole/offset `indexOf`. Append and insert cover `char`, whole/ranged `char[]`, `String`, whole/ranged `CharSequence`, `Object`, `boolean`, `int`, `long`, `float`, and `double`. `toString`, whole/ranged `substring`, and `subSequence` produce caller-owned String snapshots; backing storage and failed-construction graphs use ordinary managed lifetime. |
 | `StringBuffer` | Java-shaped mutable UTF-16 counterpart to StringBuilder. Ironwood has no language threads, so synchronization has no observable role or cost. |
 | `Runnable` | Interface declaring `void run()`. |
 | `Number` | Abstract non-boxing numeric base with primitive conversion methods. |
 | `Enum<E>` | Abstract base for compiler-created enum constants, with name, ordinal, comparison, identity equality/hash, and default text. User classes cannot extend it. |
 | `Iterable<T>` | Interface declaring `Iterator<T> iterator()`. |
-| `AutoCloseable` | Ordinary interface declaring `void close() throws Exception`; callers invoke it explicitly, including through `defer` or `finally`. Closing does not itself free the wrapper, which may be reclaimed by a separate proven-safe `free`. |
+| `AutoCloseable` | Ordinary interface declaring `void close() throws Exception`; callers invoke it explicitly, including through `defer` or `finally`. Closing releases the external resource; collection reclaims unreachable managed storage. |
 
 D117 adds `trim`, `strip`, `isBlank`, Unicode `toUpperCase`/`toLowerCase`,
 `equalsIgnoreCase`, literal `replace(char, char)` and
@@ -128,10 +128,10 @@ simple comparison. `trim` removes units up to U+0020; `strip`/`isBlank` use Java
 21 whitespace, including its nonbreaking-space exclusions. Regex split and
 charset overloads remain absent.
 
-Transformations always produce fresh caller-owned results, even unchanged/empty
-ones. Immutable operations allocate one exact result; CharSequence rendering
-and generic join may require temporary snapshots/builder storage, reclaimed
-before return or on failure. Byte construction replaces malformed UTF-8 with
+Transformations produce fresh managed results, even unchanged/empty ones.
+Immutable operations allocate one exact result; CharSequence rendering and
+generic join may also allocate snapshots or builder storage. These graphs become
+reclaimable by explicit collection after their last root disappears. Byte construction replaces malformed UTF-8 with
 U+FFFD; byte export replaces unmatched surrogates with `?`. See the
 [contract, ownership and source review](STDLIB_STRING_REVIEW.md).
 
@@ -139,13 +139,13 @@ Source-level String `+`/`+=` concatenation is implemented as compiler-owned
 Feature 76, including every primitive, null/reference conversion, pooled
 constant expressions, and one exact-size ordinary result allocation per
 maximal dynamic chain. Object conversions may obtain temporary text from
-`toString()`. Concatenation conditionally reclaims each fresh owned rendering
-after copying it, including when a later conversion or the final concatenation
-throws; borrowed and mixed-result renderings remain untouched.
+`toString()`. Concatenation copies each rendering after evaluating operands in
+source order, preserving failures and aliases. Rendered Strings have ordinary
+managed lifetime, including after a later conversion throws.
 `String.valueOf(float)` and `valueOf(double)` each return one fresh caller-owned
 String through that same floating conversion. `StringBuilder.append(float)` and
 `append(double)` select the matching valueOf overload, copy the result, and
-reclaim the temporary String even if builder growth fails. A float stays float
+leave the temporary String to managed reachability if builder growth fails. A float stays float
 during conversion: `0.1f` renders as `0.1`, while explicitly widening it to
 double preserves the corresponding longer double spelling. See D116 and the
 [T5 review](STDLIB_FLOATING_TEXT_REVIEW.md). `Float.toString(float)` and
@@ -169,11 +169,10 @@ void-returning method; length changes and failures retain their prior behavior.
 The return value aliases the builder and adds no allocation or ownership.
 
 Array/text edits, integer insertion, reversal and search allocate no helper
-objects within existing capacity. Growth replaces and reclaims the backing
-array. Floating insertion uses the same temporary conversion and cleanup as
-floating append. Object insertion preserves borrowed renderings and reclaims
-only proven fresh, unescaped results. Source arguments are borrowed while their
-characters are copied; callback publication still prevents an unsafe `free`.
+objects within existing capacity. Growth replaces the backing array; the old
+array follows managed reachability. Floating insertion uses the same conversion
+as floating append. Object insertion copies ordinary managed renderings. Source arguments are borrowed while their
+characters are copied; callbacks may retain ordinary managed aliases.
 See the [StringBuilder review](STDLIB_STRINGBUILDER_REVIEW.md).
 
 D113 removes D097's narrow `String.format` overloads. Java `String.format` and
@@ -201,12 +200,12 @@ Java zero-padding acceptance cases. The numeric-field helpers do not supply
 that missing behavior.
 
 The S0/U1/U2 allocation-result contract preserves fresh identity through direct
-and wrapped calls, so a caller may reclaim `String.substring(...)`,
+and wrapped calls for `String.substring(...)`,
 `String.toCharArray()`, `String.concat(...)`, primitive text conversions,
 `StringBuilder.toString()`/`substring(...)`/`subSequence(...)`, and the default
-`Object.toString()` result after all aliases are dead. String copy and `char[]` construction validate
+`Object.toString()` results. All use ordinary managed reachability. String copy and `char[]` construction validate
 before one exact-size allocation, copy rather than retain their source, and
-remain visible to normal safe-`free` proof. See the [S0 review](STDLIB_S0_SOURCE_REVIEW.md),
+use ordinary managed lifetime. See the [S0 review](STDLIB_S0_SOURCE_REVIEW.md),
 [U1 review](STDLIB_U1_SOURCE_REVIEW.md), [U2 review](STDLIB_U2_SOURCE_REVIEW.md),
 and [floating parsing review](STDLIB_FLOATING_PARSE_SOURCE_REVIEW.md).
 
@@ -222,7 +221,7 @@ no intermediate text or conversion arrays to reclaim.
 ```java
 String literal = "value";          // Immortal compiler storage.
 String copy = new String(literal); // One distinct caller-owned allocation.
-free copy;                         // Reclaims only the heap copy.
+                         // Reclaims only the heap copy.
 ```
 
 ### System and numeric helpers
@@ -260,14 +259,11 @@ bypasses an object's `hashCode()` override.
 `System.out` and `System.err` are compiler-emitted immortal
 `ironwood.io.PrintStream` objects with distinct native channels. Loading them
 creates no allocation, excludes them from `allocationCount()`, and cannot make
-them eligible for `free`. A non-null `System.getenv` result is a caller-owned
-String and must be reclaimed after its aliases die. Closing standard input is a
+them collectible. A non-null System.getenv result is an ordinary managed String. Closing standard input is a
 no-op; closing either standard output flushes it without disabling it.
-At an Object `print` or `println` call, the compiler checks every possible
-closed-world `toString()` target for the argument's static type. The call
-borrows the object when none can publish its receiver, so code may print a
-container or other proven-safe object and then `free` it. A missing, unknown,
-or genuinely publishing target preserves the ordinary rejection.
+Object print/println invokes the resolved virtual rendering behavior. Publishing
+receivers and String results are legal managed references; collection follows
+reachability. The call does not require an exclusive reclamation proof.
 
 `PrintStream.print(CharSequence)` and `println(CharSequence)` are allocation-free
 Ironwood overloads. They read the sequence length once, consume UTF-16 units
@@ -381,10 +377,9 @@ localized getter once and returns a fresh caller-owned String containing the
 concrete qualified class name, followed by `: ` and the message when non-null.
 An empty message retains the separator; a null message produces only the name.
 Causes and traces are not part of this description. Object printing,
-concatenation, and `StringBuilder.append(Object)` use this override and reclaim
-its temporary result. A fresh, unescaped getter result is also reclaimed after
-copying, including when description allocation fails; borrowed, retained, and
-uncertain getter results remain untouched. See D114 and the
+concatenation, and `StringBuilder.append(Object)` use this override. Getter and
+rendering results remain ordinary managed references, including after a later
+allocation fails. See D114 and the
 [T3 review](STDLIB_THROWABLE_REVIEW.md).
 
 `Throwable` also
@@ -403,9 +398,8 @@ before any throw. Throws and rethrows preserve that snapshot; explicit refresh
 replaces it. A no-op override can keep an exception stackless. Printing uses
 virtual descriptions and causes, shared-tail compression and cycle detection.
 Ironwood cleanup failures are labeled `Secondary:`, separately from causes.
-Private trace storage is released with a compiler-approved `free` or failed
-construction; printing releases its owned traversal helpers and proven-fresh
-renderings. `getStackTrace()` returns a fresh caller-owned array containing
+Private trace storage, traversal helpers and rendering results use the managed heap.
+Explicit collection reclaims them when unreachable. `getStackTrace()` returns a fresh caller-owned array containing
 immutable compiler-emitted process-lifetime `StackTraceElement` objects.
 Mutable trace replacement remains absent.
 See the [stack-trace review](STDLIB_STACK_TRACE_REVIEW.md) for emergency behavior,
@@ -449,15 +443,13 @@ streams stay open when wrapper close reaches them. Available/ready concern
 buffered or immediately available input, not EOF or total input length; an
 incomplete encoded prefix may need further input to finish a character.
 
-Close releases external resources. Free reclaims proven-owned managed storage
-and never closes a descriptor. Ordinary wrappers borrow their underlying object,
-cascade close, and reclaim only their own buffers. Free outer wrappers before
-borrowed inner objects; closing alone leaves the borrow active. Character-stream constructors
-that take Path build owned graphs (an Ironwood extension used by Files factories)
-and use strict UTF-8. They allocate all buffers before opening the file last,
-so failed construction cannot strand a descriptor. Destructors reclaim owned
-graphs after explicit close. Returned lines and output snapshots are independent,
-caller-reclaimable results. The base scalar Reader/Writer bridges retain one
+Close releases external resources. Ordinary wrappers retain their underlying
+objects and cascade close. Managed wrappers, buffers and shared inner objects
+follow ordinary reachability; anchor release and collection never replace
+resource close. Character-stream constructors taking Path build managed graphs
+(an Ironwood extension used by Files factories) and use strict UTF-8. Buffers
+are allocated before the file opens, so failed construction cannot strand a
+descriptor. Returned lines and output snapshots are independent managed values. The base scalar Reader/Writer bridges retain one
 lazily allocated char slot; built-in overrides avoid that helper.
 
 `ByteArrayOutputStream.toString()` decodes only the written prefix using
@@ -466,8 +458,8 @@ including for an empty stream, with no intermediate byte/char array. Malformed
 sequences become U+FFFD as in Java's UTF-8 conversion; this differs from the
 strict malformed-input failure of `Files.readString`. Reset, later writes,
 growth, close, and stream reclamation do not change a prior snapshot. Printing,
-concatenation, and builder append consume the override and reclaim fresh
-renderings through the existing ownership protocol. See D115 and the
+concatenation, and builder append consume the override while preserving ordinary
+managed aliases. See D115 and the
 [T4 review](STDLIB_BYTE_STREAM_REVIEW.md).
 
 Deferred members include charset objects/overloads, channels, file descriptors,
@@ -475,8 +467,8 @@ Appendable and CharBuffer overloads, and stream replacement. The
 [blocking TCP surface](#blocking-tcp-and-addresses) supplies connection-backed streams.
 The generic InputStream range read uses Java's filling default: failure on the first
 scalar read propagates, while a later IOException returns the bytes already read.
-The default cannot reclaim a subclass-supplied throwable; its language object
-follows the ordinary exception-ownership rules and is not implicitly collected.
+Subclass-supplied throwables follow ordinary managed exception reachability;
+I/O performs no implicit collection.
 `Reader.read()` rejects a zero result from a positive-length subclass read as a
 non-progressing subclass contract violation; conforming subclasses are unaffected.
 Byte skip of a negative count returns zero. See the exact API/ownership review in
@@ -484,7 +476,7 @@ Byte skip of a negative count returns zero. See the exact API/ownership review i
 [`projects/streaming`](../projects/streaming/README.md) and
 [`projects/minitee`](../projects/minitee/README.md). Minitee composes two borrowed
 outputs behind an application-defined `OutputStream`, reusing one copy buffer
-and freeing the wrapper before its underlying file stream.
+and closing the resource explicitly before ending its lifecycle.
 
 ## `ironwood.time` and `ironwood.time.format`
 
@@ -551,9 +543,8 @@ every call its surface admits (see
   selected range update, as Java's `Checksum` default does, so an override of
   the range update also sees whole-array updates.
 - Updates, reads and resets allocate nothing and borrow the array only for the
-  call, so a caller may free it afterwards. An override that retains the array
-  makes that free a compile-time error. The first use allocates the
-  process-lived tables once.
+  call. Overrides may retain ordinary managed arrays; native borrowed-view
+  contracts remain separate. The first use allocates the process-lived tables once.
 
 The `Checksum` interface, `update(ByteBuffer)` and the ZIP and GZIP stream APIs
 are not provided; calls to them fail to compile.
@@ -569,11 +560,9 @@ are not provided; calls to them fail to compile.
 | `ByteOrder` | Big-endian and little-endian singleton values. |
 
 `ByteBuffer.wrap(byte[])`, `array()`, and `slice()` expose shared storage.
-Wrapped arrays remain caller-owned. An allocate-created buffer reclaims its
-backing array when the compiler permits the buffer to be freed. Slices create
-tracked lifetime loans, while `array()` publishes the backing array and makes an
-owning buffer ineligible for compiler-proven reclamation. Ironwood adds no
-runtime alias registry or lifetime tracking. Direct, mapped, and typed view
+Wrapped arrays, slices and `array()` results share ordinary managed storage.
+Exact layouts keep each backing array alive while any slice, buffer or source
+root reaches it. Ironwood adds no runtime alias registry or lifetime tracking. Direct, mapped, and typed view
 buffers remain absent.
 
 TCP channels and selectors are not implemented. Their
@@ -591,7 +580,7 @@ basic file attributes, and controlled recursive visitor traversal.
 | `Path` | `Comparable<Path>` interface with one/two-component `of`, text/equality/hash, absolute/root/file-name/parent/name-count/index queries, prefixes, resolution, relativization, normalization, absolute conversion, and host real-path resolution (`toRealPath`). Returned path values are caller-owned. |
 | `Paths` | Fixed-arity `get(String)` factory corresponding to Java's common one-component varargs call. |
 | `Files` | Existing whole-file/factory/metadata calls plus delete and `deleteIfExists`, recursive createDirectories, no-replace copy/move, the publication moves `moveAtomicReplacing`, `moveReplacing` and `moveAtomicNoReplace`, exclusive temporary files and directories, advisory `isReadable`/`isExecutable`, the no-follow `readAttributesNoFollow` helper, strict-UTF-8 readAllLines returning `ironwood.ds.ArrayList<String>`, and recursive `walkFileTree`. Calls borrow paths/content and retain no caller reference. |
-| `DirectoryStream<T>` | Closeable, single-iterator directory view. `hasNext()` performs allocation-free lookahead, and ownership-aware `nextEntry()` returns a fresh caller-owned path. Explicit close releases the native handle. |
+| `DirectoryStream<T>` | Closeable, single-iterator directory view. `hasNext()` performs allocation-free lookahead, and `nextEntry()` returns a fresh managed path. Explicit close releases the native handle. |
 | `FileVisitResult`, `FileVisitor<T>`, `SimpleFileVisitor<T>` | Java-shaped traversal control, callback contract, and default continue/rethrow behavior. |
 | `BasicFileAttributes` | Common size, timestamp, and file-kind queries. The default read follows symbolic links; `fileKey()` is null. |
 | `FileTime` | Millisecond `fromMillis`/`toMillis`, comparison, equality, and hashing. Attribute getters return fresh values. |
@@ -612,7 +601,7 @@ linear passes and scalar state rather than input-sized native scratch arrays.
 Directory streams omit `.` and `..`, admit one iterator, and translate each
 strict-UTF-8 host entry into one fresh `Path`. The native handle retains only
 its directory cursor and lookahead entry. Callers must close the stream before
-freeing its managed wrapper; destructors do not close external resources.
+collecting its managed wrapper; collection does not close external resources.
 
 `Files.readAttributes(Path)` is the deliberately fixed basic-attribute overload
 because Ironwood has no reflective `Class<A>` token or varargs options. It
@@ -631,7 +620,7 @@ would have a parent with `IllegalArgumentException`, as Java decides both from
 the generated name. The overloads without a directory use
 `System.getProperty("java.io.tmpdir")` (a nonempty `TMPDIR`, otherwise `/tmp`)
 and report its failure without trying another directory. The returned path is
-fresh and caller-owned; freeing it never deletes the entry. Attribute-varargs
+fresh and managed; collecting it never deletes the entry. Attribute-varargs
 overloads are omitted. The path object exists before the entry is created, so
 no managed allocation follows creation; a failed result String removes the new
 entry before the allocation failure propagates.
@@ -678,17 +667,15 @@ directory with its ancestors and reports cycles through
 while a directory's stream or loop check is being built, releases that
 directory's attributes before it propagates (D276).
 
-Callback paths and attributes are borrowed until the callback returns. The
-compiler checks every possible closed-world visitor target and rejects a walk
-whose callback can retain either value. Successful traversal therefore reclaims
-its temporary paths, attributes, and closed stream wrappers without a runtime
-ownership registry. See the runnable
+Visitors may retain ordinary managed callback paths and attributes. Traversal
+closes native directory streams on normal and abrupt completion; retained
+callback values remain valid across later collection. No runtime ownership
+registry or implicit collection is involved. See the runnable
 [`examples/filetree`](../examples/filetree) suffix-search example.
 
 Failure exceptions passed to `visitFileFailed` and `postVisitDirectory` follow
-ordinary exception lifetimes. Visitors may retain or rethrow them; traversal
-does not free them when the callback returns. The compiler preserves these
-escape effects when checking for unfreed allocations.
+ordinary managed exception lifetimes. Visitors may retain or rethrow them. The compiler preserves these
+reference effects for actual foreign/native confinement consumers.
 
 Whole-file reads fill one unpublished result allocation directly from bounded
 native chunks, resizing it if the file size is unknown or changes. No separate
@@ -735,7 +722,7 @@ narrower facility than Java's `ProcessBuilder`/`Process` (see
   `Exec format error` (there is no shell fallback).
 - The command array, its Strings and both paths are borrowed for the call and
   retained by neither the library nor the native launch; the compiler's audited
-  contract lets the caller free a String placed in the command after the call.
+  contract preserves copied command values and ordinary managed aliases.
   The result holds only primitive status, never a live process or stream.
 - The launch is `fork`/`execv` on both supported hosts. Descriptors the
   runtime opens are close-on-exec; a descriptor the caller's process inherited
@@ -773,26 +760,21 @@ also accepts a custom growth factor. Generic and primitive linked lists use
 `MultiArrayObjectPool` for internal entry reuse, preserving existing pool arrays
 when capacity grows.
 
-Pools are single-threaded. A growing creation array records every non-null
-builder result once. Destruction frees every recorded object, including checked-out
-objects, and all private storage. The builder remains borrowed. Multi-array
-segment holders also appear in that array and free their own array containers.
-Creation-array capacity is reserved before calling the builder, so growth failure
-cannot lose a successfully created object. Failed construction reclaims objects
-already recorded. Ordinary array free remains shallow.
+Pools are single-threaded and intentionally retain every builder-created value,
+including checked-out values, in a creation array. Multi-array pools also retain
+segment holders. Capacity is reserved before builder invocation so allocation
+failure cannot lose a successfully created value. Superseded arrays and failed
+construction graphs use ordinary managed reachability.
 
-Checkout and return of existing objects do not access the creation array or
-perform identity checks; reuse allocates nothing after warmup. Return each
-checkout at most once, only to the originating pool, and stop using it until
-another checkout. Duplicate returns are unchecked and can corrupt reuse, but
-cannot duplicate destruction entries. Null returns throw `IllegalArgumentException`.
-External objects are unsupported and are not recorded or destroyed by the pool.
+Checkout/return reuse remains allocation-free after warmup and performs no
+identity or checkout-state lookup. Return each checkout at most once, only to
+its originating pool, and stop using it until another checkout. Null returns
+throw IllegalArgumentException. External returns are outside the contract.
+The compiler preserves fresh unescaped builder-result requirements and known
+wrong-pool/contained-value rejection. These are pool protocols, independent of
+managed reclamation; collection never releases or resets a pool item.
 
-The compiler requires fresh, unescaped builder results, rejects independent free
-of pooled values and access after pool destruction, and rejects escaped or
-conflicting ownership. It conservatively ties even unsupported external returns
-to the pool lifetime. No unsafe fallback or general static checkout-exclusivity
-proof is provided. See D104 for the current contract.
+
 
 `ArraySizing` and the private nested `MultiArrayObjectPool.ArrayHolder` are
 implementation helpers. No runtime ownership registry is needed.
@@ -852,10 +834,10 @@ constructing a list, use ordinary iteration for list-to-list copying, and use
 all element references, preserves membership order, and leaves the source
 iterator position untouched. Its initial capacity is `max(1, size())`, with the
 default growth factor. An ordinary list copy uses three allocations regardless
-of size and reclaims partial storage on failure. Copies do not share source
-capacity or iterator state. Clearing or destroying one list does not discharge
-another list's item loans. Self-items, nested containers and published callbacks
-retain their real dependencies; see [D248](DECISIONS.md#d248---derive-list-copy-item-loans-from-verified-storage-reads).
+of size. Partial construction follows managed reachability. Copies do not share
+source capacity or iterator state. Their shared elements remain reachable while
+any copy, root or retained slot reaches them. Self-items, nested containers and
+published callbacks retain their real references; see [D248](DECISIONS.md#d248---derive-list-copy-item-loans-from-verified-storage-reads).
 
 `ArrayList.sortWithComparator(Comparator<? super E>)` sorts `[0, size())`
 stably in place: equal elements keep their encounter order, and size, capacity,
@@ -864,14 +846,14 @@ required; `null` throws `NullPointerException`, even for an empty list, and
 there is no Java `List.sort(null)` natural-order fallback or `sort` name. It
 takes O(n log n) comparisons (n - 1 for sorted input), sorts at most sixteen
 elements without workspace and otherwise allocates one `size() / 2` reference
-array, freed on every exit. A comparator exception propagates and leaves the
+array with ordinary managed lifetime. A comparator exception propagates and leaves the
 same elements in an unspecified order; a comparator must not mutate the list.
 The call is not an audited container operation, so it conservatively exposes
-the stored elements: they cannot be freed afterwards, while the list,
+the stored elements. The list,
 comparator and workspace retire normally; see [D263](DECISIONS.md#d263---sort-array-lists-stably-with-an-explicit-comparator).
 
 Resizable list implementations copy live values into a fresh backing array and
-explicitly free the detached old array. Linked implementations clear user
+leave the superseded array for explicit collection. Linked implementations clear user
 references before recycling detached nodes.
 
 ### Maps
@@ -890,9 +872,9 @@ insertion order. Copy traversal does not reset the source iterator. At measured
 sizes 8, 32, 128 and 512, copies allocate one entry per member plus seven support
 objects; an empty copy uses eight allocations. The inherited float-based capacity
 threshold can round down at very large sizes and trigger additional growth, so
-these counts are not a bound for every capacity. Caller-owned inputs must remain
-alive while observable. Current proofs discharge membership loans on clear or destruction,
-subject to retained aliases; individual removal does not discharge a loan.
+these counts are not a bound for every capacity. Shared inputs stay reachable
+through actual fields and retained slots. Clearing/removal changes logical
+membership; named cold cleanup and slot reuse control intentional retention.
 See [the map-copy qualification](self-hosting/m1/MAPS.md).
 Hash-map iterator removal unlinks the last returned entry from its own bucket
 and returns that entry to its pool. Other mappings, including colliding entries
@@ -919,7 +901,7 @@ method can still perform arbitrary work, including allocation.
 | `ByteBufferMap<E>` | Binary-key map accepting complete byte arrays, array ranges, or the remaining bytes of a heap `ByteBuffer`; keys are copied without changing the caller's buffer position or limit. |
 
 Resizable hash maps relink pooled entries into new bucket arrays, then
-explicitly free the detached bucket arrays without scrubbing their migrated
+leave the superseded bucket arrays for collection without scrubbing their migrated
 entry references first. `CharSequenceMap` and
 `ByteBufferMap` expose configurable maximum key lengths. `ByteBufferMap` is
 limited to the current heap-backed NIO surface.
@@ -936,7 +918,7 @@ limited to the current heap-backed NIO surface.
 
 `HashSet.copy()`, `IdentityHashSet.copy()` and `LinkedHashSet.copy()` own
 independent mutable membership, map storage and reusable iterators. Non-null
-items remain borrowed; destruction never frees caller-owned items. The backing
+items remain shared managed references. The backing
 map uses load factor 1.0 and initial capacity `max(1, size())`, without copying
 unused source pool capacity. Source iterator positions remain unchanged. Value
 copies rerun ordinary hash/equality callbacks and propagate exceptions after
@@ -945,14 +927,14 @@ item callbacks, and linked copies preserve insertion order. Empty copies use
 ten allocations; measured sizes 8, 32, 128 and 512 use one entry per item plus
 nine support objects. The backing map's inherited float-based capacity threshold
 can trigger additional growth at very large sizes; these counts are not a bound
-for every capacity. Clear/destruction can discharge membership loans subject to
-retained aliases; individual removal does not. See [the set-copy qualification](self-hosting/m1/SETS.md).
+for every capacity. Actual fields and retained slots keep shared items reachable;
+clear/removal changes logical membership and reuse controls retained storage. See [the set-copy qualification](self-hosting/m1/SETS.md).
 
 `HashSet`, `LinkedHashSet`, `IntSet`, and `LongSet` each use one private static
 `Object` as the non-null value stored in their backing map. The first active use
 of each set class lazily creates that ordinary allocation. Its static reference
 keeps it live for the rest of the process, so `System.liveAllocationCount()`
-rises by one even after the first set instance is freed; later instances of the
+rises by one after the first set instance becomes unreachable; later instances of the
 same class add no further filler allocation. Closed-world tree shaking and lazy
 class initialization limit this to set classes that are retained and initialized,
 with a maximum of four objects. Generic specializations share their declaring
@@ -970,11 +952,9 @@ hashes; collisions can increase the cost. Equality creates no helper allocations
 and does not reset or advance the other set's reusable iterator.
 
 All current collection `toString()` implementations use a temporary
-`StringBuilder`, reclaim that builder and its backing array on normal and
-exceptional exits, and return exactly one caller-owned String on success. Fresh
-element text used only by Object append is conditionally reclaimed from
-closed-world concrete-type metadata; borrowed or mixed-result overrides are
-never reclaimed implicitly.
+`StringBuilder` and return one independent managed String on success. Builders,
+backing arrays and rendered element text follow exact managed reachability on
+normal and exceptional exits. No renderer collects or invokes managed cleanup.
 
 ### Collection contracts and limitations
 
@@ -983,31 +963,18 @@ never reclaimed implicitly.
   iterator object. Traversals of the same collection are therefore not
   reentrant, and retaining an iterator across another `iterator()` call is not
   supported.
-- The collection owns that iterator. An accepted container `free` destroys it;
-  callers cannot free it independently. A later use is rejected, while an
-  escaped or uncertain borrow blocks the container `free`.
-- Primitive iterators similarly own and reuse one mutable holder object. The
-  holder is a nested borrow tied to the root collection.
+- Cached iterators and primitive mutable holders use managed references.
+  Repeated iterator/reset operations preserve the existing reuse and nonreentrancy
+  contracts. A live alias keeps the backing graph reachable.
+
+
 - Maps reject null values; reference-key maps also reject null keys.
-- Containers retain aliases to inserted values but do not own them. Removing or
-  clearing a value does not free it.
-- For known local bundled containers, the compiler tracks loans to inserted
-  items. Successful `clear()` or destruction releases that container's loans,
-  permitting caller `free` after all retaining containers release the item.
-  Individual removal or indexed replacement keeps the previous loan because
-  duplicates or other keys may retain the same object. The detailed limitations
-  and a possible future proof design are recorded in
-  [Container Removal and Caller-Item Loans](CONTAINER_REMOVAL_LOANS.md).
-  Discarded removal or replacement results permit later clear/destruction.
-  `ArrayLinkedList.clear(boolean)` retains loans until destruction because its
-  unchecked package accessor can read inactive slots. Extracted item results,
-  iterators, unknown calls, uncertain callbacks, subclasses and publication
-  remain conservative, including insertions after contents were exposed.
-  Copied-key maps borrow inputs during copying when all key reads prove safe.
-- An unmodifiable list view borrows its backing list. Destroy every live view
-  before freeing the list. Freeing a view destroys its iterator and leaves the
-  backing list and elements alive. The compiler preserves this dependency through
-  the verified `Collections.unmodifiableList` factory, including failure paths.
+- Containers retain ordinary shared references to elements and keys. Removing or
+  clearing a value changes logical membership; it does not immediately reclaim
+  storage. Unmodifiable views retain their backing list. Shared graphs and cycles
+  are legal and use exact collection.
+
+
 - Array-backed lists use logical size as the visibility boundary. Inactive
   slots may retain unobservable aliases until a later insertion overwrites
   them. `ArrayList.clear()` is therefore constant-time, while
@@ -1019,30 +986,15 @@ never reclaimed implicitly.
 - Nulling remains required when it represents logical structure, including
   `ByteMap`/`CharMap` occupancy, hash bucket heads, and active linked-node
   connections.
-- Collections borrow user elements and keys. Pool destruction owns its registered
-  values and storage; it is separate from the non-owning collection element API.
-- Superseded and terminal private backing arrays are reclaimed only where
-  ownership analysis proves exclusive storage; terminal reclamation occurs in
-  the declaring container's destructor.
-- Every `ironwood.ds` iterable reclaims its compiler-proven-owned reusable
-  iterator; primitive iterator destructors also reclaim their reusable holder.
-  Set backing maps and hybrid-list overflow collections are destroyed in owner
-  dependency order. Each pooled map and linked list owns its private entry pool
-  and builder. Destruction frees the iterator, shallow bucket storage where
-  present, the pool, and then the builder. The pool destroys every entry it
-  created exactly once, including entries still in the container, and its
-  retained capacity. Entries do not destroy caller-supplied keys or values.
-  Failed construction follows the same pool-before-builder dependency order.
-  Internal entry accessors return dependent borrows, just like reusable iterators.
-- `CharSequenceMap` and `ByteBufferMap` entries own their copied-key objects.
-  Entry destruction frees the copied key, whose destructor frees its backing
-  array. This also applies during constructor rollback. Original caller keys
-  remain borrowed and are never destroyed by the map.
-- In those two maps, `getCurrIteratorKey()` returns a dependent borrow of copied
-  storage owned by the map. It cannot be freed independently or used after map
-  destruction; publishing it prevents reclamation when the compiler cannot
-  bound its lifetime. The key is reusable storage, so its contents can change
-  when an entry is reused. An explicit String snapshot has an independent lifetime.
+- Collection storage, cached helpers, pools, builders and copied keys form ordinary
+  managed graphs. Private inactive slots may intentionally retain values until
+  reuse or a named cold reference-cleanup operation clears them. Explicit
+  collection follows the actual retained slots, including aliases and cycles.
+- Copied-key maps preserve input copying. getCurrIteratorKey() exposes reusable
+  storage whose contents may change on entry reuse; use an independent String
+  snapshot when stable text is required. Collection does not change that API.
+
+
 
 ## Blocking TCP and addresses
 
@@ -1058,7 +1010,7 @@ and servers, not the later event-loop completion of N1.
 IPv6 literals, numeric/named scopes, classification, OS DNS, local-host and
 loopback lookup. Resolution groups IPv4 before IPv6 while preserving OS order
 within each family, without an Ironwood DNS cache. `getAllByName` returns an
-owned array of distinct caller-owned addresses; detach/free each element before
+managed array of addresses; aliases keep every referenced element alive across
 shallow array cleanup. `InetSocketAddress` supports resolved and unresolved
 hostnames, equality/hash and rendering. It copies retained names and addresses.
 Name/canonical getters return cached borrowed text; `getHostString` never starts
@@ -1087,7 +1039,7 @@ read-only `ironwood.ds.UnmodifiableList<SocketOptionDescriptor>` values.
 
 Default and freshly created factory implementations are owned by their facade;
 explicit injected implementations are borrowed. Close releases the descriptor;
-`free` reclaims the managed graph and never substitutes for close. Stream,
+Memory.collect() reclaims unreachable managed graphs and never substitutes for close. Stream,
 address and inventory getters borrow their owner's storage. Endpoint snapshots,
 address copies and byte arrays are fresh independent results. Accepted sockets
 survive listener reclamation. Networking exceptions copy caller messages.
@@ -1113,7 +1065,7 @@ metadata, interface-valued IPv6 scope factories/getters and both
 InetAddress.isReachable overloads. Lookup results and top-level enumerations
 own flat structural snapshots. Names, parents, addresses and broadcast metadata
 borrow that root. Address/subinterface cursors and mutable
-`ArrayList<InterfaceAddress>` results are fresh; free them before the query owner.
+ArrayList<InterfaceAddress> results retain their managed snapshot graph.
 Entries can outlive their cursor/list while the query stays alive. Caller-added
 entries retain ordinary ironwood.ds loans. Hardware byte arrays, rendered text
 and copied scope/address graphs are independent owned results.
@@ -1137,8 +1089,8 @@ default mode only reads interface metadata.
 Milestone 4 provides `Proxy`, `Proxy.Type`, `Proxy.NO_PROXY` and `Socket(Proxy)`.
 `new Proxy(Proxy.Type.SOCKS, endpoint)` selects credential-free SOCKS5;
 `Proxy.Type.HTTP` selects credential-free HTTP CONNECT. A socket takes its own
-configuration copy, so the caller can reclaim the proxy and all factory inputs
-before connecting. `Proxy.address()` borrows the proxy's copied endpoint.
+configuration copy independent of later changes to factory inputs.
+`Proxy.address()` returns its shared managed endpoint.
 Equality and hashing compare route type/address, without credential or version
 identity; `toString()` returns a fresh description without credentials.
 
@@ -1171,7 +1123,7 @@ Transfer-Encoding. There is no HTTP body decoder or authentication callback.
 One monotonic connect deadline covers proxy resolution, TCP setup and negotiation.
 Synchronous OS DNS cannot be interrupted; its elapsed time counts when it returns.
 After setup, streams use the ordinary TCP path without retained negotiation
-buffers or proxy processing. Close and free retain their separate resource and
+buffers or proxy processing. Resource close and collection retain their separate resource and
 managed-ownership roles. `Proxy.NO_PROXY` uses the configured socket factory;
 explicit HTTP/SOCKS routes use the built-in proxy implementation.
 
@@ -1188,7 +1140,7 @@ copy explicit Proxy configuration and an optional custom CA path; custom PEM
 anchors replace the pinned bundled set. Connect overloads take host/port or a
 route endpoint plus peer identity and an overall timeout. Cached input/output
 streams are dependent borrows. Read/write timeouts cover retries; failures close
-the connection. Closing either stream closes the client. Close before freeing
+the connection. Closing either stream closes the client. Close before dropping
 its owned graph. No system trust, revocation checking, resumption, early data
 or verification bypass is available.
 

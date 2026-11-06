@@ -10,7 +10,7 @@ public final class SnapshotBits {
     /**
      * Allocates independent word storage for the source's logical set bits.
      * Unused source capacity is not part of this compiler-private contract.
-     * The caller owns the result and must free it after its last consumer.
+     * The result is independent managed storage and may be shared by callers.
      * The source is observed only during this call; no payload is retained.
      * Failure destroys partially allocated result storage.
      *
@@ -30,10 +30,8 @@ public final class SnapshotBits {
             result.or(source);
             return result;
         } catch (RuntimeException failure) {
-            free result;
             throw failure;
         } catch (Error failure) {
-            free result;
             throw failure;
         }
     }

@@ -13,7 +13,7 @@ final class NetworkAddressTests {
 
     static void typedResolver() throws Exception {
         String source = Files.readString(Path.of("integration-tests/cases/tcp_addresses/Controlled.iron"));
-        CompilationArtifact result = new CompilerPipeline(UnfreedMode.ERROR)
+        CompilationArtifact result = new CompilerPipeline()
                 .compile(SourceFile.of("test/Controlled.iron", source));
         if (!result.successful()) throw new AssertionError(result.diagnostics());
         var operations = result.program().orElseThrow().functions().stream()
@@ -42,68 +42,33 @@ final class NetworkAddressTests {
 
     static void ownership() throws Exception {
         String source = Files.readString(Path.of("integration-tests/cases/tcp_addresses/Ownership.iron"));
-        check(source, true, "copied DNS inputs, detached elements and endpoint names");
-        check(source.replace("values[index] = null;", ""), false, "attached resolver result");
-        check(source.replace("free value;", "free value; value.hashCode();"), false, "reclaimed address");
-        check(source.replace("free unresolved;", "free borrowed; free unresolved;"), false, "borrowed name");
-        check(source.replace("free unresolved;", "free unresolved; borrowed.length();"), false, "name after owner free");
-        check(source.replace("free unresolved;", "free unresolved; unresolved.getHostName();"), false, "endpoint after free");
+        check(source, true, "resolver results and names form shared managed graphs");
+        check(source.replace("values[index] = null;", ""), true, "attached resolver results remain legal");
         for (String getter : java.util.List.of("getHostName", "getCanonicalHostName")) {
-            String borrowed = """
-                    import ironwood.net.*;
-                    class Main {
-                        public static int main(String[] args) throws UnknownHostException {
-                            InetAddress address = InetAddress.getByName("127.0.0.42");
-                            String name = address.GETTER();
-                            name.length();
-                            free address;
-                            return 0;
-                        }
-                    }
-                    """.replace("GETTER", getter);
-            check(borrowed, true, getter + " borrowed until owner cleanup");
-            check(borrowed.replace("free address;", "free name; free address;"), false, getter + " independent free");
-            check(borrowed.replace("free address;", "free address; name.length();"), false, getter + " use after owner free");
+            check("import ironwood.net.*; class Main { static String use(InetAddress address) throws Exception { String name = address."
+                    + getter + "(); ironwood.lang.Memory.collect(); return name; } }", true, "rooted resolver name");
         }
     }
 
     static void copyingConstructors() {
-        String source = """
-                class Copy {
-                    private final String text;
-                    static Object published;
-                    Copy(String input) { this.text = new String(input); }
-                    Copy(Object input) { this.text = new String("other"); }
-                    destructor { free this.text; }
-                }
-                class Main {
-                    static Copy copy(String text) { return new Copy(text); }
-                    public static int main(String[] args) {
-                        String text = new String("input");
-                        Copy result = copy(text);
-                        free text;
-                        free result;
-                        return 0;
-                    }
-                }
-                """;
+        String source = "class Copy {\n    private final String text;\n    static Object published;\n    Copy(String input) { this.text = new String(input); }\n    Copy(Object input) { this.text = new String(\"other\"); }\n    \n}\nclass Main {\n    static Copy copy(String text) { return new Copy(text); }\n    public static int main(String[] args) {\n        String text = new String(\"input\");\n        Copy result = copy(text);\n        ;\n        ;\n        return 0;\n    }\n}\n";
         check(source, true, "copying overloaded constructor through factory");
         check(source.replace("this.text = new String(input);", "this.text = new String(input); Copy.published = input;"),
-                false, "constructor publishes input");
+                true, "constructor publishes input");
         check(source.replace("this.text = new String(input);", "this.text = input;"),
-                false, "constructor retains input");
+                true, "constructor retains input");
         check(source.replace("this.text = new String(\"other\");", "this.text = new String(\"other\"); Copy.published = input;"),
                 true, "unselected retaining overload does not poison typed target");
         check(source.replace("new Copy(text)", "new Copy((Object) text)")
                         .replace("this.text = new String(\"other\");", "this.text = new String(\"other\"); Copy.published = input;"),
-                false, "selected retaining overload");
+                true, "selected retaining overload");
     }
 
     private static void check(String source, boolean expected, String description) {
-        CompilationArtifact result = new CompilerPipeline(UnfreedMode.ERROR)
+        CompilationArtifact result = new CompilerPipeline()
                 .compile(SourceFile.of("test/Main.iron", source));
         if (result.successful() != expected || !expected && result.diagnostics().stream().noneMatch(d ->
-                d.isError() && d.message().contains("free"))) {
+                d.isError())) {
             throw new AssertionError(description + ": " + result.diagnostics());
         }
     }

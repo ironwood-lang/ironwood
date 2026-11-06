@@ -2,7 +2,6 @@
 package org.ironwood.javabridge.listeners;
 
 // A retained Java listener receives one result per iteration. The bridge owns
-// its registration until replacement, clearing or explicit processor free.
 public final class ResultProcessor {
 
     private ResultListener listener;

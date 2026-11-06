@@ -3,18 +3,9 @@
 package ironwood.compiler.port;
 
 /**
- * An owned list of texts kept back to back in one UTF-16 buffer, for the
- * archive services' entry names, type names and relative paths. Java keeps
- * Lists, Sets and TreeMaps of Strings there; a native collection would expose
- * every String it holds, so none could be freed, while this owner stores
- * only primitive storage and makes a fresh String only when one is asked for.
- *
- * <p>Texts are addressed by their position. Two orders can be applied to the
- * positions: String order ({@code String.compareTo}, UTF-16 units) and code
- * point order, which is the unsigned UTF-8 byte order Java's Path sorting
- * uses. Both sorts are stable. {@link #find} needs String order and distinct
- * texts; {@link #indexOf} hashes as Java's String does and answers only while
- * the list is unsorted. Inputs are borrowed for each call.
+ * Indexed primitive text storage with independent managed String snapshots.
+ * Existing storage and allocation behavior are preserved without managed ownership
+ * or reclamation premises.
  */
 public final class TextList {
 
@@ -330,7 +321,6 @@ public final class TextList {
 
         this.sorted = true;
         int[] scratch = new int[this.count];
-        defer free scratch;
         for (int width = 1; width < this.count; width = width * 2) {
             for (int start = 0; start < this.count - width; start = start + width * 2) {
                 int middle = start + width;
@@ -373,7 +363,6 @@ public final class TextList {
         char[] previous = this.chars;
         this.chars = new char[(int) capacity];
         System.arraycopy(previous, 0, this.chars, 0, this.used);
-        free previous;
     }
 
     private void record(int begin) {
@@ -382,17 +371,14 @@ public final class TextList {
             int[] previousBounds = this.bounds;
             this.bounds = new int[previousBounds.length * 2];
             System.arraycopy(previousBounds, 0, this.bounds, 0, previousBounds.length);
-            free previousBounds;
         }
         if (this.count == this.order.length) {
             int[] previousOrder = this.order;
             this.order = new int[previousOrder.length * 2];
             System.arraycopy(previousOrder, 0, this.order, 0, previousOrder.length);
-            free previousOrder;
             int[] previousHashes = this.hashes;
             this.hashes = new int[previousHashes.length * 2];
             System.arraycopy(previousHashes, 0, this.hashes, 0, previousHashes.length);
-            free previousHashes;
         }
         if ((this.count + 1) * 2 > this.slots.length) this.rehash(this.slots.length * 2);
         int hash = 0;
@@ -420,16 +406,7 @@ public final class TextList {
 
         int[] previous = this.slots;
         this.slots = new int[size];
-        free previous;
         for (int stored = 0; stored < this.count; stored++) this.insert(stored);
     }
 
-    destructor {
-
-        free this.chars;
-        free this.bounds;
-        free this.order;
-        free this.hashes;
-        free this.slots;
-    }
 }

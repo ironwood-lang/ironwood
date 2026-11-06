@@ -2,13 +2,7 @@
 
 package ironwood.compiler.semantic;
 
-import ironwood.compiler.BridgeFinalNonReclamation;
-import ironwood.compiler.bridge.BridgeEntryModule;
-import ironwood.compiler.bridge.BridgeNonReclamationContract;
 import ironwood.compiler.bridge.BridgeCallableId;
-import ironwood.compiler.bridge.BridgeEnumLifetime;
-import ironwood.compiler.bridge.BridgePermanentContract;
-import ironwood.compiler.bridge.BridgePermanentValues;
 import ironwood.compiler.bridge.BridgeProof;
 import ironwood.compiler.bridge.BridgeRetentionContract;
 import ironwood.compiler.bridge.BridgeRootSet;
@@ -27,8 +21,8 @@ import java.util.Set;
  * provenance across recursive calls. Unimplemented effects remain unknown.
  */
 public final class BridgeRetentionAnalyzer {
-    private enum Mode { ROOTS, COPIED_STRINGS, ENUM_VALUES, MANAGED_LISTENERS }
-    private enum Kind { INPUT, LOADED, NULL, FRESH, IMMORTAL, PERMANENT, UNKNOWN }
+    private enum Mode { ROOTS, MANAGED_LISTENERS }
+    private enum Kind { INPUT, LOADED, NULL, FRESH, IMMORTAL, UNKNOWN }
     private record Origin(Kind kind, int input, IrType primitiveArray, boolean foreign, IrType nominalType) {
         static Origin of(Kind kind) { return new Origin(kind, -1, null, false, null); }
         Origin typed(IrType type) {
@@ -63,26 +57,21 @@ public final class BridgeRetentionAnalyzer {
     private final Map<String, IrFunction> functions = new LinkedHashMap<>();
     private final Map<String, Summary> summaries = new LinkedHashMap<>();
     private final Set<IrStaticField> staticFields;
-    private final Set<IrField> ownedFields;
-    private final Set<IrType> permanentTypes;
+
     private final Mode mode;
     private Set<IrType> listenerTypes = Set.of();
     private Set<String> listenerBodies = Set.of();
     private Set<String> listenerTargets = Set.of();
 
     private BridgeRetentionAnalyzer(IrProgram program, BridgeConstructionFacts facts) {
-        this(program, facts, null, Mode.ROOTS);
+        this(program, facts, Mode.ROOTS);
     }
 
-    private BridgeRetentionAnalyzer(IrProgram program, BridgeConstructionFacts facts, BridgePermanentContract permanent, Mode mode) {
+    private BridgeRetentionAnalyzer(IrProgram program, BridgeConstructionFacts facts, Mode mode) {
         this.callTargets = new BridgeCallTargets(program);
         this.controlFlow = new BridgeControlFlow(program);
         this.staticFields = Set.copyOf(program.staticFields());
-        this.permanentTypes = permanent == null ? Set.of() : permanent.references().keySet();
         this.mode = mode;
-        this.ownedFields = facts == null ? Set.of() : facts.constructors().values().stream()
-                .flatMap(proof -> proof.contract().stream()).flatMap(contract -> contract.ownedStorageFields().stream())
-                .collect(java.util.stream.Collectors.toUnmodifiableSet());
         program.functions().forEach(function -> functions.put(function.linkageName(), function));
     }
 
@@ -93,14 +82,14 @@ public final class BridgeRetentionAnalyzer {
 
     public static Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> analyze(
             IrProgram program, BridgeRootSet roots, BridgeConstructionFacts facts) {
-        return analyze(program, roots, facts, null, true, Mode.ROOTS);
+        return analyze(program, roots, facts, new BridgeRetentionAnalyzer(program, facts));
     }
 
     /** Managed graph sharing does not waive attribution of JNI-owning listener values. */
     public static Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> managedListeners(
             ironwood.compiler.CompilationArtifact artifact, ironwood.compiler.bridge.BridgeListenerProxies proxies,
             BridgeRootSet roots) {
-        return analyze(artifact.program().orElseThrow(), roots, artifact.bridgeConstructionFacts().orElseThrow(), true,
+        return analyze(artifact.program().orElseThrow(), roots, artifact.bridgeConstructionFacts().orElseThrow(),
                 listenerAnalyzer(artifact, proxies));
     }
 
@@ -108,7 +97,7 @@ public final class BridgeRetentionAnalyzer {
             ironwood.compiler.bridge.BridgeListenerProxies proxies) {
         proxies.validateArtifact(artifact);
         var program = artifact.program().orElseThrow();
-        var analyzer = new BridgeRetentionAnalyzer(program, artifact.bridgeConstructionFacts().orElseThrow(), null, Mode.MANAGED_LISTENERS);
+        var analyzer = new BridgeRetentionAnalyzer(program, artifact.bridgeConstructionFacts().orElseThrow(), Mode.MANAGED_LISTENERS);
         analyzer.listenerTypes = proxies.proxies().stream().map(proxy -> IrType.reference(proxy.listener().binaryName()))
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
         var owners = proxies.proxies().stream().map(ironwood.compiler.bridge.BridgeListenerProxies.Proxy::binaryName)
@@ -184,103 +173,11 @@ public final class BridgeRetentionAnalyzer {
         return BridgeProof.proved(Boolean.TRUE, "secondary exception graphs remain invocation-contained");
     }
 
-    /** Cleanup dispatch does not implicitly initialize the receiver's class again. */
-    static Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> cleanupBodies(
-            IrProgram program, BridgeRootSet roots, BridgeConstructionFacts facts) {
-        if (facts == null || roots.roots().stream().anyMatch(root -> root.callable().kind() != IrCallableKind.DESTRUCTOR
-                && root.callable().kind() != IrCallableKind.CONSTRUCTOR_ROLLBACK)) {
-            throw new IllegalArgumentException("cleanup retention requires final facts and descriptor cleanup roots");
-        }
-        return analyze(program, roots, facts, null, false, Mode.ROOTS);
-    }
-
-    /** Permanent publication does not authorize retaining a copied String input. */
-    public static Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> copiedStringInputs(
-            IrProgram program, BridgeRootSet roots, BridgeConstructionFacts facts, BridgePermanentContract permanent) {
-        if (facts == null || !permanent.matches(program, roots)
-                || permanent.references().containsKey(IrType.reference("ironwood.lang.String"))) {
-            throw new IllegalArgumentException("copied String retention requires matching permanent non-String storage facts");
-        }
-        return analyze(program, roots, facts, permanent, true, Mode.COPIED_STRINGS);
-    }
-
-    /** Enum values do not own roots; every other retained reference still needs exact slot attribution. */
-    public static Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> withEnumValues(
-            IrProgram program, BridgeRootSet roots, BridgeConstructionFacts facts, BridgeEnumLifetime lifetime) {
-        if (facts == null || !lifetime.contract().matches(program, roots)) {
-            throw new IllegalArgumentException("enum retention requires matching complete enum lifetime facts");
-        }
-        return analyze(program, roots, facts, lifetime.contract(), true, Mode.ENUM_VALUES);
-    }
-
-    /** Independently proved permanent inputs do not erase dependencies on remaining reclaimable values. */
-    public static Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> withPermanentValues(
-            IrProgram program, BridgeRootSet roots, BridgeConstructionFacts facts, BridgePermanentValues lifetime) {
-        if (facts == null || !lifetime.contract().matches(program, roots)) {
-            throw new IllegalArgumentException("mixed retention requires matching complete permanent lifetime facts");
-        }
-        return analyze(program, roots, facts, lifetime.contract(), true, Mode.ENUM_VALUES);
-    }
-
-    /** Publication witnesses request a separate D192 proof; they do not grant lifetime permission. */
-    public static Map<BridgeCallableId, Set<BridgeRetentionContract.Site>> publishedReceivers(
-            IrProgram program, BridgeRootSet roots, BridgeConstructionFacts facts) {
-        if (facts == null || !facts.matches(program) || !roots.revalidate(program).resolved()) {
-            throw new IllegalArgumentException("receiver publication requires matching final facts and roots");
-        }
-        var analyzer = new BridgeRetentionAnalyzer(program, facts);
-        analyzer.solve();
-        Map<BridgeCallableId, Set<BridgeRetentionContract.Site>> result = new LinkedHashMap<>();
-        for (var root : roots.revalidate(program).roots()) {
-            var id = root.callable();
-            if (facts.isStatic(id) || id.parameters().isEmpty() || !id.parameters().getFirst().isReference()) continue;
-            var body = analyzer.summary(analyzer.functions.get(id.linkage()));
-            Set<BridgeRetentionContract.Site> sites = new LinkedHashSet<>();
-            body.publications().forEach((site, origins) -> {
-                if (origins.stream().anyMatch(origin -> origin.kind() == Kind.INPUT && origin.input() == 0)) sites.add(site);
-            });
-            for (var store : body.stores()) {
-                if (store.value().kind() == Kind.INPUT && store.value().input() == 0 && store.holder().kind() != Kind.INPUT) {
-                    sites.add(store.site());
-                }
-            }
-            if (!sites.isEmpty()) result.put(id, Set.copyOf(sites));
-        }
-        return Map.copyOf(result);
-    }
-
-    /** Recheck source effects within the complete, final enum lifetime closure. */
-    public static Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> finalRootEntries(
-            BridgeEntryModule module, BridgeFinalNonReclamation lifetime, BridgeRootSet roots) {
-        var program = lifetime.program();
-        if (!lifetime.matches(module, program) || module.rootRetention().isEmpty() || !roots.revalidate(program).resolved()) {
-            throw new IllegalArgumentException("final root attribution requires matching entries and complete lifetime proof");
-        }
-        var permanent = module.rootRetention().orElseThrow().permanentReferences();
-        if (permanent.isEmpty()) return analyze(program, roots, lifetime.constructionFacts());
-        Map<IrType, BridgeNonReclamationContract> references = new LinkedHashMap<>();
-        for (var type : permanent.keySet()) {
-            var proof = lifetime.references().get(type);
-            if (proof == null || roots.roots().stream().anyMatch(root -> !proof.checkedClosure().contains(root.callable()))) {
-                throw new IllegalArgumentException("final permanent attribution extends beyond its proved lifetime closure");
-            }
-            references.put(type, proof);
-        }
-        return analyze(program, roots, lifetime.constructionFacts(),
-                new BridgePermanentContract(program, roots, references, Map.of()), true, Mode.ENUM_VALUES);
-    }
-
-    private static Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> analyze(
-            IrProgram program, BridgeRootSet roots, BridgeConstructionFacts facts, BridgePermanentContract permanent,
-            boolean entryInitialization, Mode mode) {
-        return analyze(program, roots, facts, entryInitialization, new BridgeRetentionAnalyzer(program, facts, permanent, mode));
-    }
-
     private static Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> analyze(
             IrProgram program, BridgeRootSet roots, BridgeConstructionFacts facts,
-            boolean entryInitialization, BridgeRetentionAnalyzer analyzer) {
+            BridgeRetentionAnalyzer analyzer) {
         if (facts != null && !facts.matches(program)) {
-            throw new IllegalArgumentException("retention owned-field facts do not match the program");
+            throw new IllegalArgumentException("retention confinement facts do not match the program");
         }
         BridgeRootSet checked = roots.revalidate(program);
         if (!checked.resolved()) {
@@ -295,9 +192,7 @@ public final class BridgeRetentionAnalyzer {
             Set<ArrayCopy> copies = new LinkedHashSet<>(body.copies());
             Set<Association> associations = new LinkedHashSet<>(body.associations());
             Map<BridgeRetentionContract.Site, Set<Origin>> publications = new LinkedHashMap<>(body.publications());
-            BridgeCallTargets.Initializers initializers = entryInitialization
-                    ? analyzer.callTargets.initializers(root.callable().owner())
-                    : new BridgeCallTargets.Initializers(List.of(), true);
+            BridgeCallTargets.Initializers initializers = analyzer.callTargets.initializers(root.callable().owner());
             if (!initializers.complete()) failures.add(new Failure(BridgeProof.Status.UNKNOWN,
                     "unresolved entry initialization: " + root.callable().owner()));
             for (IrFunction initializer : initializers.targets()) {
@@ -313,38 +208,10 @@ public final class BridgeRetentionAnalyzer {
         return Map.copyOf(result);
     }
 
-    /** Exact literal/null returns only; does not authorize cleanup or waive effects. */
-    public static Set<BridgeCallableId> immortalStringResults(IrProgram program, BridgeRootSet roots) {
-        return stringResultsFrom(program, roots, Set.of(Kind.NULL, Kind.IMMORTAL));
-    }
-
-    /** Non-fresh String origins only; consumers must separately prove the owner's lifetime. */
-    public static Set<BridgeCallableId> borrowedStringResults(IrProgram program, BridgeRootSet roots) {
-        return stringResultsFrom(program, roots, Set.of(Kind.NULL, Kind.IMMORTAL, Kind.INPUT, Kind.LOADED));
-    }
-
-    private static Set<BridgeCallableId> stringResultsFrom(IrProgram program, BridgeRootSet roots, Set<Kind> kinds) {
-        var checked = roots.revalidate(program);
-        if (!checked.resolved()) throw new IllegalArgumentException("String results require resolved roots");
-        var analyzer = new BridgeRetentionAnalyzer(program, null);
-        analyzer.solve();
-        Set<BridgeCallableId> result = new LinkedHashSet<>();
-        for (var root : checked.roots()) {
-            if (!root.callable().result().equals(IrType.reference("ironwood.lang.String"))) continue;
-            var origins = analyzer.summary(analyzer.functions.get(root.callable().linkage())).returns();
-            if (!origins.isEmpty() && origins.stream().allMatch(origin -> kinds.contains(origin.kind()))) result.add(root.callable());
-        }
-        return Set.copyOf(result);
-    }
-
     private BridgeProof<BridgeRetentionContract> contract(Set<Store> stores, Set<ArrayCopy> copies,
             Set<Association> associations, Map<BridgeRetentionContract.Site, Set<Origin>> publications, Set<Failure> failures) {
         for (var publication : publications.entrySet()) {
             if (mode == Mode.MANAGED_LISTENERS && publication.getValue().stream().noneMatch(Origin::foreign)) continue;
-            if (mode == Mode.COPIED_STRINGS && !publication.getValue().isEmpty()
-                    && publication.getValue().stream().allMatch(BridgeRetentionAnalyzer::notCopiedInput)) continue;
-            if (mode == Mode.ENUM_VALUES && !publication.getValue().isEmpty()
-                    && publication.getValue().stream().allMatch(BridgeRetentionAnalyzer::permanentValue)) continue;
             failures.add(new Failure(BridgeProof.Status.REJECTED,
                     "untracked static/array reference store at " + publication.getKey()));
         }
@@ -373,20 +240,6 @@ public final class BridgeRetentionAnalyzer {
                         "listener enters an erased or untracked field at " + store.site()));
                 continue;
             }
-            if (mode == Mode.COPIED_STRINGS) {
-                if (!notCopiedInput(store.value())) failures.add(new Failure(BridgeProof.Status.REJECTED,
-                        "copied String input may enter retaining storage at " + store.site()));
-                continue;
-            }
-            // Only an exact proved permanent field can never have held a reclaimable input.
-            // An erased Object field may need to release its previous dependency.
-            if (mode == Mode.ENUM_VALUES && permanentValue(store.value())
-                    && (permanentTypes.contains(store.field().type()) || store.holder().kind() == Kind.PERMANENT
-                    || store.holder().kind() == Kind.IMMORTAL)) continue;
-            // Existing whole-program ownership proves that these private fields
-            // contain internal storage, never independently retained input roots.
-            if (mode != Mode.MANAGED_LISTENERS && ownedFields.contains(store.field())
-                    && (store.value().kind() == Kind.FRESH || store.value().kind() == Kind.NULL)) continue;
             // A newly allocated holder starts with no incoming-root dependency.
             // Null, immortal data and another fresh allocation do not introduce
             // an input dependency. Nested stores and helper effects remain in
@@ -431,7 +284,7 @@ public final class BridgeRetentionAnalyzer {
                         .sorted(java.util.Comparator.comparing(BridgeRetentionContract.Site::toString)).toList()))
                 .toList();
         return BridgeProof.proved(new BridgeRetentionContract(slots),
-                "complete supported reference-store attribution; root ownership and acyclicity remain separate obligations");
+                "complete supported reference-store attribution for foreign roots and listener slots");
     }
 
     private Summary summary(IrFunction function) {
@@ -493,14 +346,12 @@ public final class BridgeRetentionAnalyzer {
         Map<Integer, Set<Origin>> values = new LinkedHashMap<>();
         for (int index = 0; index < function.parameters().size(); index++) {
             var parameter = function.parameters().get(index).value();
-            values.put(parameter.id(), Set.of(permanentTypes.contains(parameter.type()) ? Origin.of(Kind.PERMANENT)
-                    : new Origin(Kind.INPUT, index, null, listenerTypes.contains(parameter.type()), null).typed(parameter.type())));
+            values.put(parameter.id(), Set.of(new Origin(Kind.INPUT, index, null, listenerTypes.contains(parameter.type()), null).typed(parameter.type())));
         }
         Map<IrInstruction, BridgeCallTargets.Call> calls = new LinkedHashMap<>();
         for (IrInstruction instruction : instructions) {
             BridgeCallTargets.Call call = callTargets.resolve(instruction);
-            if (instruction instanceof IrFreeInstruction free) call = callTargets.cleanup(free.allocation(), false);
-            if (instruction instanceof IrRollbackInstruction rollback) call = callTargets.cleanup(rollback.allocation(), true);
+
             if (call != null) {
                 calls.put(instruction, call);
             }
@@ -656,15 +507,7 @@ public final class BridgeRetentionAnalyzer {
     }
 
     private static boolean independent(Origin origin) {
-        return origin.kind() == Kind.FRESH || origin.kind() == Kind.IMMORTAL || origin.kind() == Kind.PERMANENT;
-    }
-
-    private static boolean notCopiedInput(Origin origin) {
-        return origin.kind() != Kind.INPUT && origin.kind() != Kind.UNKNOWN;
-    }
-
-    private static boolean permanentValue(Origin origin) {
-        return origin.kind() == Kind.PERMANENT || origin.kind() == Kind.IMMORTAL || origin.kind() == Kind.NULL;
+        return origin.kind() == Kind.FRESH || origin.kind() == Kind.IMMORTAL;
     }
 
     private static Set<Origin> thrownOrigins(IrOperand value, Map<Integer, Set<Origin>> values, boolean complete) {
@@ -755,13 +598,6 @@ public final class BridgeRetentionAnalyzer {
             case IrIdentityHashCodeInstruction ignored -> true;
             case ironwood.compiler.ir.IrByteViewInstruction ignored -> true;
             case IrStringCharAtInstruction ignored -> true;
-            // Fixed helpers only release proved fresh String storage, without
-            // calling a producer destructor. Reclamation is checked separately.
-            case IrReleaseOwnedToStringResultInstruction ignored -> true;
-            case IrReleaseOwnedThrowableMessageInstruction ignored -> true;
-            // Deallocation does not retain a reference. Ordinary free/rollback
-            // separately substitute every possible destructor effect above.
-            case IrRawDeallocateInstruction ignored -> true;
             case IrMathUnaryInstruction ignored -> true;
             case IrMathBinaryInstruction ignored -> true;
             case IrExceptionLandingPadInstruction ignored -> true;
@@ -774,7 +610,6 @@ public final class BridgeRetentionAnalyzer {
             // Capture stores only copied native PCs in private trace storage;
             // release frees that storage, not the Throwable or an input root.
             case IrThrowableTraceInstruction trace -> trace.operation() == IrThrowableTraceInstruction.Operation.CAPTURE
-                    || trace.operation() == IrThrowableTraceInstruction.Operation.RELEASE
                     || trace.operation() == IrThrowableTraceInstruction.Operation.COMMON;
             default -> false;
         };
@@ -816,7 +651,6 @@ public final class BridgeRetentionAnalyzer {
 
     private boolean merge(Map<Integer, Set<Origin>> values, IrValueReference value, Set<Origin> added) {
         if (!value.type().isReference() && !value.type().equals(IrType.EXCEPTION)) return false;
-        if (!added.isEmpty() && permanentTypes.contains(value.type())) added = Set.of(Origin.of(Kind.PERMANENT));
         boolean defined = values.containsKey(value.id());
         if (listenerTypes.contains(value.type())) added = added.stream().map(Origin::listener).collect(java.util.stream.Collectors.toSet());
         Set<Origin> merged = new LinkedHashSet<>(values.getOrDefault(value.id(), Set.of()));

@@ -36,23 +36,19 @@ public final class HostNetworkingTests extends TestSuite {
         boolean caught = false;
         try {
             NetworkInterface value = NetworkInterface.getByName(null);
-            free value;
         } catch (NullPointerException expected) { caught = true; }
         assertTrue(caught);
         caught = false;
         try {
             NetworkInterface value = NetworkInterface.getByInetAddress(null);
-            free value;
         } catch (NullPointerException expected) { caught = true; }
         assertTrue(caught);
         caught = false;
         try {
             NetworkInterface value = NetworkInterface.getByIndex(-1);
-            free value;
         } catch (IllegalArgumentException expected) { caught = true; }
         assertTrue(caught);
         NetworkInterface absent = NetworkInterface.getByIndex(0);
-        defer free absent;
         assertNull(absent);
     }
 
@@ -60,19 +56,16 @@ public final class HostNetworkingTests extends TestSuite {
     private void interfaceQueriesAndLiveMetadata() throws Exception {
 
         Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
-        defer free interfaces;
         while (interfaces.hasMoreElements()) {
             NetworkInterface netif = interfaces.nextElement();
             assertNotNull(netif.getName());
             assertNotNull(netif.getDisplayName());
             NetworkInterface lookup = NetworkInterface.getByName(netif.getName());
-            defer free lookup;
             assertNotNull(lookup);
             assertEquals(netif.getName(), lookup.getName());
             assertEquals(netif.hashCode(), lookup.hashCode());
             if (netif.getIndex() > 0) {
                 NetworkInterface indexed = NetworkInterface.getByIndex(netif.getIndex());
-                defer free indexed;
                 assertNotNull(indexed);
                 assertEquals(netif.getIndex(), indexed.getIndex());
             }
@@ -82,10 +75,8 @@ public final class HostNetworkingTests extends TestSuite {
             netif.isPointToPoint();
             netif.supportsMulticast();
             byte[] hardware = netif.getHardwareAddress();
-            defer free hardware;
             if (hardware != null) assertTrue(hardware.length > 0);
             String text = netif.toString();
-            defer free text;
             assertTrue(text.contains(netif.getName()));
         }
     }
@@ -94,24 +85,19 @@ public final class HostNetworkingTests extends TestSuite {
     private void addressAndChildCursorsAreIndependent() throws Exception {
 
         Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
-        defer free interfaces;
         while (interfaces.hasMoreElements()) {
             NetworkInterface netif = interfaces.nextElement();
             Enumeration<InetAddress> first = netif.getInetAddresses();
-            defer free first;
             Enumeration<InetAddress> second = netif.getInetAddresses();
-            defer free second;
             while (first.hasMoreElements()) {
                 assertTrue(second.hasMoreElements());
                 InetAddress address = first.nextElement();
                 assertTrue(address.equals(second.nextElement()));
                 NetworkInterface lookup = NetworkInterface.getByInetAddress(address);
-                defer free lookup;
                 assertNotNull(lookup);
             }
             assertFalse(second.hasMoreElements());
             Enumeration<NetworkInterface> children = netif.getSubInterfaces();
-            defer free children;
             while (children.hasMoreElements()) {
                 NetworkInterface child = children.nextElement();
                 assertTrue(child.isVirtual());
@@ -124,7 +110,6 @@ public final class HostNetworkingTests extends TestSuite {
 
         // Entries remain owned by netif after this temporary list is reclaimed.
         ArrayList<InterfaceAddress> bindings = netif.getInterfaceAddresses();
-        defer free bindings;
         if (bindings.isEmpty()) return null;
         InterfaceAddress retained = bindings.get(0);
         for (int index = 0; index < bindings.size(); index++) {
@@ -134,7 +119,6 @@ public final class HostNetworkingTests extends TestSuite {
             assertTrue(binding.getNetworkPrefixLength() <= width);
             if (binding.getBroadcast() != null) assertTrue(binding.getBroadcast() instanceof Inet4Address);
             String text = binding.toString();
-            defer free text;
             assertTrue(text.length() > 0);
         }
         bindings.clear();
@@ -148,7 +132,6 @@ public final class HostNetworkingTests extends TestSuite {
     private static void checkBindings(String name) throws Exception {
 
         NetworkInterface netif = NetworkInterface.getByName(name);
-        defer free netif;
         InterfaceAddress retained = checkBindingList(netif);
         if (retained == null) return;
         assertNotNull(retained.getAddress());
@@ -158,16 +141,13 @@ public final class HostNetworkingTests extends TestSuite {
     private void bindingEntriesOutliveTheirMutableList() throws Exception {
 
         Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
-        defer free interfaces;
         while (interfaces.hasMoreElements()) checkBindings(interfaces.nextElement().getName());
     }
 
     private static Inet6Address scopedCopy(NetworkInterface netif, InetAddress source) throws Exception {
 
         byte[] bytes = source.getAddress();
-        defer free bytes;
         Inet6Address scoped = Inet6Address.getByAddress("scoped-test", bytes, netif);
-        defer free scoped;
         return (Inet6Address) scoped.copy();
     }
 
@@ -177,16 +157,13 @@ public final class HostNetworkingTests extends TestSuite {
         // Hosts may disable IPv6. Test every IPv6 record that the OS provides;
         // controlled no-address and synthetic IPv6 cases live in the M3 driver.
         Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
-        defer free interfaces;
         while (interfaces.hasMoreElements()) {
             NetworkInterface netif = interfaces.nextElement();
             Enumeration<InetAddress> addresses = netif.getInetAddresses();
-            defer free addresses;
             while (addresses.hasMoreElements()) {
                 InetAddress address = addresses.nextElement();
                 if (address instanceof Inet6Address) {
                     Inet6Address copy = scopedCopy(netif, address);
-                    defer free copy;
                     assertTrue(copy.equals(address));
                     assertEquals("scoped-test", copy.getHostName());
                     assertNotNull(copy.getScopedInterface());
@@ -201,7 +178,6 @@ public final class HostNetworkingTests extends TestSuite {
     private static Inet6Address unscopedLoopback() throws Exception {
 
         byte[] bytes = new byte[16];
-        defer free bytes;
         bytes[15] = 1;
         return Inet6Address.getByAddress(null, bytes, (NetworkInterface) null);
     }
@@ -210,7 +186,6 @@ public final class HostNetworkingTests extends TestSuite {
     private void nullInterfaceScopeCopiesItsAddressBytes() throws Exception {
 
         Inet6Address address = unscopedLoopback();
-        defer free address;
         assertTrue(address.isLoopbackAddress());
         assertEquals(0, address.getScopeId());
         assertNull(address.getScopedInterface());
@@ -220,9 +195,7 @@ public final class HostNetworkingTests extends TestSuite {
     private void iteratorAdapterAdvancesItsEnumeration() {
 
         TwoNames values = new TwoNames();
-        defer free values;
         Iterator<String> iterator = values.asIterator();
-        defer free iterator;
         assertTrue(iterator.hasNext());
         assertEquals("first", iterator.next());
         assertEquals("second", values.nextElement());
@@ -239,7 +212,6 @@ public final class HostNetworkingTests extends TestSuite {
     private void invalidReachabilityArgumentsNeverProbe() throws Exception {
 
         InetAddress address = NetworkingSupport.loopback();
-        defer free address;
         boolean caught = false;
         try { address.isReachable(-1); } catch (IllegalArgumentException expected) { caught = true; }
         assertTrue(caught);

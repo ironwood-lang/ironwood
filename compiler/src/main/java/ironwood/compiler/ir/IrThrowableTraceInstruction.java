@@ -12,7 +12,6 @@ public record IrThrowableTraceInstruction(Optional<IrValueReference> result, Ope
         implements IrInstruction {
     public enum Operation {
         CAPTURE("captureTrace", "capture", IrType.VOID, List.of(throwable())),
-        RELEASE("releaseTrace", "release", IrType.VOID, List.of(throwable())),
         COMMON("commonTrace", "common", IrType.I32, List.of(throwable(), throwable())),
         PRINT("printTraceFrames", "print", IrType.VOID, List.of(throwable(), stream(), IrType.I32, IrType.I32)),
         EMERGENCY("printEmergencyTrace", "emergency", IrType.VOID, List.of(throwable(), stream())),

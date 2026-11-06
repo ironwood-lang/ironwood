@@ -27,16 +27,16 @@ final class BridgeEnumArgumentSources {
         var descriptor = new StringBuilder(); var tokens = new HashSet<Integer>();
         for (int index = 0; index < method.parameters().size(); index++) {
             var type = method.parameters().get(index); String name = method.parameterNames().get(index);
-            String sourceType = BridgePermanentJavaSources.javaType(type, admission.surface());
+            String sourceType = BridgeFacadeSources.javaType(type, admission.surface());
             boolean enumeration = type.isNominalReference() && admission.surface().types().stream()
                     .anyMatch(candidate -> candidate.binaryName().equals(type.referenceName()) && candidate.kind() == BridgeApiFacts.Kind.ENUM);
             if (!enumeration) {
-                formals.add((BridgeGenericDomain.dependent(type) ? BridgePermanentJavaSources.javaErasedType(type, admission.surface())
+                formals.add((BridgeGenericDomain.dependent(type) ? BridgeFacadeSources.javaErasedType(type, admission.surface())
                         : sourceType) + " " + name);
                 arguments.add(name); descriptor.append(BridgeJavaTypes.descriptor(type)); continue;
             }
             var constants = BridgeEnumConstants.discover(artifact, Set.of(type)).constants().get(type);
-            String conversion = BridgePermanentJavaSources.unique(occupied, "$ironwood$tokenArgument");
+            String conversion = BridgeFacadeSources.unique(occupied, "$ironwood$tokenArgument");
             text.append(indent).append("    private static int ").append(conversion).append('(').append(sourceType).append(" value) {\n")
                     .append(indent).append("        if (value == null) return -1;\n");
             if (constants.isEmpty()) text.append(indent).append("        throw new java.lang.AssertionError(\"empty generated enum\");\n");

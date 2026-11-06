@@ -49,7 +49,7 @@ implementation or transpiler:
   choices with the human, and document accepted conventions.
 - Compile ahead of time to native executables or libraries with a closed-world
   final link. Preserve whole-program reachability, specialization,
-  devirtualization, and ownership analysis. Do not introduce JVM bytecode, a JVM,
+  devirtualization, conservative reference effects and pool/native provenance. Do not introduce JVM bytecode, a JVM,
   JIT, runtime class loading, or JVM machinery to mimic an API; use native or
   compile-time mechanisms, a reduced API, or an explicit omission.
 - Keep ordinary source Java-shaped: classes, interfaces, references, packages,
@@ -67,9 +67,11 @@ implementation or transpiler:
   Use the generated RootHandle and ListenerRegistration lifetime APIs; preserve
   source resource closure separately. macOS arm64 and Linux x86-64 are qualified;
   Linux arm64 and arm64e remain unqualified. See [GC6](docs/GC6_IMPLEMENTATION.md).
-  GC7 consumer migration and structural retirement are incomplete; follow the
-  [checkpoint and disposition ledger](docs/GC7_IMPLEMENTATION.md). Do not treat
-  removal of the outer proof loop as completion or restart self-hosting.
+  GC7 consumer migration and structural retirement are complete within the
+  [implementation and disposition ledger](docs/GC7_IMPLEMENTATION.md). Do not
+  restore managed-free proofs, private rendering-release helpers or heap-only
+  callback-retention restrictions. Final-field/slot origins do not grant exclusive
+  ownership or nonretaining effects. GC8-GC10 and self-hosting require separate work.
 - Keep the mandatory runtime small; unreachable standard-library code is removed
   from the closed-world program, allowing a broad library.
 - Use UTF-8 `.iron` source, a Java 21 bootstrap compiler, and the pinned LLVM 23

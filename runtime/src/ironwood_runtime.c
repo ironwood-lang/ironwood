@@ -69,10 +69,10 @@ struct ironwood_type_info {
     const unsigned char *membership;
     const char *name;
     uint32_t kind;
-    void (*destructor)(void *);
-    void (*constructor_rollback)(void *);
-    _Bool to_string_returns_owned_fresh;
-    _Bool localized_message_returns_owned_fresh;
+    void *reserved_pointer_0;
+    void *reserved_pointer_1;
+    _Bool reserved_flag_0;
+    _Bool reserved_flag_1;
 };
 
 int32_t ironwood_bridge_type_id(const void *object) {
@@ -3946,9 +3946,6 @@ void *ironwood_string_concat(const struct ironwood_string_concat_part *parts,
     return result;
 }
 
-_Noreturn void ironwood_destructor_failed(void) {
-    fatal_emergency("fatal: an exception escaped an Ironwood destructor");
-}
 
 static void write_string(FILE *stream, const struct ironwood_string *value) {
     for (int32_t index = 0; index < value->utf16_length; index++) {

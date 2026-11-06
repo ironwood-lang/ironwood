@@ -19,23 +19,19 @@ public final class BridgeByteViews {
         public Contract { inputs = Set.copyOf(inputs); closure = Set.copyOf(closure); }
     }
 
-    public static BridgeProof<Contract> analyze(CompilationArtifact artifact, BridgeCallableId callable) {
-        return analyze(artifact, callable, false);
-    }
-
     public static BridgeProof<Contract> analyzeManaged(CompilationArtifact artifact, BridgeCallableId callable) {
-        return analyze(artifact, callable, true);
+        return analyze(artifact, callable);
     }
 
     public static BridgeProof<Contract> analyzeManaged(CompilationArtifact artifact, BridgeCallableId callable, BridgeListenerProxies listeners) {
-        return analyze(artifact, callable, true, listeners);
+        return analyze(artifact, callable, listeners);
     }
 
-    private static BridgeProof<Contract> analyze(CompilationArtifact artifact, BridgeCallableId callable, boolean managed) {
-        return analyze(artifact, callable, managed, null);
+    public static BridgeProof<Contract> analyze(CompilationArtifact artifact, BridgeCallableId callable) {
+        return analyze(artifact, callable, null);
     }
 
-    private static BridgeProof<Contract> analyze(CompilationArtifact artifact, BridgeCallableId callable, boolean managed, BridgeListenerProxies listeners) {
+    private static BridgeProof<Contract> analyze(CompilationArtifact artifact, BridgeCallableId callable, BridgeListenerProxies listeners) {
         if (!artifact.valid() || artifact.bridgeConstructionFacts().isEmpty() || artifact.bridgeApiFacts().isEmpty()
                 || !artifact.bridgeConstructionFacts().orElseThrow().matches(artifact.program().orElseThrow())
                 || !artifact.bridgeApiFacts().orElseThrow().matches(artifact.program().orElseThrow())) {
@@ -64,10 +60,7 @@ public final class BridgeByteViews {
             inputs.add(i);
         }
         if (inputs.isEmpty()) return BridgeProof.rejected("byte view proof requires a view input");
-        if (!managed) {
-            var lifetime = BridgeNonReclamationAnalyzer.analyze(program, roots, IrByteViewInstruction.TYPE, facts);
-            if (lifetime.status() != BridgeProof.Status.PROVED) return failed(lifetime.status(), lifetime.reason());
-        }
+
         var retention = (listeners == null ? BridgeRetentionAnalyzer.analyze(program, roots, facts)
                 : BridgeRetentionAnalyzer.managedListeners(artifact, listeners, roots)).get(callable);
         if (retention.status() != BridgeProof.Status.PROVED) return failed(retention.status(), retention.reason());
@@ -104,8 +97,7 @@ public final class BridgeByteViews {
                         return BridgeProof.rejected("byte view cannot be compared with an object representation");
                     }
                     var call = targets.resolve(instruction);
-                    if (instruction instanceof IrRollbackInstruction rollback) call = targets.cleanup(rollback.allocation(), true);
-                    if (instruction instanceof IrFreeInstruction free) call = targets.cleanup(free.allocation(), false);
+
                     if (call != null) {
                         if (!call.complete()) return BridgeProof.unknown("unresolved byte-view call effects: " + function.linkageName());
                         pending.addAll(call.targets());
@@ -115,7 +107,7 @@ public final class BridgeByteViews {
                         }
                     } else if (instruction instanceof IrArrayStoreInstruction store) {
                         if (!store.array().type().elementType().isPrimitive()) return BridgeProof.unknown("reference-array write in byte-view closure");
-                    } else if (!BridgeArrayInputs.localEffect(instruction) && !(managed && instruction instanceof IrGcCollectInstruction)) {
+                    } else if (!BridgeArrayInputs.localEffect(instruction) && !(instruction instanceof IrGcCollectInstruction)) {
                         return BridgeProof.unknown("unclassified byte-view effect " + instruction.getClass().getSimpleName());
                     }
                     if (instruction instanceof IrBinaryInstruction binary

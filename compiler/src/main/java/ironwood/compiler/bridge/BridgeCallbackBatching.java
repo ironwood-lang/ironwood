@@ -2,7 +2,6 @@
 
 package ironwood.compiler.bridge;
 
-import ironwood.compiler.BridgeOwnedCallbackAdmission;
 import ironwood.compiler.BridgeObjectAdmission;
 import ironwood.compiler.semantic.BridgeCallbackContextLowering;
 import ironwood.compiler.ir.*;
@@ -39,7 +38,6 @@ public final class BridgeCallbackBatching {
 
     public IrProgram program() { return program; }
     public Map<BridgeCallableId, Entry> entries() { return entries; }
-    public boolean matches(BridgeOwnedCallbackAdmission admission) { return original.equals(admission.program()); }
 
     @Override public boolean equals(Object other) {
         return other instanceof BridgeCallbackBatching proof && original.equals(proof.original)
@@ -47,14 +45,8 @@ public final class BridgeCallbackBatching {
     }
     @Override public int hashCode() { return java.util.Objects.hash(original, program, entries); }
 
-    public static BridgeCallbackBatching prove(BridgeOwnedCallbackAdmission admission) {
-        var requested = admission.callbacks().entries().stream().filter(entry -> entry.guardedInputs().equals(List.of(0)))
-                .map(entry -> entry.callable()).toList();
-        return prove(admission.program(), admission.surface(), admission.listeners(), admission.callbacks().context(), admission.entries(), requested);
-    }
-
     public static BridgeCallbackBatching proveManaged(BridgeObjectAdmission admission) {
-        if (!admission.managedHeap()) throw new IllegalArgumentException("managed batching requires managed admission");
+
         var callbacks = admission.entries().gcCallbacks().orElseThrow();
         return prove(admission.program(), admission.surface(), callbacks.listeners(), callbacks.context(), admission.entries(),
                 admission.surface().roots().roots().stream().map(BridgeRootSet.Root::callable).toList());

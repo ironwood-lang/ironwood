@@ -12,5 +12,5 @@ set -x
 ironwoodc --java-bridge --export org.ironwood.javabridge.basics -cp target/classes \
     --license "$DIST_ROOT/LICENSE-MIT" --license "$DIST_ROOT/LICENSE-APACHE" \
     -O3 -o target/ironwood-basics.jar
-javac --release 21 -Xlint:all -Werror -cp target/ironwood-basics.jar -d target/consumer-classes \
+javac "$BRIDGE_JDK_ROOT/examples/java-bridge/support/BridgeLifetime.java" --release 21 -Xlint:all -Werror -cp target/ironwood-basics.jar -d target/consumer-classes \
     src/main/java/org/ironwood/javabridge/basicsconsumer/Main.java

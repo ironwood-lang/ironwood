@@ -14,7 +14,7 @@ A custom PEM file replaces them. It must contain certificate PEM blocks with
 optional blank lines or # comments; unreadable, empty or malformed files fail
 before connecting. Supply a combined file explicitly when both sets are needed.
 The client copies the proxy graph, credentials and path; caller values may be
-freed afterward. It bypasses the global SocketImplFactory, using the selected
+retained as an ordinary managed value afterward. It bypasses the global SocketImplFactory, using the selected
 native transport and the existing explicit proxy protocols.
 The native bridge is nested privately inside TlsClient. Applications, including
 code in the same package, cannot obtain or supply raw TLS handles.
@@ -30,7 +30,7 @@ connect closes the client; create another client to retry.
 `setReadTimeout` and `setWriteTimeout` set per-operation deadlines in milliseconds,
 including retries. A timeout or fatal record error closes the connection.
 `getInputStream()` and `getOutputStream()` lazily allocate stable borrowed views.
-Do not free them or use them after freeing their client. Caller byte arrays are
+Their managed references keep the client graph reachable. Caller byte arrays are
 borrowed only for the call. Zero-length operations allocate nothing and do no
 native I/O. `available()` reports already decrypted bytes. A TLS close notification
 produces EOF; transport truncation raises SocketException.
@@ -38,8 +38,8 @@ produces EOF; transport truncation raises SocketException.
 Closing either stream closes the client. `close()` is idempotent, attempts one
 nonblocking close notification, releases native TLS state and closes the TCP
 descriptor. It does not wait for the peer's notification or promise notification
-delivery on a blocked transport. Always close before `free client`; destruction
-reclaims the managed graph and does not perform resource I/O. `isConnected()`
+delivery on a blocked transport. Always close the resource explicitly before
+ending its lifecycle. Collection reclaims unreachable storage and performs no resource I/O. `isConnected()`
 retains connection history, while `isClosed()` reports closure.
 
 Trust excludes system/Keychain/JVM/OpenSSL default stores and ambient trust or

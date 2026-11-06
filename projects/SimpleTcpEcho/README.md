@@ -53,21 +53,18 @@ The server serves clients sequentially and continues after a client's I/O error.
 It waits for request EOF without a read timeout.
 It accepts requests up to 1 KiB (1,024 bytes), reusing one preallocated byte
 array with four extra bytes for the reply delimiters. Successful `reply` calls
-allocate and free nothing; socket and stream setup happens before the call.
+allocate nothing; socket and stream setup happens before the call.
 Oversized requests are closed without a reply and reported on stderr.
 The local checks include boundary sizes, reuse after rejection, and native
 allocation counters around `reply` using real TCP streams.
 The test harness captures server stdout through a pseudo-terminal so readiness
 and reply lines are flushed as they are in an interactive terminal.
 
-The server places explicit deferred cleanup beside acquisition. Client actions
-are inside the per-client `try`: `defer free client;` followed by
-`defer client.close();` closes and then frees before the catch prints an error.
-Close failure still attempts free and permits another client. `accept()` stays
-outside that handler, so listener failures reach `main` and exit with `74`.
-On unwinding `serve`, the buffer is freed before the listener is closed and freed.
-The client also uses deferred close/free. Its request and reply buffers are
-reclaimed when `exchange` exits, including on an I/O failure.
+Per-client resources close through captured deferred calls before the catch
+reports a failure and accepts another client. The outer listener closes when
+serve exits. Request/reply buffers and wrappers use ordinary managed lifetime;
+collection is separate from close and pool reuse. No collection runs in the
+message loop. The existing primary/secondary failure order remains unchanged.
 
 The project test also checks a real listener bind failure. A separate
 [deterministic failure fixture](../../integration-tests/cases/defer_server_failure.iron)

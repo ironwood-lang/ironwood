@@ -13,7 +13,6 @@ final class Cat {
     static int copy(InputStream input) throws IOException {
 
         byte[] bytes = new byte[8192];
-        defer free bytes;
         int count = input.read(bytes);
         while (count >= 0) {
             if (count == 0) throw new IOException("Input made no progress");
@@ -28,7 +27,6 @@ final class Cat {
     static int file(String name) throws IOException {
 
         FileInputStream input = new FileInputStream(name);
-        defer free input;
         defer input.close();
         return copy(input);
     }

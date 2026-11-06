@@ -11,7 +11,6 @@ public class Objects {
         Counter alias = Counter.identity(counter);
         int result = alias.hasNext() ? 1 : counter.value() * 2;
         alias = null;
-        free counter;
         return result;
     }
 }

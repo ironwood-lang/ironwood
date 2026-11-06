@@ -17,13 +17,12 @@ public final class NativeBench {
         int size = Integer.parseInt(args[1]);
         int iterations = Integer.parseInt(args[2]);
         byte[] values = new byte[size];
-        defer free values;
         System.out.println("scenario,operation,size,sample,calls,elapsed_ns,checksum,native_allocations,java_bytes");
         for (int sample = -3; sample < 7; sample++) {
             int seed = 17;
             long checksum = 0;
             for (int i = 0; i < size; i++) values[i] = (byte)i;
-            
+
             long allocations = ByteOps.allocations();
             long start = System.nanoTime();
             for (int i = 0; i < iterations; i++) {

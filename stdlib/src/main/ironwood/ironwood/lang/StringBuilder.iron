@@ -292,17 +292,10 @@ public class StringBuilder implements CharSequence {
 
         if (object == null) return appendString("null");
         String rendered = object.toString();
-        // The compiler releases rendered only when closed-world analysis proves
-        // that the concrete toString override returned fresh, unescaped text.
-        defer releaseRenderedString(object, rendered);
         appendString(rendered);
         return this;
     }
 
-    private static void releaseRenderedString(Object object, String rendered) {
-
-        return;
-    }
     /** Appends the supplied value. */
 
     public StringBuilder append(boolean booleanValue) {
@@ -430,7 +423,6 @@ public class StringBuilder implements CharSequence {
 
         if (object == null) return insertString(offset, "null");
         String rendered = object.toString();
-        defer releaseRenderedString(object, rendered);
         insertString(offset, rendered);
         return this;
     }

@@ -78,7 +78,6 @@ final class FieldValueForwardingTests {
         var result = new IrValueReference(1000, IrType.I32, span);
         var nativeResult = new IrValueReference(1001, IrType.I64, span);
         List<IrInstruction> barriers = List.of(new IrEnsureTypeInitializedInstruction("Box", span),
-                new IrRawDeallocateInstruction(receiver, span), new IrFreeInstruction(receiver, span),
                 new IrTcpInstruction(nativeResult, IrTcpInstruction.Operation.CREATE,
                         List.of(new IrConstant(IrType.I32, 0, span)), List.of(), span),
                 new IrCallInstruction(Optional.empty(), "unknown", IrType.VOID, List.of(receiver), span),
@@ -104,14 +103,14 @@ final class FieldValueForwardingTests {
         Path root = Path.of("integration-tests/target/field-value-forwarding").toAbsolutePath();
         Files.createDirectories(root);
         Path classes = root.resolve("classes");
-        cli(source.toString(), "--unfreed=error", "-d", classes.toString());
+        cli(source.toString(), "-d", classes.toString());
         Path archive = root.resolve("program.ironjar");
         IronJar.create(archive, List.of(classes));
         for (int level : List.of(0, 3)) {
             for (String kind : List.of("source", "class", "archive")) {
                 Path binary = root.resolve(kind + "-O" + level);
                 if (kind.equals("source")) {
-                    var artifact = new CompilerPipeline(UnfreedMode.ERROR).compile(SourceFile.of(source.toString(), Files.readString(source)));
+                    var artifact = new CompilerPipeline().compile(SourceFile.of(source.toString(), Files.readString(source)));
                     require(artifact.successful(), artifact.diagnostics().toString());
                     Path llvm = root.resolve(kind + "-O" + level + ".ll");
                     Files.writeString(llvm, artifact.llvmIr().orElseThrow());
@@ -121,7 +120,7 @@ final class FieldValueForwardingTests {
                     require(linked.success(), linked.output());
                 } else {
                     cli("--link", "-cp", (kind.equals("class") ? classes : archive).toString(),
-                            "--main-class", "Main", "--unfreed=error", "-O" + level, "-o", binary.toString());
+                            "--main-class", "Main", "-O" + level, "-o", binary.toString());
                 }
                 Process process = new ProcessBuilder(binary.toString()).redirectErrorStream(true).start();
                 String output = new String(process.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
@@ -131,20 +130,9 @@ final class FieldValueForwardingTests {
     }
 
     static void safety() {
-        String safe = """
-                class Box { int value; int read() { return this.value; } }
-                class Main { public static int main(String[] args) {
-                    Box box = new Box(); box.value = 7; int result = box.read() + box.read();
-                    free box; return result;
-                } }
-                """;
-        for (UnfreedMode mode : UnfreedMode.values()) {
-            require(new CompilerPipeline(mode).compile(SourceFile.of("safe.iron", safe)).successful(), "safe " + mode);
-            for (String invalid : List.of(safe.replace("free box;", "free box; free box;"),
-                    safe.replace("free box;", "Box alias = box; free box; result += alias.read();"))) {
-                require(!new CompilerPipeline(mode).compile(SourceFile.of("unsafe.iron", invalid)).valid(), "unsafe " + mode);
-            }
-        }
+        String source = "class Box { int value; int read() { return value; } } class Main { public static int main(String[] args) { return check(); } static int check() { Box value = new Box(); Box alias = value; value.value = 7; ironwood.lang.Memory.collect(); return alias.read(); } }";
+        var result = new CompilerPipeline().compile(SourceFile.of("Main.iron", source));
+        require(result.successful(), result.diagnostics().toString());
     }
 
     private static IrFunction method(IrProgram p, String name) {

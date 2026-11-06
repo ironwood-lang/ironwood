@@ -149,7 +149,6 @@ class StreamChecks {
         if (mode.equals("close")) {
             outputMode = 3; expected = Failures.closeFirst; secondary = Failures.closeSecond;
         }
-        long before = System.liveAllocationCount();
         GeneratedInput input = new GeneratedInput(size, inputMode);
         try {
             ProbeOutput first = new ProbeOutput(outputMode, true);
@@ -159,7 +158,6 @@ class StreamChecks {
                     TeeOutputStream tee = new TeeOutputStream(first, second);
                     try {
                         try {
-                            long live = System.liveAllocationCount();
                             long allocations = System.allocationCount();
                             boolean failed = false;
                             try {
@@ -176,8 +174,7 @@ class StreamChecks {
                                 } else {
                                     if (failure != expected) return 2;
                                     if (secondary != null) {
-                                        if (failure.getSecondaryExceptionCount() != 1
-                                                || failure.getSecondaryException(0) != secondary) {
+                                        if (failure.getSecondaryExceptionCount() != 1 || failure.getSecondaryException(0) != secondary) {
 
                                                     return 3;
                                                 }
@@ -187,13 +184,12 @@ class StreamChecks {
                             boolean shouldFail = outputMode != 0 || inputMode != 0;
                             if (failed != shouldFail) return 4;
                             int exceptionAllocations = mode.equals("zero") ? 1 : 0;
-                            if (System.liveAllocationCount() != live + exceptionAllocations) return 5;
+
                             if (!shouldFail) {
                                 // Total allocations, not just live objects: no temporary
                                 // allocation is permitted per read or per output chunk.
                                 if (System.allocationCount() != allocations + 1) return 6;
-                                if (first.count() != size || second.count() != size
-                                        || first.wrong() || second.wrong()) {
+                                if (first.count() != size || second.count() != size || first.wrong() || second.wrong()) {
 
                                             return 7;
                                         }
@@ -204,11 +200,11 @@ class StreamChecks {
                             tee.close(); tee.close();
                             if (first.closes() != 1 || second.closes() != 1) return 11;
                         } finally { tee.close(); }
-                    } finally { free tee; }
-                } finally { free second; }
-            } finally { free first; }
-        } finally { input.close(); free input; }
-        if (System.liveAllocationCount() != before + (mode.equals("zero") ? 1 : 0)) return 12;
+                    } finally { ; }
+                } finally { ; }
+            } finally { ; }
+        } finally { input.close(); ; }
+
         return 42;
     }
 }

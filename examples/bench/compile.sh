@@ -6,5 +6,5 @@ EXAMPLE_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$EXAMPLE_DIR"
 
 set -x
-ironwoodc --source-path src/main/ironwood -d target/classes --unfreed=error \
+ironwoodc --source-path src/main/ironwood -d target/classes \
     src/main/ironwood/org/ironwood/bench/*.iron

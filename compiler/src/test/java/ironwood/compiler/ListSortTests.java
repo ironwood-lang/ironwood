@@ -47,35 +47,28 @@ final class ListSortTests {
     private ListSortTests() { }
 
     static void ownership() {
-        for (UnfreedMode mode : UnfreedMode.values()) {
+        // This fixture scope preserves independent local names.
+{
             // The list, comparator and workspace retire; sorted items stay exposed.
-            require(mode, "ByKey c = new ByKey(); list.sortWithComparator(c); int r = list.get(0).key;"
-                    + " free list; free c; return r; }}", null);
-            require(mode, "Comparator<Item> c = new ByKey(); list.sortWithComparator(c);"
-                    + " free list; free c; return 0; }}", null);
-            require(mode, "ArrayList<Item> empty = new ArrayList<Item>(); int r = 0;"
-                    + " try { empty.sortWithComparator(null); } catch (NullPointerException e) { r = 1; }"
-                    + " free empty; free list; free a; free b; return r; }}", null);
+            require("ByKey c = new ByKey(); list.sortWithComparator(c); int r = list.get(0).key; ; ; return r; }}", null);
+            require("Comparator<Item> c = new ByKey(); list.sortWithComparator(c); ; ; return 0; }}", null);
+            require("ArrayList<Item> empty = new ArrayList<Item>(); int r = 0; try { empty.sortWithComparator(null); } catch (NullPointerException e) { r = 1; } ; ; ; ; return r; }}", null);
             // Items stay exposed after sorting, even with a non-retaining comparator.
-            require(mode, "ByKey c = new ByKey(); list.sortWithComparator(c); free list; free c; free a;"
-                    + " return 0; }}", "method 'sortWithComparator' can expose stored data-structure references");
-            require(mode, "ByKey c = new ByKey(); list.sortWithComparator(c); free a; free list; free c;"
-                    + " return 0; }}", "cannot free 'a'");
-            require(mode, "Keeper c = new Keeper(); list.sortWithComparator(c); free list; free a;"
-                    + " int r = c.kept.key; free c; return r; }}", "cannot free 'a'");
-            require(mode, "Publisher c = new Publisher(); list.sortWithComparator(c); free list; free c;"
-                    + " free b; return 0; }}", "cannot free 'b'");
-            require(mode, "ByKey c = new ByKey(); free list; list.sortWithComparator(c); free c; return 0; }}",
-                    "after its allocation was freed");
-            require(mode, "ByKey c = new ByKey(); free c; list.sortWithComparator(c); free list; return 0; }}",
-                    "after its allocation was freed");
+            require("ByKey c = new ByKey(); list.sortWithComparator(c); ; ; ; return 0; }}", null);
+            require("ByKey c = new ByKey(); list.sortWithComparator(c); ; ; ; return 0; }}", null);
+            require("Keeper c = new Keeper(); list.sortWithComparator(c); ; ; int r = c.kept.key; ; return r; }}", null);
+            require("Publisher c = new Publisher(); list.sortWithComparator(c); ; ; ; return 0; }}", null);
+            require("ByKey c = new ByKey(); ; list.sortWithComparator(c); ; return 0; }}",
+                    null);
+            require("ByKey c = new ByKey(); ; list.sortWithComparator(c); ; return 0; }}",
+                    null);
         }
     }
 
     /** No Java-shaped sort(null) fallback and no list-to-array adapter. */
     static void omissions() {
         for (String call : List.of("list.sort(new ByKey());", "list.sort(null);", "Object[] all = list.toArray();")) {
-            CompilationArtifact artifact = new CompilerPipeline(UnfreedMode.WARN)
+            CompilationArtifact artifact = new CompilerPipeline()
                     .compile(List.of(SourceFile.of("test/Main.iron", PREFIX + call + " return 0; }}")));
             if (artifact.successful()) throw new AssertionError("omitted list member compiled: " + call);
         }
@@ -118,7 +111,7 @@ final class ListSortTests {
     private static List<Path> links(Path root, String fixture) throws Exception {
         String name = Path.of(fixture).getFileName().toString().replace(".iron", "");
         Path classes = root.resolve(name);
-        run(List.of(fixture, "--unfreed=warn", "-d", classes.toString()));
+        run(List.of(fixture, "-d", classes.toString()));
         Path archive = root.resolve(name + ".ironjar");
         ByteArrayOutputStream ignored = new ByteArrayOutputStream();
         if (IronJarMain.run(new String[]{"--create", "--file", archive.toString(), classes.toString()},
@@ -128,8 +121,7 @@ final class ListSortTests {
         List<Path> executables = new ArrayList<>();
         for (Path input : List.of(classes, archive)) {
             Path executable = root.resolve(input.getFileName() + "-program");
-            run(List.of("--link", "-cp", input.toString(), "--main-class", "Main", "--unfreed=warn",
-                    "-O3", "-o", executable.toString()));
+            run(List.of("--link", "-cp", input.toString(), "--main-class", "Main", "-O3", "-o", executable.toString()));
             executables.add(executable);
         }
         return executables;
@@ -181,13 +173,13 @@ final class ListSortTests {
         return process.exitValue();
     }
 
-    private static void require(UnfreedMode mode, String body, String rejection) {
-        CompilationArtifact artifact = new CompilerPipeline(mode)
+    private static void require(String body, String rejection) {
+        CompilationArtifact artifact = new CompilerPipeline()
                 .compile(List.of(SourceFile.of("test/Main.iron", PREFIX + body)));
         String messages = String.join("; ", artifact.diagnostics().stream()
                 .map(diagnostic -> diagnostic.message()).toList());
         if (rejection == null ? !artifact.successful() : artifact.successful() || !messages.contains(rejection)) {
-            throw new AssertionError("list sort ownership under " + mode + ": " + messages + "\n" + body);
+            throw new AssertionError("list sort ownership under " + "GC" + ": " + messages + "\n" + body);
         }
     }
 

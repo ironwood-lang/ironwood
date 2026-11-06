@@ -8,6 +8,5 @@ cd "$EXAMPLE_DIR"
 for program in SleepBenchmark MathBenchmark BubbleSortBenchmark IntMapBenchmark NanoBenchExample; do
     set -x
     ironwoodc --link -cp target/classes --main-class "org.ironwood.bench.$program" \
-        -o "target/$program" -O3 --unfreed=error
-    set +x
+        -o "target/$program" -O3 set +x
 done

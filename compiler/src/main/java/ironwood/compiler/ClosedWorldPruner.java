@@ -123,8 +123,7 @@ final class ClosedWorldPruner {
                 .filter(type -> reachableArrayTypes.contains(type.type()))
                 .map(type -> new IrArrayType(type.type(), type.typeId(), type.typeMembership(),
                         type.dispatchEntries().stream().filter(entry ->
-                                reachableDispatchSlots.contains(entry.slot().index())).toList(),
-                        type.toStringReturnsOwnedFresh())).toList();
+                                reachableDispatchSlots.contains(entry.slot().index())).toList())).toList();
         List<IrStringConstant> keptStrings = program.stringConstants().stream()
                 .filter(reachableStringConstants::contains).toList();
         Optional<IrFunction> entry = program.entryPoint().map(original -> keptFunctions.stream()
@@ -139,9 +138,7 @@ final class ClosedWorldPruner {
         return new IrClass(type.name(), type.kind(), type.superclass(), type.interfaces(),
                 type.fields(), type.typeId(), type.typeMembership(),
                 type.dispatchEntries().stream().filter(entry ->
-                        reachableDispatchSlots.contains(entry.slot().index())).toList(),
-                type.destructorChain(), type.constructorRollback(), type.toStringReturnsOwnedFresh(),
-                type.localizedMessageReturnsOwnedFresh(), type.sourceSpan());
+                        reachableDispatchSlots.contains(entry.slot().index())).toList(), type.sourceSpan());
     }
 
     private void enqueueDispatchSlot(int index) {
@@ -187,8 +184,7 @@ final class ClosedWorldPruner {
         type.dispatchEntries().stream()
                 .filter(entry -> reachableDispatchSlots.contains(entry.slot().index()))
                 .forEach(entry -> enqueueFunction(entry.targetLinkageName()));
-        type.destructorChain().ifPresent(this::enqueueFunction);
-        type.constructorRollback().ifPresent(this::enqueueFunction);
+
         IrTypeInitialization initialization = typeInitializations.get(type.name());
         if (initialization != null) {
             initialization.prerequisiteTypes().forEach(this::enqueueClass);

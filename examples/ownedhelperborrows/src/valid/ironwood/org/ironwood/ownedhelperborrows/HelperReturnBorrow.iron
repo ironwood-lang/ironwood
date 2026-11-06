@@ -20,7 +20,6 @@ public class HelperReturnBorrow {
         Iterator<String> iterator = iteratorOf(list);
         boolean correct = iterator.hasNext();
         if (correct) correct = iterator.next() == "value";
-        free list; // Valid because the returned borrow is no longer observed.
         return correct ? 42 : 1;
     }
 }

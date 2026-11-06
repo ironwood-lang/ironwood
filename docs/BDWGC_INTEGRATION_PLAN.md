@@ -9,10 +9,11 @@ use one exact managed model with explicit synchronous Memory.collect(). See
 [the GC5 report](GC5_IMPLEMENTATION.md). [GC6](GC6_IMPLEMENTATION.md) completes
 managed bridges on those two targets with exact foreign/suspended roots, generated
 handle/registration lifetimes, explicit JNI cleanup and private collector images.
-Linux arm64 and arm64e remain gated. GC7-GC10 and self-hosting are not complete.
-The [GC7 checkpoint](GC7_IMPLEMENTATION.md) removes the outer managed-free proof
-loop and migrates IDE/test-harness consumers. Its structural retirement and
-repository-wide migration exit criteria remain unmet.
+Linux arm64 and arm64e remain gated. [GC7](GC7_IMPLEMENTATION.md) completes
+repository consumer migration and structural retirement: no managed-free proof
+fixed point, legacy reclamation IR or alternate bridge memory path remains.
+See its [disposition ledger](GC7_DISPOSITION.md) and compact verification.
+GC8-GC10 and self-hosting remain unstarted by this work.
 
 The selected direction is BDWGC 8.2.12 with compiler-provided roots and exact
 layout metadata, synchronous `Memory.collect()`, removal of source `free` and
@@ -74,9 +75,13 @@ it did not test that much resident memory. Individual allocation timing was
 partly below the host timer's resolution. Do not promote these results into a
 zero-overhead, exact tail-latency or self-hosting-capacity promise.
 
-## 3. Existing implementation and affected contracts
+## 3. Pre-GC0 baseline and affected contracts
 
-The current allocation boundary in `runtime/src/ironwood_runtime.c` uses zeroing
+The following records the pre-GC0 inventory, superseded by GC0-GC7 reports and
+[the final GC7 dispositions](GC7_DISPOSITION.md). It is preserved as planning
+provenance, not a description of current execution.
+
+The baseline allocation boundary in `runtime/src/ironwood_runtime.c` uses zeroing
 `calloc`, installs the first-word type pointer and counts successful language
 allocations. Arrays, runtime-created Strings, exception wrappers and exception
 metadata use different representations and lifetimes. There is no existing
@@ -691,12 +696,14 @@ destruction/deallocation paths and unexpected libc frees of managed storage.
 **Exit:** there is one implemented memory model with no reachable legacy heap
 reclamation path and no retained whole-program free-proof fixed point.
 
-**Incomplete checkpoint, 2026-11-06:** [Implementation](GC7_IMPLEMENTATION.md)
-and [disposition ledger](GC7_DISPOSITION.md) record removed outer proof
-computation, principal function-level cleanup proofs, test-harness and IDE
-migration, and focused verification. Remaining shared field/return consumers,
-legacy AST/IR/bridge structures and broad executable/test migration keep GC7
-open. This checkpoint does not authorize GC8 or self-hosting.
+**Completed, 2026-11-06:** [Implementation](GC7_IMPLEMENTATION.md) and
+[dispositions](GC7_DISPOSITION.md) record the full consumer inventory, AST/IR and
+legacy bridge retirement, removal of whole-program free/detached-copy proofs,
+and retained conservative dispatch/return/GC/native/pool contracts. Initialization
+and actual final-field/array-slot value-flow replace exclusive ownership premises.
+Focused guarded compiler/native/JVM, artifact, IDE and generator controls pass.
+The earlier incomplete checkpoint is preserved byte-for-byte with its hashes.
+This completes GC7 only and does not start GC8 or self-hosting.
 
 ### GC8. Establish critical-path and memory evidence
 
@@ -824,10 +831,10 @@ checkpoints clearly. Record a concrete remaining gate at each stopping point.
 No branch creation beyond the maintainer's request, pushing, hosted jobs or
 automatic self-hosting restart is part of this document's implementation plan.
 
-GC0-GC6 are complete within their documented boundaries. GC7 has an incomplete
-local checkpoint and remains the active migration boundary. Preserve exact native and suspended roots,
-runtime owners, handle/registration contracts, isolated images and configuration/
-payload/pass verification. Raw shared IR and unsupported foreign lifetimes refuse. Carry forward Linux arm64 and arm64e gates. GC7 owns
-remaining repository consumers and broad structural/proof retirement. Subsequent
-work must retain prerequisite commits, compact
-evidence and remaining gates. No self-hosting restart is implied.
+GC0-GC7 are complete within their documented boundaries. Preserve exact native
+and suspended roots, runtime owners, independent handle/registration lifetimes,
+explicit resource closure, isolated images and configuration/payload/pass
+verification. Raw shared IR and unsupported foreign lifetimes refuse. Carry
+forward Linux arm64 and arm64e gates. The bounded GC8 handoff is performance and
+resident-memory evidence under its own plan, without changing the memory model.
+GC8-GC10 and self-hosting have not started through GC7.

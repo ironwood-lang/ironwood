@@ -9,8 +9,8 @@ import java.util.stream.Collectors;
 final class BridgeRootFacadeNativeSources {
     private BridgeRootFacadeNativeSources() {}
 
-    static void metadata(StringBuilder text, BridgePermanentJavaSources.Sources java, BridgeGeneration generation,
-            List<BridgePermanentJavaSources.Facade> facades) {
+    static void metadata(StringBuilder text, BridgeFacadeSources.Sources java, BridgeGeneration generation,
+            List<BridgeFacadeSources.Facade> facades) {
         if (facades.isEmpty()) throw new IllegalArgumentException("root adapters require root facade metadata");
         int state = java.declarations().generatedTypes().indexOf(generation.supportPackage() + ".RootState");
         int refusal = java.declarations().generatedTypes().indexOf(generation.supportPackage() + ".BridgeLifetimeException");

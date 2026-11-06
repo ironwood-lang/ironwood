@@ -34,8 +34,6 @@ import ironwood.compiler.ir.IrFloatingParseInstruction;
 import ironwood.compiler.ir.IrExceptionLandingPadInstruction;
 import ironwood.compiler.ir.IrExceptionCaughtInstruction;
 import ironwood.compiler.ir.IrEnsureTypeInitializedInstruction;
-import ironwood.compiler.ir.IrFreeInstruction;
-import ironwood.compiler.ir.IrDestroyArrayElementsInstruction;
 import ironwood.compiler.ir.IrFunction;
 import ironwood.compiler.ir.IrIdentityHashCodeInstruction;
 import ironwood.compiler.ir.IrInstanceOfInstruction;
@@ -50,7 +48,6 @@ import ironwood.compiler.ir.IrNumericConversionInstruction;
 import ironwood.compiler.ir.IrObjectHashCodeInstruction;
 import ironwood.compiler.ir.IrObjectToStringInstruction;
 import ironwood.compiler.ir.IrThrowableDescriptionInstruction;
-import ironwood.compiler.ir.IrReleaseOwnedThrowableMessageInstruction;
 import ironwood.compiler.ir.IrOperand;
 import ironwood.compiler.ir.IrParameter;
 import ironwood.compiler.ir.IrPhiIncoming;
@@ -61,9 +58,6 @@ import ironwood.compiler.ir.IrPrintStreamFlushInstruction;
 import ironwood.compiler.ir.IrPrintStreamWriteInstruction;
 import ironwood.compiler.ir.IrProgram;
 import ironwood.compiler.ir.IrReferenceConversionInstruction;
-import ironwood.compiler.ir.IrRawDeallocateInstruction;
-import ironwood.compiler.ir.IrReleaseOwnedToStringResultInstruction;
-import ironwood.compiler.ir.IrRollbackInstruction;
 import ironwood.compiler.ir.IrReturnTerminator;
 import ironwood.compiler.ir.IrSecondaryExceptionAtInstruction;
 import ironwood.compiler.ir.IrSecondaryExceptionCountInstruction;
@@ -381,12 +375,8 @@ public final class LlvmEmitter {
         return emit(program, selectiveInlining, program.exportRoots());
     }
 
-    public String emit(ironwood.compiler.bridge.BridgeEntryModule module) {
-        return emit(module.program(), true, module.entrySymbols());
-    }
-
     public String emit(ironwood.compiler.BridgeObjectAdmission admission) {
-        if (!admission.managedHeap()) throw new IllegalArgumentException("GC bridge requires managed admission");
+
         return emit(admission.emissionProgram(), true, admission.emissionProgram().exportRoots(), true);
     }
 
@@ -510,7 +500,6 @@ public final class LlvmEmitter {
         emitGcImageMetadata(output, program, immortalObjects, enumConstants);
         emitForeignDeclarations(output, program);
         for (IrThrowableTraceInstruction.Operation operation : IrThrowableTraceInstruction.Operation.values()) {
-            if (operation == IrThrowableTraceInstruction.Operation.RELEASE) continue;
             output.append("declare ").append(llvmType(operation.returnType())).append(" @")
                     .append(operation.runtimeName()).append('(')
                     .append(operation.parameterTypes().stream().map(this::llvmType).collect(Collectors.joining(", ")));
@@ -529,7 +518,6 @@ public final class LlvmEmitter {
         output.append("declare i32 @ironwood_object_hash_code(ptr addrspace(1)) \"gc-leaf-function\"\n");
         output.append("declare ptr addrspace(1) @ironwood_object_to_string(ptr addrspace(1), ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
         output.append("declare ptr addrspace(1) @ironwood_throwable_description(ptr addrspace(1), ptr addrspace(1), ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
-
 
         output.append("declare i1 @ironwood_string_equals(ptr addrspace(1), ptr addrspace(1), ptr) \"gc-leaf-function\"\n");
         output.append("declare i32 @ironwood_string_hash_code(ptr addrspace(1)) \"gc-leaf-function\"\n");
@@ -621,7 +609,6 @@ public final class LlvmEmitter {
         output.append("declare ptr addrspace(1) @ironwood_path_parent(ptr addrspace(1), ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
         output.append("declare ptr addrspace(1) @ironwood_path_resolve(ptr addrspace(1), ptr addrspace(1), ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
 
-
         output.append("declare void @ironwood_stdout_println(ptr addrspace(1)) \"gc-leaf-function\"\n");
         output.append("declare void @ironwood_print_stream_write(ptr addrspace(1), i32, i64, i1) \"gc-leaf-function\"\n");
         output.append("declare void @ironwood_print_stream_flush(ptr addrspace(1)) \"gc-leaf-function\"\n");
@@ -704,29 +691,21 @@ public final class LlvmEmitter {
     private void emitTypeMetadata(StringBuilder output, IrClass irClass,
                                   int typeCount, int dispatchSlotCount) {
         emitTypeMetadata(output, irClass.name(), irClass.typeId(), irClass.typeMembership(),
-                irClass.dispatchEntries(), irClass.destructorChain(), typeCount,
-                irClass.constructorRollback(), irClass.toStringReturnsOwnedFresh(),
-                irClass.localizedMessageReturnsOwnedFresh(),
+                irClass.dispatchEntries(), typeCount,
                 dispatchSlotCount, false);
     }
 
     private void emitArrayTypeMetadata(StringBuilder output, IrArrayType arrayType,
                                        int typeCount, int dispatchSlotCount) {
         emitTypeMetadata(output, arrayType.name(), arrayType.typeId(), arrayType.typeMembership(),
-                arrayType.dispatchEntries(), java.util.Optional.empty(), typeCount,
-                java.util.Optional.empty(), arrayType.toStringReturnsOwnedFresh(),
-                false,
+                arrayType.dispatchEntries(), typeCount,
                 dispatchSlotCount, true);
     }
 
     private void emitTypeMetadata(StringBuilder output, String name, int typeId,
                                   java.util.List<Integer> typeMembership,
                                   java.util.List<ironwood.compiler.ir.IrDispatchEntry> dispatchEntries,
-                                  java.util.Optional<String> destructorChain,
                                   int typeCount,
-                                  java.util.Optional<String> constructorRollback,
-                                  boolean toStringReturnsOwnedFresh,
-                                  boolean localizedMessageReturnsOwnedFresh,
                                   int dispatchSlotCount, boolean arrayType) {
         byte[] nameBytes = name.getBytes(StandardCharsets.UTF_8);
         output.append(typeNameConstant(name)).append(" = private unnamed_addr constant [")
@@ -765,11 +744,11 @@ public final class LlvmEmitter {
                 .append(", ptr ").append(membershipTableName(name)).append(", ptr ")
                 .append(typeNameConstant(name)).append(", i32 ")
                 .append(arrayType ? 1 : 0).append(", ptr ")
-                .append(destructorChain.map(this::functionName).orElse("null"))
+                .append("null")
                 .append(", ptr ")
-                .append(constructorRollback.map(this::functionName).orElse("null"))
-                .append(", i1 ").append(toStringReturnsOwnedFresh ? "true" : "false")
-                .append(", i1 ").append(localizedMessageReturnsOwnedFresh ? "true" : "false")
+                .append("null")
+                .append(", i1 false")
+                .append(", i1 false")
                 .append(" }\n");
     }
 
@@ -788,84 +767,6 @@ public final class LlvmEmitter {
                 .append("  %membership.value = load i8, ptr %membership.entry\n")
                 .append("  %matches = icmp ne i8 %membership.value, 0\n")
                 .append("  ret i1 %matches\n")
-                .append("}\n");
-    }
-
-    private void emitDestroyHelper(StringBuilder output) {
-        output.append("define internal void @\"ironwood.destroy\"(ptr %object) ")
-                .append("personality ptr @__gxx_personality_v0 {\n")
-                .append("entry:\n")
-                .append("  %is.null = icmp eq ptr %object, null\n")
-                .append("  br i1 %is.null, label %done, label %non.null\n")
-                .append("non.null:\n")
-                .append("  %typeinfo = load ptr, ptr %object\n")
-                .append("  %destructor.address = getelementptr inbounds %\"ironwood.typeinfo\", ptr %typeinfo, i32 0, i32 5\n")
-                .append("  %destructor = load ptr, ptr %destructor.address\n")
-                .append("  %has.destructor = icmp ne ptr %destructor, null\n")
-                .append("  br i1 %has.destructor, label %destroy, label %deallocate\n")
-                .append("destroy:\n")
-                .append("  invoke void %destructor(ptr %object) to label %deallocate unwind label %failed\n")
-                .append("deallocate:\n")
-                .append("  call void @ironwood_deallocate(ptr %object)\n")
-                .append("  br label %done\n")
-                .append("done:\n")
-                .append("  ret void\n")
-                .append("failed:\n")
-                .append("  %failure = landingpad { ptr, i32 } catch ptr null\n")
-                .append("  call void @ironwood_destructor_failed()\n")
-                .append("  unreachable\n")
-                .append("}\n");
-    }
-
-    private void emitDestroyArrayElementsHelper(StringBuilder output) {
-        // Ownership and uniqueness are checked in typed analysis. This loop only
-        // consumes those proven elements; it performs no identity bookkeeping.
-        output.append("""
-                define internal void @"ironwood.destroy_array_elements"(ptr %array) {
-                entry:
-                  %is.null = icmp eq ptr %array, null
-                  br i1 %is.null, label %done, label %start
-                start:
-                  %length.ptr = getelementptr inbounds %"ironwood.array", ptr %array, i32 0, i32 1
-                  %length = load i64, ptr %length.ptr
-                  %data = getelementptr inbounds %"ironwood.array", ptr %array, i32 0, i32 5
-                  br label %loop
-                loop:
-                  %index = phi i64 [ 0, %start ], [ %next, %body ]
-                  %more = icmp ult i64 %index, %length
-                  br i1 %more, label %body, label %done
-                body:
-                  %slot = getelementptr inbounds ptr, ptr %data, i64 %index
-                  %value = load ptr, ptr %slot
-                  store ptr null, ptr %slot
-                  call void @"ironwood.destroy"(ptr %value)
-                  %next = add i64 %index, 1
-                  br label %loop
-                done:
-                  ret void
-                }
-                """);
-    }
-
-    private void emitRollbackHelper(StringBuilder output) {
-        output.append("define internal void @\"ironwood.rollback\"(ptr %object) {\n")
-                .append("entry:\n")
-                .append("  %is.null = icmp eq ptr %object, null\n")
-                .append("  br i1 %is.null, label %done, label %non.null\n")
-                .append("non.null:\n")
-                .append("  %typeinfo = load ptr, ptr %object\n")
-                .append("  %rollback.address = getelementptr inbounds %\"ironwood.typeinfo\", ptr %typeinfo, i32 0, i32 6\n")
-                .append("  %rollback = load ptr, ptr %rollback.address\n")
-                .append("  %has.rollback = icmp ne ptr %rollback, null\n")
-                .append("  br i1 %has.rollback, label %structured, label %raw\n")
-                .append("structured:\n")
-                .append("  call void %rollback(ptr %object)\n")
-                .append("  br label %done\n")
-                .append("raw:\n")
-                .append("  call void @ironwood_deallocate(ptr %object)\n")
-                .append("  br label %done\n")
-                .append("done:\n")
-                .append("  ret void\n")
                 .append("}\n");
     }
 
@@ -966,9 +867,7 @@ public final class LlvmEmitter {
         layout = planFunctionLayout(function);
         for (int blockIndex = 0; blockIndex < function.blocks().size(); blockIndex++) {
             IrBasicBlock block = function.blocks().get(blockIndex);
-            if (layout.absorbed().contains(block.label())) {
-                continue;
-            }
+            if (layout.absorbed().contains(block.label())) continue;
             output.append(block.label()).append(":\n");
             if (blockIndex == 0) {
                 for (var operation : function.blocks().stream().flatMap(b -> ironwood.compiler.ir.GcEffects.operations(b).stream()).toList()) {
@@ -1393,32 +1292,7 @@ public final class LlvmEmitter {
                     .append(staticFieldName(store.field()));
             return;
         }
-        if (instruction instanceof IrDestroyArrayElementsInstruction destroy) {
-            output.append("call void @\"ironwood.destroy_array_elements\"(").append(llvmType(destroy.array().type())).append(' ')
-                    .append(operand(destroy.array())).append(')');
-            return;
-        }
-        if (instruction instanceof IrFreeInstruction free) {
-            output.append("call void @\"ironwood.destroy\"(").append(llvmType(free.allocation().type())).append(' ')
-                    .append(operand(free.allocation())).append(')');
-            return;
-        }
-        if (instruction instanceof IrRawDeallocateInstruction raw) {
-            output.append("call void @ironwood_deallocate(").append(llvmType(raw.allocation().type())).append(' ')
-                    .append(operand(raw.allocation())).append(')');
-            return;
-        }
-        if (instruction instanceof IrReleaseOwnedToStringResultInstruction release) {
-            output.append("call void @ironwood_release_owned_to_string_result(").append(llvmType(release.object().type())).append(' ')
-                    .append(operand(release.object())).append(", ").append(llvmType(release.result().type())).append(' ')
-                    .append(operand(release.result())).append(')');
-            return;
-        }
-        if (instruction instanceof IrRollbackInstruction rollback) {
-            output.append("call void @\"ironwood.rollback\"(").append(llvmType(rollback.allocation().type())).append(' ')
-                    .append(operand(rollback.allocation())).append(')');
-            return;
-        }
+
         if (instruction instanceof IrNullCheckInstruction check) {
             output.append(operand(check.result())).append(" = icmp ne ").append(llvmType(check.receiver().type())).append(' ')
                     .append(operand(check.receiver())).append(", null");
@@ -1435,12 +1309,7 @@ public final class LlvmEmitter {
                     .append(operand(hashCode.object())).append(')');
             return;
         }
-        if (instruction instanceof IrReleaseOwnedThrowableMessageInstruction release) {
-            output.append("call void @ironwood_release_owned_throwable_message(").append(llvmType(release.throwable().type())).append(' ')
-                    .append(operand(release.throwable())).append(", ").append(llvmType(release.message().type())).append(' ')
-                    .append(operand(release.message())).append(')');
-            return;
-        }
+
         if (instruction instanceof IrThrowableDescriptionInstruction description) {
             output.append(operand(description.result()))
                     .append(" = call ptr addrspace(1) @ironwood_throwable_description(").append(llvmType(description.throwable().type())).append(' ')
@@ -2450,8 +2319,8 @@ public final class LlvmEmitter {
                                               IrFloatingParseInstruction parse) {
         boolean single = parse.result().type().equals(IrType.F32);
         output.append(operand(parse.result())).append(" = call ")
-                .append(single ? "float @ironwood_parse_float(ptr "
-                        : "double @ironwood_parse_double(ptr ")
+                .append(single ? "float @ironwood_parse_float(ptr addrspace(1) "
+                        : "double @ironwood_parse_double(ptr addrspace(1) ")
                 .append(operand(parse.text())).append(')');
     }
 
@@ -2482,7 +2351,12 @@ public final class LlvmEmitter {
                             .append(classType(field.ownerClass())).append(", ").append(llvmType(argument.type())).append(' ')
                             .append(operand(argument)).append(", i32 0, i32 ")
                             .append(field.layoutIndex() + 1).append("\n  ");
-                    parameters.add("ptr " + pointer);
+                    // Output fields are inside managed descriptors. The leaf native
+                    // query receives raw addresses and cannot collect or reenter.
+                    String nativePointer = scratchNames.next("tcp.output");
+                    output.append(nativePointer).append(" = addrspacecast ptr addrspace(1) ")
+                            .append(pointer).append(" to ptr\n  ");
+                    parameters.add("ptr " + nativePointer);
                 }
             } else { parameters.add(llvmType(argument.type()) + " " + operand(argument)); }
         }
@@ -2932,9 +2806,9 @@ public final class LlvmEmitter {
     private static String traceMethodName(IrFunction function) {
         return switch (function.kind()) {
             case CONSTRUCTOR -> "<init>";
-            case DESTRUCTOR -> "<destructor>";
+
             case CLASS_INITIALIZER -> "<clinit>";
-            case CONSTRUCTOR_ROLLBACK -> "<constructor-rollback>";
+
             case METHOD -> function.sourceName();
         };
     }
@@ -3553,15 +3427,14 @@ public final class LlvmEmitter {
     }
 
     private record ThrowHelper(String name, String className, String constructorLinkageName,
-                               List<String> parameterTypes, boolean ensureInitialized,
-                               boolean rollback) {
+                               List<String> parameterTypes) {
     }
 
     private record OutlinedThrow(ThrowHelper helper, List<IrOperand> arguments,
                                  List<Object> probeOperations) {
     }
 
-    private record ExplicitThrow(OutlinedThrow outlined, List<String> absorbed) {
+    private record ThrowChain(OutlinedThrow outlined, List<String> absorbed) {
     }
 
     private record BlockEdges(String normalPredecessor, List<String> unwindPredecessors) {
@@ -3651,26 +3524,24 @@ public final class LlvmEmitter {
 
     private FunctionLayout planFunctionLayout(IrFunction function) {
         Map<String, IrBasicBlock> blocks = new LinkedHashMap<>();
-        Map<String, Integer> references = new HashMap<>();
         for (IrBasicBlock block : function.blocks()) {
             blocks.put(block.label(), block);
-            for (String successor : successors(block.terminator())) {
-                references.merge(successor, 1, Integer::sum);
-            }
         }
-        Map<String, OutlinedThrow> outlined = new LinkedHashMap<>();
+        Map<String, Integer> references = new HashMap<>();
+        for (IrBasicBlock block : function.blocks()) {
+            for (String target : blockSuccessors(block.terminator())) references.merge(target, 1, Integer::sum);
+        }
         Set<String> absorbed = new HashSet<>();
+        Map<String, OutlinedThrow> outlined = new LinkedHashMap<>();
         for (IrBasicBlock block : function.blocks()) {
-            ExplicitThrow explicit = matchExplicitThrow(block, blocks, references);
-            if (explicit != null) {
-                outlined.put(block.label(), explicit.outlined());
-                absorbed.addAll(explicit.absorbed());
+            ThrowChain chain = matchThrowChain(block, blocks, references);
+            if (chain != null) {
+                outlined.put(block.label(), chain.outlined());
+                absorbed.addAll(chain.absorbed());
             }
         }
         for (IrBasicBlock block : function.blocks()) {
-            if (absorbed.contains(block.label()) || outlined.containsKey(block.label())) {
-                continue;
-            }
+            if (outlined.containsKey(block.label()) || absorbed.contains(block.label())) continue;
             OutlinedThrow bundled = matchBundledThrow(block);
             if (bundled != null) {
                 outlined.put(block.label(), bundled);
@@ -3678,9 +3549,7 @@ public final class LlvmEmitter {
         }
         Map<String, BlockEdges> edges = new HashMap<>();
         for (IrBasicBlock block : function.blocks()) {
-            if (absorbed.contains(block.label()) || outlined.containsKey(block.label())) {
-                continue;
-            }
+            if (outlined.containsKey(block.label()) || absorbed.contains(block.label())) continue;
             String current = block.label();
             int ordinal = 0;
             for (IrInstruction instruction : block.instructions()) {
@@ -3702,26 +3571,43 @@ public final class LlvmEmitter {
         return new FunctionLayout(outlined, absorbed, edges, blocks);
     }
 
-    private static List<String> successors(IrTerminator terminator) {
-        if (terminator instanceof IrJump jump) {
-            return List.of(jump.target());
+    private static List<String> blockSuccessors(IrTerminator terminator) {
+        if (terminator instanceof IrJump jump) return List.of(jump.target());
+        if (terminator instanceof IrBranch branch) return List.of(branch.trueTarget(), branch.falseTarget());
+        if (terminator instanceof IrSwitchTerminator switched) {
+            var targets = new ArrayList<String>();
+            targets.add(switched.defaultTarget());
+            switched.cases().forEach(value -> targets.add(value.target()));
+            return targets;
         }
-        if (terminator instanceof IrBranch branch) {
-            return List.of(branch.trueTarget(), branch.falseTarget());
-        }
-        if (terminator instanceof IrSwitchTerminator switchTerminator) {
-            List<String> result = new ArrayList<>();
-            result.add(switchTerminator.defaultTarget());
-            switchTerminator.cases().forEach(branch -> result.add(branch.target()));
-            return result;
-        }
-        if (terminator instanceof IrInvokeTerminator invoke) {
-            return List.of(invoke.normalTarget(), invoke.unwindTarget());
-        }
-        if (terminator instanceof IrThrowTerminator thrown && thrown.unwindTarget().isPresent()) {
+        if (terminator instanceof IrInvokeTerminator invoke) return List.of(invoke.normalTarget(), invoke.unwindTarget());
+        if (terminator instanceof IrThrowTerminator thrown && thrown.unwindTarget().isPresent())
             return List.of(thrown.normalTarget(), thrown.unwindTarget().orElseThrow());
-        }
         return List.of();
+    }
+
+    /** Outline a fresh throw through empty, uniquely reached jump blocks. */
+    private ThrowChain matchThrowChain(IrBasicBlock block, Map<String, IrBasicBlock> blocks,
+                                      Map<String, Integer> references) {
+        if (block.instructions().size() != 2
+                || !(block.instructions().getFirst() instanceof IrAllocateInstruction allocate)
+                || !(block.instructions().get(1) instanceof IrCallInstruction constructor)
+                || !isConstructorCall(allocate, constructor)) return null;
+        var absorbed = new ArrayList<String>();
+        var seen = new HashSet<String>();
+        seen.add(block.label());
+        IrBasicBlock next = block;
+        while (next.terminator() instanceof IrJump jump) {
+            if (!seen.add(jump.target()) || references.getOrDefault(jump.target(), 0) != 1) return null;
+            next = blocks.get(jump.target());
+            if (next == null || !next.instructions().isEmpty()) return null;
+            absorbed.add(next.label());
+        }
+        if (absorbed.isEmpty() || !(next.terminator() instanceof IrThrowTerminator thrown)
+                || thrown.unwindTarget().isPresent() || !sameValue(thrown.exception(), allocate.result())) return null;
+        var helper = throwHelper(allocate.className(), constructor);
+        return helper == null ? null : new ThrowChain(new OutlinedThrow(helper, constructorArguments(constructor),
+                List.of(allocate, constructor, thrown)), List.copyOf(absorbed));
     }
 
     private static boolean sameValue(IrOperand operand, IrValueReference reference) {
@@ -3752,7 +3638,7 @@ public final class LlvmEmitter {
                 || !sameValue(thrown.exception(), allocate.result())) {
             return null;
         }
-        ThrowHelper helper = throwHelper(allocate.className(), constructor, false, false);
+        ThrowHelper helper = throwHelper(allocate.className(), constructor);
         if (helper == null) {
             return null;
         }
@@ -3760,103 +3646,17 @@ public final class LlvmEmitter {
                 List.of(allocate, constructor, thrown));
     }
 
-    /**
-     * Matches the lowering of `throw new X(...)` outside any local handler:
-     * optional type-initialization barrier and allocation, a constructor invoke
-     * whose unwind edge rolls the allocation back and rethrows, and a normal
-     * edge that throws the fresh object, after a null check of it unless the
-     * typed IR has omitted that check (D288).
-     */
-    private ExplicitThrow matchExplicitThrow(IrBasicBlock block, Map<String, IrBasicBlock> blocks,
-                                             Map<String, Integer> references) {
-        List<IrInstruction> instructions = block.instructions();
-        IrEnsureTypeInitializedInstruction ensure = null;
-        int index = 0;
-        if (!instructions.isEmpty()
-                && instructions.getFirst() instanceof IrEnsureTypeInitializedInstruction candidate) {
-            ensure = candidate;
-            index++;
-        }
-        if (index != instructions.size() - 1
-                || !(instructions.get(index) instanceof IrAllocateInstruction allocate)
-                || (ensure != null && !ensure.typeName().equals(allocate.className()))
-                || !(block.terminator() instanceof IrInvokeTerminator invoke)
-                || !(invoke.call() instanceof IrCallInstruction constructor)
-                || !isConstructorCall(allocate, constructor)) {
-            return null;
-        }
-        IrBasicBlock rollback = blocks.get(invoke.unwindTarget());
-        IrBasicBlock continuation = blocks.get(invoke.normalTarget());
-        if (rollback == null || continuation == null
-                || rollback.instructions().size() != 2
-                || !(rollback.instructions().get(0) instanceof IrExceptionLandingPadInstruction landing)
-                || !(rollback.instructions().get(1) instanceof IrRollbackInstruction rollbackInstruction)
-                || !sameValue(rollbackInstruction.allocation(), allocate.result())
-                || !(rollback.terminator() instanceof IrThrowTerminator rethrow)
-                || rethrow.unwindTarget().isPresent()
-                || !sameValue(rethrow.exception(), landing.exceptionObject())) {
-            return null;
-        }
-        IrBasicBlock valid;
-        List<String> absorbed;
-        if (continuation.instructions().isEmpty() && continuation.terminator() instanceof IrJump jump) {
-            // The typed IR omits the null check of the fresh object (D288).
-            valid = blocks.get(jump.target());
-            absorbed = List.of(rollback.label(), continuation.label(), jump.target());
-        } else if (continuation.instructions().size() == 1
-                && continuation.instructions().getFirst() instanceof IrNullCheckInstruction check
-                && sameValue(check.receiver(), allocate.result())
-                && continuation.terminator() instanceof IrBranch branch
-                && sameValue(branch.condition(), check.result())
-                && blocks.get(branch.falseTarget()) != null
-                && matchBundledThrow(blocks.get(branch.falseTarget())) != null) {
-            valid = blocks.get(branch.trueTarget());
-            absorbed = List.of(rollback.label(), continuation.label(),
-                    branch.trueTarget(), branch.falseTarget());
-        } else {
-            return null;
-        }
-        if (valid == null
-                || !valid.instructions().isEmpty()
-                || !(valid.terminator() instanceof IrThrowTerminator thrown)
-                || thrown.unwindTarget().isPresent()
-                || !sameValue(thrown.exception(), allocate.result())) {
-            return null;
-        }
-        for (String label : absorbed) {
-            if (references.getOrDefault(label, 0) != 1) {
-                return null;
-            }
-        }
-        ThrowHelper helper = throwHelper(allocate.className(), constructor, ensure != null, true);
-        if (helper == null) {
-            return null;
-        }
-        List<Object> operations = new ArrayList<>();
-        if (ensure != null) {
-            operations.add(ensure);
-        }
-        operations.add(allocate);
-        operations.add(invoke);
-        operations.add(rethrow);
-        operations.add(thrown);
-        return new ExplicitThrow(new OutlinedThrow(helper, constructorArguments(constructor),
-                operations), absorbed);
-    }
-
-    private ThrowHelper throwHelper(String className, IrCallInstruction constructor,
-                                    boolean ensureInitialized, boolean rollback) {
+    private ThrowHelper throwHelper(String className, IrCallInstruction constructor) {
         List<String> parameterTypes = constructorArguments(constructor).stream()
                 .map(argument -> llvmType(argument.type()))
                 .toList();
-        String name = THROW_HELPER_PREFIX + constructor.targetLinkageName()
-                + (ensureInitialized ? "$ensure" : "") + (rollback ? "$rollback" : "");
+        String name = THROW_HELPER_PREFIX + constructor.targetLinkageName();
         ThrowHelper existing = throwHelpers.get(name);
         if (existing != null) {
             return existing.parameterTypes().equals(parameterTypes) ? existing : null;
         }
         ThrowHelper helper = new ThrowHelper(name, className, constructor.targetLinkageName(),
-                parameterTypes, ensureInitialized, rollback);
+                parameterTypes);
         throwHelpers.put(name, helper);
         return helper;
     }
@@ -3893,30 +3693,14 @@ public final class LlvmEmitter {
             }
             output.append(") noinline cold noreturn uwtable gc \"statepoint-example\" personality ptr @__gxx_personality_v0 {\n")
                     .append("entry:\n");
-            if (helper.ensureInitialized()) {
-                output.append("  call void ").append(typeInitializerName(helper.className())).append("()\n");
-            }
             output.append("  %size.ptr = getelementptr ").append(classType(helper.className()))
                     .append(", ptr null, i32 1\n")
                     .append("  %size = ptrtoint ptr %size.ptr to i64\n")
                     .append("  %exception = call ptr addrspace(1) @ironwood_allocate(i64 %size, ptr ")
                     .append(typeInfoName(helper.className())).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(")\n");
-            if (helper.rollback()) {
-                output.append("  invoke void ").append(functionName(helper.constructorLinkageName()))
-                        .append('(').append(arguments).append(") to label %throw unwind label %rollback\n")
-                        .append("rollback:\n")
-                        .append("  %landing = landingpad { ptr, i32 } catch ptr null\n")
-                        .append("  %handle = extractvalue { ptr, i32 } %landing, 0\n")
-                        .append("  %pending = call ptr addrspace(1) @ironwood_exception_take(ptr %handle)\n")
-                        .append("  call void @\"ironwood.rollback\"(ptr %exception)\n")
-                        .append("  call void @ironwood_throw(ptr addrspace(1) %pending)\n")
-                        .append("  unreachable\n")
-                        .append("throw:\n");
-            } else {
-                output.append("  call void ").append(functionName(helper.constructorLinkageName()))
-                        .append('(').append(arguments).append(")\n");
-            }
+            output.append("  call void ").append(functionName(helper.constructorLinkageName()))
+                    .append('(').append(arguments).append(")\n");
             output.append("  call void @ironwood_throw(ptr addrspace(1) %exception)\n")
                     .append("  unreachable\n")
                     .append("}\n");

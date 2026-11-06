@@ -13,21 +13,18 @@ class HostArguments {
 
         try {
             NetworkInterface value = NetworkInterface.getByName(null);
-            free value;
             return 1;
         } catch (NullPointerException expected) {
             System.out.println("null name");
         }
         try {
             NetworkInterface value = NetworkInterface.getByInetAddress(null);
-            free value;
             return 2;
         } catch (NullPointerException expected) {
             System.out.println("null address");
         }
         try {
             NetworkInterface value = NetworkInterface.getByIndex(-1);
-            free value;
             return 3;
         } catch (IllegalArgumentException expected) {
             System.out.println("negative index");
@@ -36,7 +33,6 @@ class HostArguments {
         try {
             System.out.println(absent == null);
         } finally {
-            free absent;
         }
         InetAddress address = InetAddress.getLoopbackAddress();
         try {
@@ -59,7 +55,6 @@ class HostArguments {
                 System.out.println("negative timeout with interface");
             }
         } finally {
-            free address;
         }
         byte[] bits = new byte[16];
         try {
@@ -69,14 +64,11 @@ class HostArguments {
                 System.out.println(value.getScopeId());
                 System.out.println(value.getScopedInterface() == null);
             } finally {
-                free value;
             }
         } finally {
-            free bits;
         }
         try {
             Inet6Address value = Inet6Address.getByAddress(null, null, (NetworkInterface) null);
-            free value;
             return 7;
         } catch (UnknownHostException expected) {
             System.out.println("null IPv6 bytes");

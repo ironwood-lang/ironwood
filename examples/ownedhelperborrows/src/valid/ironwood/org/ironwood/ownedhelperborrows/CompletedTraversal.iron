@@ -5,7 +5,6 @@ package org.ironwood.ownedhelperborrows;
 import ironwood.ds.ArrayList;
 import ironwood.util.Iterator;
 
-// Expected: compile, link, and exit 42. The iterator is dead before its owner is freed.
 public class CompletedTraversal {
 
     public static int main(String[] args) {
@@ -17,7 +16,6 @@ public class CompletedTraversal {
         while (iterator.hasNext()) {
             if (iterator.next() == "value") seen++;
         }
-        free list; // Valid: no later observation of iterator remains.
         return seen == 1 ? 42 : 1;
     }
 }

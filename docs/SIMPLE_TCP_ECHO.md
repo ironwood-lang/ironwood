@@ -104,17 +104,12 @@ It closes its socket and exits. The client waits for the reply without a read ti
 
 ## Cleanup and testing
 
-The server and client use explicit `defer` actions. In both, `close()` releases
-the connection and `free` reclaims the socket
-object. The server's client actions belong inside its per-client `try`, so close
-then free finish before its catch prints an error and permits another accept.
-The `accept()` call itself stays outside that handler; its failure unwinds the
-listener scope and reaches `main`, which reports it and exits with `74`.
-The server retains its byte array across
-requests and frees it only when leaving the server loop; the client frees its
-request byte array and read buffer. Streams returned by a socket are borrowed
-views and are not freed separately. Ctrl+C stops the server process; the
-operating system closes its remaining sockets.
+Server and client use captured deferred calls to close sockets on normal and
+exceptional exits. Per-client close finishes before its catch reports a failure;
+accept failures unwind the outer listener and reach main with exit 74. The server
+reuses its byte array across requests. Buffers, wrappers and shared stream views
+have ordinary managed lifetime. Collection is a separate explicit phase and never
+runs in the message loop. Resource closure retains D051 failure ordering.
 
 Run `./test.sh` from the project folder to build and test the programs locally
 (Python 3 required). If port `55556` is unavailable, its check is reported as

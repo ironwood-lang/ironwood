@@ -29,7 +29,7 @@ final class BridgeCallbackBatchSources {
         String original = sources.get(path);
         sources.put(path, original.substring(0, original.lastIndexOf('}')) + methods + "}\n");
         return new BridgeJavaSources(sources, declarations.bindings(), declarations.generatedTypes(), declarations.ensureMethod(),
-                declarations.facadeRegistrations(), declarations.rootDestructions(), declarations.supportNatives());
+                declarations.supportNatives());
     }
 
     static String managedNativeCallbacks(BridgeCallbackBatching batching) {

@@ -29,7 +29,6 @@ final class Text implements CharSequence {
         try {
             return value.substring(start, end);
         } finally {
-            free value;
         }
     }
 
@@ -40,7 +39,6 @@ final class Text implements CharSequence {
         try {
             return new String(units);
         } finally {
-            free units;
         }
     }
 }
@@ -70,12 +68,7 @@ class Main {
         String captured = output.toString();
         boolean customText = captured.equals("A😀?Z\n");
 
-        free captured;
-        free stream;
-        free output;
-        free builder;
         sequence = null;
-        free text;
         return allocationFree && customAllocationFree && customText ? 42 : 1;
     }
 }

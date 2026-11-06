@@ -34,7 +34,7 @@ allocation and cleanup; [M6 verification](../docs/NETWORKING_M6_VERIFICATION.md)
 records the acceptance gates. The [TCP quick start](../docs/SIMPLE_TCP_ECHO.md)
 walks through separate server and client processes in `SimpleTcpEcho`;
 smaller TCP demonstrations are in `examples/`.
-The server uses explicit deferred close/free with
+The server uses explicit deferred source close and managed lifetime with
 [focused adoption verification](../docs/DEFER_PROJECT_VERIFICATION.md).
 This blocking application does not complete N1's later event-loop gate.
 

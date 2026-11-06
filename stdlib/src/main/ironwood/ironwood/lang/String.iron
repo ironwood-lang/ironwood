@@ -354,9 +354,7 @@ public final class String implements CharSequence, Comparable<String> {
     public String replace(CharSequence target, CharSequence replacement) {
 
         String targetText = target.toString();
-        defer releaseRenderedString(target, targetText);
         String replacementText = replacement.toString();
-        defer releaseRenderedString(replacement, replacementText);
         targetText.length();
         replacementText.length();
         return replaceTextValue(this, targetText, replacementText);
@@ -390,7 +388,6 @@ public final class String implements CharSequence, Comparable<String> {
     public static <T extends CharSequence> String join(CharSequence delimiter, T[] elements) {
 
         String separator = delimiter.toString();
-        defer releaseRenderedString(delimiter, separator);
         int length = elements.length;
         if (length > 1) separator.length();
         StringBuilder result = new StringBuilder();
@@ -407,7 +404,6 @@ public final class String implements CharSequence, Comparable<String> {
     public static String join(CharSequence delimiter, String[] elements) {
 
         String separator = delimiter.toString();
-        defer releaseRenderedString(delimiter, separator);
         int length = elements.length;
         if (length > 1) separator.length();
         return joinValue(separator, elements);
@@ -417,7 +413,6 @@ public final class String implements CharSequence, Comparable<String> {
     public static String join(CharSequence delimiter) {
 
         String separator = delimiter.toString();
-        defer releaseRenderedString(delimiter, separator);
         return new String("");
     }
     /** Performs the join operation. */
@@ -425,7 +420,6 @@ public final class String implements CharSequence, Comparable<String> {
     public static String join(CharSequence delimiter, CharSequence first, CharSequence second) {
 
         String separator = delimiter.toString();
-        defer releaseRenderedString(delimiter, separator);
         separator.length();
         return "" + first + separator + second;
     }
@@ -434,7 +428,6 @@ public final class String implements CharSequence, Comparable<String> {
     public static String join(CharSequence delimiter, CharSequence element) {
 
         String separator = delimiter.toString();
-        defer releaseRenderedString(delimiter, separator);
         return "" + element;
     }
     /** Performs the join operation. */
@@ -443,15 +436,10 @@ public final class String implements CharSequence, Comparable<String> {
                               CharSequence third) {
 
         String separator = delimiter.toString();
-        defer releaseRenderedString(delimiter, separator);
         separator.length();
         return "" + first + separator + second + separator + third;
     }
 
-    private static void releaseRenderedString(Object object, String rendered) {
-
-        return;
-    }
 
     private static String repeatValue(String source, int count) {
 

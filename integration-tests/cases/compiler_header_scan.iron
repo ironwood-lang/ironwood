@@ -34,11 +34,8 @@ class Main {
 
         String vertical = text.replace('~', '\u000b');
         String feed = vertical.replace('|', '\f');
-        free vertical;
         String separator = feed.replace('^', '\u2028');
-        free feed;
         String result = separator.replace('`', '\u00a0');
-        free separator;
         return result;
     }
 
@@ -47,7 +44,6 @@ class Main {
         String text = spelled(placeholders);
         System.out.println(label + " " + HeaderScan.defines(text, "__GLIBC__", "2") + " "
                 + HeaderScan.defines(text, "__GLIBC_MINOR__", "17"));
-        free text;
     }
 
     public static int main(String[] args) {
@@ -58,9 +54,7 @@ class Main {
             int count = next() % 30;
             for (int token = 0; token < count; token++) text.append(tokens[next() % tokens.length]);
             String built = text.toString();
-            free text;
             line("seeded " + index, built);
-            free built;
         }
         long before = System.allocationCount();
         boolean found = HeaderScan.defines(fixed[0], "__GLIBC__", "2") && HeaderScan.defines(fixed[1], "__GLIBC_MINOR__", "17");

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 import boundedbench.*;
+import org.ironwood.javabridge.support.BridgeLifetime;
 import java.lang.management.ManagementFactory;
 
 /** Compare identical retaining setters, alternating two independent roots. */
@@ -12,11 +13,14 @@ public final class GenericBench {
         if (!bean.isThreadAllocatedMemorySupported()) throw new AssertionError("allocation counter unavailable");
         bean.setThreadAllocatedMemoryEnabled(true);
         long thread = Thread.currentThread().threadId();
-        Value first = new Value(17), second = new Value(29);
-        Holder<Value> holder = new Holder<>(null);
-        Plain plain = new Plain(null);
-        System.out.println("scenario,sample,calls,elapsed_ns,checksum,native_allocations,java_bytes");
-        try {
+        try (var firstRoot = BridgeLifetime.<Value>construct(Value.class, 17);
+             var secondRoot = BridgeLifetime.<Value>construct(Value.class, 29);
+             var holderRoot = BridgeLifetime.<Holder<Value>>construct(Holder.class, (Object) null);
+             var plainRoot = BridgeLifetime.<Plain>construct(Plain.class, (Object) null)) {
+            Value first = firstRoot.get(), second = secondRoot.get();
+            Holder<Value> holder = holderRoot.get();
+            Plain plain = plainRoot.get();
+            System.out.println("scenario,sample,calls,elapsed_ns,checksum,native_allocations,java_bytes");
             for (int sample = -5; sample < 7; sample++) {
                 long sum = 0, allocations = Holder.allocations(), bytes = bean.getThreadAllocatedBytes(thread);
                 long start = System.nanoTime();
@@ -34,11 +38,6 @@ public final class GenericBench {
                 if (sample >= 0) System.out.println(args[0] + "," + sample + "," + iterations + "," + elapsed + ","
                         + sum + "," + allocations + "," + bytes);
             }
-        } finally {
-            plain.free();
-            holder.free();
-            second.free();
-            first.free();
         }
     }
 }

@@ -6,7 +6,7 @@ import ironwood.ds.IdentityHashSet;
 
 /**
  * Compiler-owned independent read-only keyed membership. Items are
- * borrowed; destruction reclaims private storage and never frees caller items.
+ * shared managed references; private storage follows managed reachability.
  * Source mutation does not change this version. No iterator or mutable view escapes.
  */
 public final class SnapshotIdentitySet<E extends Object> {
@@ -38,8 +38,4 @@ public final class SnapshotIdentitySet<E extends Object> {
         return this.membership.contains(item);
     }
 
-    destructor {
-
-        free this.membership;
-    }
 }

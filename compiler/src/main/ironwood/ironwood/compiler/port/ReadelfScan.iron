@@ -115,7 +115,6 @@ public final class ReadelfScan {
     private static void addOnce(TextList target, String text, int start, int end) {
 
         String value = text.substring(start, end);
-        defer free value;
         if (target.indexOf(value) < 0) target.add(value);
     }
 }

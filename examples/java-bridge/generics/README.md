@@ -3,11 +3,12 @@
 # Read-only generic facades
 
 `Box.iron` has two native factories, returning `Box<Quote>` and `Box<Trade>`.
-The generated Java declaration preserves `Box<T>` and `T get()`. Its constructor
+The generated Java declaration preserves `Box<T>` and returns a scoped handle from `get()`. Its constructor
 is inaccessible and it has no type-dependent inputs. Java uses ordinary calls;
 the producer generates the loading and JNI code. Shared Quote/Trade values have
-proved process lifetime. Each factory-created box is an owning root, explicitly
-freed by the consumer. Reading through a wildcard preserves the actual value.
+ordinary managed lifetime. Factory and getter results carry explicit generated
+handles. Closing a handle releases its anchor. Reading through a wildcard
+preserves the actual value.
 
 With a supported JDK 21 to 25 selected in `JAVA_HOME` and LLVM 23 on PATH, and the prepared Linux support
 SDK when building on Linux, run from the repository root:
@@ -22,7 +23,7 @@ Expected output: `generic values: 17 29`. Successful execution exits zero.
 Java 22 to 25 can consume the same artifact; `run.sh` passes the native-access
 grant that keeps Java 24 and 25 warning-free. Java 26+ is refused.
 Public generic construction/mutation, generic facade parameters, standalone
-generic methods, generic arrays and generic inheritance remain outside P7d1.
+generic methods, generic arrays and generic inheritance remain outside the supported managed bridge generic projection.
 See the [bridge usage guide](../../../docs/JAVA_BRIDGE_USAGE.md).
 
 For the performance regression control:
@@ -44,5 +45,5 @@ warmup batches and seven measured batches of two million calls. Reports retain
 batch-average latency, throughput, checksums, Java/native allocation counts,
 first-call cost, commands, payload hashes, Java bytecode and native disassembly.
 First-call cost includes class/facade initialization and is reported separately.
-The full run requires zero Java and native allocations in measured batches.
+The native engine allocation checks are separate from Java handle allocation.
 No official OrderBook code or benchmark is changed.

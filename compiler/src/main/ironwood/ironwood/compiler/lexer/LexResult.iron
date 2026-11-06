@@ -41,9 +41,4 @@ public final class LexResult {
         return this.diagnostics;
     }
 
-    destructor {
-
-        free this.diagnostics;
-        free this.tokens;
-    }
 }

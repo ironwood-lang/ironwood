@@ -55,7 +55,6 @@ public class DeterministicResources {
             normal.close();
         }
         int normalResult = CloseOrder.value;
-        free normal;
         if (normalResult != 51) return 1;
 
         Resource failing = new Resource(2, true);
@@ -63,12 +62,10 @@ public class DeterministicResources {
             read(failing);
         } catch (ReadFailure primary) {
 
-            boolean preserved = primary.getSecondaryExceptionCount() == 1
-                    && primary.getSecondaryException(0) instanceof CloseFailure;
+            boolean preserved = primary.getSecondaryExceptionCount() == 1 && primary.getSecondaryException(0) instanceof CloseFailure;
             return preserved && CloseOrder.value == 512 ? 42 : 2;
         } finally {
             // close() has already run; reclaim the allocation even when it threw.
-            free failing;
         }
         return 3;
     }

@@ -407,14 +407,12 @@ final class BridgeJdkTests {
         String prefix = "import ironwood.compiler.port.*;\nclass Main { public static int main(String[] args)"
                 + " throws ironwood.io.IOException { ironwood.nio.file.Path scratch = ironwood.nio.file.Path.of(args[0]);"
                 + " JdkSelection jdk = new JdkSelection(null, scratch, scratch); ";
-        for (UnfreedMode mode : UnfreedMode.values()) {
-            PortFixtures.require(mode, helpers, prefix + "free scratch; String home = jdk.home(); String vendor ="
-                    + " jdk.vendor(); jdk.requireJdk(\"producer\"); free jdk; int r = home.length() + vendor.length();"
-                    + " free home; free vendor; return r; }}", null);
-            PortFixtures.require(mode, helpers, prefix + "free scratch; String home = jdk.home(); free jdk; free home;"
-                    + " return home.length(); }}", "after its allocation was freed");
-            PortFixtures.require(mode, helpers, prefix + "free scratch; free jdk; free jdk; return 0; }}",
-                    "allocation was already freed");
+        // This fixture scope preserves independent local names.
+{
+            PortFixtures.require(helpers, prefix + "; String home = jdk.home(); String vendor = jdk.vendor(); jdk.requireJdk(\"producer\"); ; int r = home.length() + vendor.length(); ; ; return r; }}", null);
+            PortFixtures.require(helpers, prefix + "; String home = jdk.home(); ; ; return home.length(); }}", null);
+            PortFixtures.require(helpers, prefix + "; ; ; return 0; }}",
+                    null);
         }
     }
 

@@ -26,13 +26,13 @@ public final class BridgeCallbackDispatchSources {
         int index = 0;
         for (var proxy : proxies.proxies()) {
             for (var method : proxy.methods()) {
-                source.append("    static ").append(BridgePermanentJavaSources.javaType(method.result(), surface)).append(' ')
+                source.append("    static ").append(BridgeFacadeSources.javaType(method.result(), surface)).append(' ')
                         .append(methodName(index++)).append('(').append(proxy.listener().sourceName()).append(" listener");
                 var arguments = new ArrayList<String>();
                 for (int parameter = 0; parameter < method.parameters().size(); parameter++) {
                     String argument = "argument" + parameter;
                     arguments.add(argument);
-                    source.append(", ").append(BridgePermanentJavaSources.javaType(method.parameters().get(parameter), surface))
+                    source.append(", ").append(BridgeFacadeSources.javaType(method.parameters().get(parameter), surface))
                             .append(' ').append(argument);
                 }
                 // Preserve checked failures without wrapping or changing identity.
@@ -49,6 +49,6 @@ public final class BridgeCallbackDispatchSources {
             throw new IllegalArgumentException("callback dispatch collides with generated declarations");
         }
         return new BridgeJavaSources(sources, declarations.bindings(), new ArrayList<>(types), declarations.ensureMethod(),
-                declarations.facadeRegistrations(), declarations.rootDestructions(), declarations.supportNatives());
+                declarations.supportNatives());
     }
 }

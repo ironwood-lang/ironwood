@@ -22,7 +22,6 @@ public final class LlvmText {
     public static String hexBits(long bits) {
 
         char[] text = new char[18];
-        defer free text;
         text[0] = '0';
         text[1] = 'x';
         for (int nibble = 0; nibble < 16; nibble++) {
@@ -45,9 +44,7 @@ public final class LlvmText {
         if (Double.isNaN(value) || Double.isInfinite(value)) throw new IllegalArgumentException("not finite");
         boolean negative = value < 0 || value == 0 && 1 / value < 0;
         String text = Double.toString(negative ? -value : value);
-        defer free text;
         StringBuilder digits = new StringBuilder();
-        defer free digits;
         int exponent = 0;
         int mark = text.indexOf('E');
         int end = mark < 0 ? text.length() : mark;
@@ -78,7 +75,6 @@ public final class LlvmText {
         while (digits.length() > 1 && digits.charAt(digits.length() - 1) == '0') digits.setLength(digits.length() - 1);
         if (digits.length() == 0) digits.append('0');
         StringBuilder out = new StringBuilder();
-        defer free out;
         if (negative) out.append('-');
         out.append(digits.charAt(0)).append('.');
         for (int index = 1; index < 18; index++) out.append(index < digits.length() ? digits.charAt(index) : '0');
@@ -97,7 +93,6 @@ public final class LlvmText {
     public static String escapeBytes(byte[] bytes) {
 
         StringBuilder out = new StringBuilder();
-        defer free out;
         for (int index = 0; index < bytes.length; index++) {
             int value = bytes[index] & 0xFF;
             if (value >= 0x20 && value <= 0x7e && value != '"' && value != '\\') {
@@ -120,13 +115,11 @@ public final class LlvmText {
 
         if (!symbol.startsWith("@\"")) return symbol.substring(1);
         ByteArrayOutputStream bytes = new ByteArrayOutputStream(symbol.length());
-        defer free bytes;
         int last = symbol.length() - 1;
         int index = 2;
         while (index < last) {
             char character = symbol.charAt(index);
-            if (character == '\\' && index + 2 < last && hex(symbol.charAt(index + 1)) >= 0
-                    && hex(symbol.charAt(index + 2)) >= 0) {
+            if (character == '\\' && index + 2 < last && hex(symbol.charAt(index + 1)) >= 0 && hex(symbol.charAt(index + 2)) >= 0) {
                 bytes.write(hex(symbol.charAt(index + 1)) * 16 + hex(symbol.charAt(index + 2)));
                 index = index + 3;
             } else {

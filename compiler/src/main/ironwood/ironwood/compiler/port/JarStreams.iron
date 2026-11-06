@@ -31,10 +31,8 @@ public final class JarStreams {
     public static JarManifest manifest(byte[] jar, Inflate inflate, String display) throws IOException {
 
         ZipStream stream = new ZipStream();
-        defer free stream;
         byte[] bytes = manifestEntry(stream, jar, inflate, display);
         if (bytes == null) return null;
-        defer free bytes;
         return new JarManifest(bytes, 0, bytes.length);
     }
 
@@ -51,11 +49,9 @@ public final class JarStreams {
             directory = named(stream, 0, "META-INF/");
             manifest = !directory && named(stream, 0, "META-INF/MANIFEST.MF");
         } catch (OutOfMemoryError failure) {
-            free first;
             throw failure;
         }
         if (manifest) return first;
-        free first;
         if (!directory) return null;
         byte[] second = stream.next(jar, inflate, display);
         if (second == null) return null;
@@ -63,11 +59,9 @@ public final class JarStreams {
         try {
             found = named(stream, 1, "META-INF/MANIFEST.MF");
         } catch (OutOfMemoryError failure) {
-            free second;
             throw failure;
         }
         if (found) return second;
-        free second;
         return null;
     }
 
@@ -75,7 +69,6 @@ public final class JarStreams {
     private static boolean named(ZipStream stream, int index, String name) {
 
         String spelling = stream.name(index);
-        defer free spelling;
         return spelling.equalsIgnoreCase(name);
     }
 }

@@ -3,7 +3,7 @@
  *
  * Contributed by the original author with permission to adapt and publish
  * under a neutral name. Original implementation copyright 2015-2024.
- * Modified for Ironwood: native ownership, primitive counters, sorted histogram
+ * Modified for Ironwood: managed storage, primitive counters, sorted histogram
  * reporting, fixed numeric formatting, and explicit verbosity options.
  */
 package ironwood.bench;

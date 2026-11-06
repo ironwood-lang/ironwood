@@ -75,7 +75,7 @@ public final class BridgeGcTransitions {
     }
 
     public static String compose(BridgeObjectAdmission admission, String adapters) {
-        if (!admission.managedHeap()) throw new IllegalArgumentException("foreign transitions require managed admission");
+
         if (adapters.contains("ironwood_deallocate(")) throw new IllegalArgumentException("GC bridge cannot contain managed deallocation");
         String bootstrap = "new_loader = (*env)->NewGlobalRef(env, loader);";
         if (!adapters.contains(bootstrap)) throw new IllegalArgumentException("foreign transitions require complete generated bootstrap");

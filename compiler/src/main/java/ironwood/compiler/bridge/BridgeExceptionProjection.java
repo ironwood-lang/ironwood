@@ -4,7 +4,6 @@ package ironwood.compiler.bridge;
 
 import ironwood.compiler.CompilationArtifact;
 import ironwood.compiler.ir.*;
-import ironwood.compiler.semantic.BridgeRetentionAnalyzer;
 import ironwood.compiler.semantic.BridgeApiFacts;
 
 import java.util.ArrayList;
@@ -20,9 +19,9 @@ public final class BridgeExceptionProjection {
     private static final IrType STRING = IrType.reference("ironwood.lang.String");
 
     public record Property(String name, IrType type, Optional<BridgeCallableId> callable,
-                           Optional<IrField> field, boolean ownedString) {
+                           Optional<IrField> field) {
         public Property {
-            if (callable.isPresent() == field.isPresent() || ownedString && !type.equals(STRING)) {
+            if (callable.isPresent() == field.isPresent()) {
                 throw new IllegalArgumentException("exception property needs exactly one resolved accessor");
             }
         }
@@ -62,16 +61,11 @@ public final class BridgeExceptionProjection {
     }
 
     public static BridgeProof<BridgeExceptionProjection> managedSnapshots(CompilationArtifact artifact, Collection<String> requested) {
-        return project(artifact, requested, true, true);
+        return project(artifact, requested, true);
     }
 
     private static BridgeProof<BridgeExceptionProjection> project(CompilationArtifact artifact,
             Collection<String> requested, boolean customSnapshots) {
-        return project(artifact, requested, customSnapshots, false);
-    }
-
-    private static BridgeProof<BridgeExceptionProjection> project(CompilationArtifact artifact,
-            Collection<String> requested, boolean customSnapshots, boolean stableSnapshotIds) {
         if (requested.isEmpty()) return BridgeProof.rejected("exception projection requires at least one type");
         if (!artifact.valid() || artifact.bridgeConstructionFacts().isEmpty()) {
             return BridgeProof.unknown("exception projection requires successful bridge analysis");
@@ -96,7 +90,6 @@ public final class BridgeExceptionProjection {
         if (throwable == null) return BridgeProof.unknown("missing native Throwable hierarchy");
         List<Type> projected = new ArrayList<>();
         Set<BridgeCallableId> accessors = new java.util.LinkedHashSet<>();
-        Map<BridgeCallableId, Boolean> stringOwnership = new LinkedHashMap<>();
         for (String name : requested.stream().distinct().sorted().toList()) {
             var type = classes.get(name);
             if (!BridgeExportSurface.isBuiltinThrowable(IrType.reference(name)) && !customTypes.containsKey(name)) {
@@ -127,43 +120,32 @@ public final class BridgeExceptionProjection {
                 }
                 var target = functions.get(targets.getFirst());
                 var id = BridgeCallableId.of(target);
+                // A snapshot graph may contain an invocation-owned JVM carrier. The
+                // receiver must stay confined even though its String result is managed.
                 if (facts.isStatic(id) || !facts.borrowsThroughResult(id, 0)) {
-                    return BridgeProof.rejected("exception getter receiver lifetime is not proved: " + id.linkage());
+                    return BridgeProof.rejected("exception getter receiver escapes its foreign snapshot invocation: " + id.linkage());
                 }
                 var result = target.returnType();
-                boolean owned = false;
-                if (result.equals(STRING)) {
-                    if (!stringOwnership.containsKey(id)) {
-                        var origin = facts.resultOrigins().get(id);
-                        if (origin != null && origin.status() == BridgeProof.Status.PROVED
-                                && origin.contract().orElseThrow().kind() == BridgeResultOriginContract.Kind.FRESH_ROOT) {
-                            stringOwnership.put(id, true);
-                        } else if (BridgeRetentionAnalyzer.borrowedStringResults(program,
-                                BridgeRootSet.resolve(program, List.of(id))).contains(id)) {
-                            stringOwnership.put(id, false);
-                        } else return BridgeProof.unknown("exception String getter ownership is not proved: " + id.linkage());
-                    }
-                    owned = stringOwnership.get(id);
-                } else if (!result.equals(IrType.I32) && !(custom != null && BridgeCustomExceptionTypes.copyable(result)) && !(result.isNominalReference()
+                if (!result.equals(STRING) && !result.equals(IrType.I32) && !(custom != null && BridgeCustomExceptionTypes.copyable(result)) && !(result.isNominalReference()
                         && classes.containsKey(result.referenceName())
                         && classes.get(result.referenceName()).typeMembership().contains(throwable.typeId()))) {
                     return BridgeProof.rejected("unsupported exception getter result: " + id.linkage());
                 }
-                properties.add(new Property(method, result, Optional.of(id), Optional.empty(), owned));
+                properties.add(new Property(method, result, Optional.of(id), Optional.empty()));
                 accessors.add(id);
             }
             if (inherits(type, "ironwood.io.InterruptedIOException", classes)) {
                 var fields = type.fields().stream().filter(field -> field.name().equals("bytesTransferred")
                         && field.ownerClass().equals("ironwood.io.InterruptedIOException") && field.type().equals(IrType.I32)).toList();
                 if (fields.size() != 1) return BridgeProof.unknown("interrupted-I/O transfer-count field is unresolved");
-                properties.add(new Property("bytesTransferred", IrType.I32, Optional.empty(), Optional.of(fields.getFirst()), false));
+                properties.add(new Property("bytesTransferred", IrType.I32, Optional.empty(), Optional.of(fields.getFirst())));
             }
             // The C translator maps native nominal names to these private wire IDs.
             // Native heap type IDs remain image-specific and never enter common Java.
-            projected.add(new Type(name, BridgeJavaTypes.binaryName(IrType.reference(name)), stableSnapshotIds ? projected.size() + 1 : type.typeId(), properties));
+            projected.add(new Type(name, BridgeJavaTypes.binaryName(IrType.reference(name)), projected.size() + 1, properties));
         }
         return BridgeProof.proved(new BridgeExceptionProjection(program, projected, BridgeRootSet.resolve(program, List.copyOf(accessors)), customTypes),
-                "exception hierarchy, exact getters and String ownership resolved from final semantic facts");
+                "exception hierarchy and exact rooted snapshot getters resolved from final semantic facts");
     }
 
     private static boolean inherits(IrClass type, String parent, Map<String, IrClass> classes) {

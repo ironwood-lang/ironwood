@@ -251,7 +251,7 @@ final class Gc6CallbackTests {
         if (escape == 5) sources.set(1, SourceFile.of("Node.iron", sources.get(1).content()
                 .replace("private final int number;", "private final int number; private static int[] escapedArray;")
                 .replace("values[0] += 2;", "escapedArray = values; values[0] += 2;")));
-        var pipeline = new CompilerPipeline(UnfreedMode.ERROR);
+        var pipeline = new CompilerPipeline();
         var initial = pipeline.analyzeForBridge(sources);
         check(initial.valid(), initial.diagnostics().toString());
         var carrier = BridgeCallbackCarrierSources.discover(initial);
@@ -273,8 +273,8 @@ final class Gc6CallbackTests {
         check(proof.batching().orElseThrow().entries().keySet().stream().map(BridgeCallableId::name).toList().equals(List.of("burst")),
                 "batching omitted the pure schedule or admitted the collecting loop");
         var generation = BridgeGeneration.createObjects("gc6callbacks", fixture.artifact(), proof, "test", "a".repeat(64), "b".repeat(64));
-        var java = BridgePermanentJavaSources.generateRoots(fixture.artifact(), proof, generation);
-        var nativeSources = BridgePermanentNativeSources.generateRoots(fixture.artifact(), proof, generation, java);
+        var java = BridgeFacadeSources.generateRoots(fixture.artifact(), proof, generation);
+        var nativeSources = BridgeFacadeNativeSources.generateRoots(fixture.artifact(), proof, generation, java);
         check(java.declarations().sources().get("gc6callbacks/Listener.java").contains("public interface Listener"), "listener signature omitted");
         check(java.declarations().supportNatives().stream().anyMatch(value -> value.nativeName().equals("$release")), "callback dispatch lost handle release");
         check(nativeSources.source().contains("&callback_frame.created_carriers") && nativeSources.source().contains("iw_gc_callback_wrap"),
@@ -309,7 +309,7 @@ final class Gc6CallbackTests {
             for (int i = 0; i < units.size(); i++) sources.add(archived
                     ? IronJar.read(archive).source(units.get(i).binaryName()).orElseThrow()
                     : IronClass.read(loose.get(i)).source(units.get(i).binaryName()).orElseThrow());
-            var pipeline = new CompilerPipeline(UnfreedMode.ERROR);
+            var pipeline = new CompilerPipeline();
             var initial = pipeline.analyzeForBridge(sources);
             var carrier = BridgeCallbackCarrierSources.discover(initial); sources.add(carrier.source());
             var proxies = BridgeListenerProxies.discover(pipeline.analyzeForBridge(sources), List.of("gc6callbacks"));
@@ -317,7 +317,7 @@ final class Gc6CallbackTests {
             var restoredAdmission = admission(new Fixture(restored, proxies, carrier));
             var restoredGeneration = BridgeGeneration.createObjects("gc6callbacks", restored, restoredAdmission, "test", "a".repeat(64), "b".repeat(64));
             check(restoredGeneration.identity().equals(generation.identity()), "callback reconstruction changed generation");
-            check(BridgePermanentJavaSources.generateRoots(restored, restoredAdmission, restoredGeneration).declarations().sources()
+            check(BridgeFacadeSources.generateRoots(restored, restoredAdmission, restoredGeneration).declarations().sources()
                     .equals(java.declarations().sources()), "callback reconstruction changed lifetime projection");
         }
     }
@@ -336,13 +336,13 @@ final class Gc6CallbackTests {
         var inputs = BridgeProducerInputs.discover();
         var generation = BridgeGeneration.createObjects("gc6callbacks", fixture.artifact(), admission,
                 inputs.compilerVersion(), inputs.compilerIdentity(), inputs.runtimeIdentity());
-        var java = BridgePermanentJavaSources.generateRoots(fixture.artifact(), admission, generation);
-        var nativeSources = BridgePermanentNativeSources.generateRoots(fixture.artifact(), admission, generation, java);
+        var java = BridgeFacadeSources.generateRoots(fixture.artifact(), admission, generation);
+        var nativeSources = BridgeFacadeNativeSources.generateRoots(fixture.artifact(), admission, generation, java);
         var level = OptimizationLevel.valueOf(args[2]);
         var tools = LlvmToolchain.discover(Path.of(args[1])); check(tools.successful(), tools.error());
         var buildInputs = new TreeMap<>(BridgeGcBuildInputs.discover(tools.toolchain().orElseThrow()));
         buildInputs.putAll(Map.of("fixture", "managed-callbacks", "optimization", level.toString()));
-        var build = generation.nativeBuild(BridgeGeneratedJarTests.target(), buildInputs);
+        var build = generation.nativeBuild(ManagedBridgeTestBuild.target(), buildInputs);
         var out = Path.of(args[0]).toAbsolutePath(); Files.createDirectories(out);
         var llvm = out.resolve("program.ll"); Files.writeString(llvm, new LlvmEmitter().emit(admission));
         var source = BridgeGcTransitions.compose(admission, nativeSources.source()
@@ -412,7 +412,7 @@ final class Gc6CallbackTests {
                     iw_test_failure_kind = kind; iw_test_failure_after = after;
                 }
                 """ + source;
-        BridgeGeneratedJarTests.build(out, llvm, tools.toolchain().orElseThrow(), level, generation, build, java.declarations(), source, Map.of(), admission,
+        ManagedBridgeTestBuild.build(out, llvm, tools.toolchain().orElseThrow(), level, generation, build, java.declarations(), source, Map.of(), admission,
                 List.of("Java_Gc6Callbacks_globals", "Java_Gc6Callbacks_failure"));
         Files.writeString(out.resolve("support.txt"), generation.supportPackage());
     }

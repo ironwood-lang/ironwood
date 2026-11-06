@@ -36,7 +36,6 @@ public final class ExecutableSearch {
             if (end > start) {
                 Path candidate = candidate(pathValue, start, end, name, workingDirectory);
                 if (Files.isRegularFile(candidate) && Files.isExecutable(candidate)) return candidate;
-                free candidate;
             }
             start = end + 1;
         }
@@ -46,9 +45,7 @@ public final class ExecutableSearch {
     private static Path candidate(String pathValue, int start, int end, String name, Path workingDirectory) {
 
         String entry = pathValue.substring(start, end);
-        defer free entry;
         Path directory = workingDirectory.resolve(entry);
-        defer free directory;
         return directory.resolve(name);
     }
 }

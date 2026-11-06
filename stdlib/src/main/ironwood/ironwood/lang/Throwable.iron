@@ -12,7 +12,7 @@ public class Throwable {
     private Throwable cause;
     // Reserved managed metadata. Only compiler-owned trace operations access it.
     private Object traceMetadata;
-    private String ownedMessage;
+    private String causeMessage;
     private boolean causeInitialized;
     private int traceStatus;
     /** Creates a new Throwable. */
@@ -21,7 +21,7 @@ public class Throwable {
 
         this.message = null;
         this.cause = null;
-        this.ownedMessage = null;
+        this.causeMessage = null;
         this.causeInitialized = false;
         this.fillInStackTrace();
     }
@@ -31,7 +31,7 @@ public class Throwable {
 
         this.message = message;
         this.cause = null;
-        this.ownedMessage = null;
+        this.causeMessage = null;
         this.causeInitialized = false;
         this.fillInStackTrace();
     }
@@ -41,7 +41,7 @@ public class Throwable {
 
         this.message = message;
         this.cause = cause;
-        this.ownedMessage = null;
+        this.causeMessage = null;
         this.causeInitialized = true;
         this.fillInStackTrace();
     }
@@ -52,15 +52,15 @@ public class Throwable {
         this.message = null;
         this.cause = cause;
         if (cause == null) {
-            this.ownedMessage = null;
+            this.causeMessage = null;
         } else {
 
             String rendered = cause.toString();
             if (rendered == null) {
-                this.ownedMessage = null;
+                this.causeMessage = null;
             } else {
 
-                this.ownedMessage = new String(rendered);
+                this.causeMessage = new String(rendered);
             }
         }
         this.causeInitialized = true;
@@ -153,7 +153,7 @@ public class Throwable {
 
     public String getMessage() {
 
-        if (this.ownedMessage != null) return this.ownedMessage;
+        if (this.causeMessage != null) return this.causeMessage;
         return this.message;
     }
 

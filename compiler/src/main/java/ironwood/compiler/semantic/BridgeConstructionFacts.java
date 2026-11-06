@@ -4,60 +4,48 @@ package ironwood.compiler.semantic;
 
 import ironwood.compiler.NativeLinkTransformation;
 import ironwood.compiler.bridge.BridgeCallableId;
-import ironwood.compiler.bridge.BridgeConstructionContract;
 import ironwood.compiler.bridge.BridgeEntryModule;
 import ironwood.compiler.bridge.BridgeExceptionEntries;
 import ironwood.compiler.bridge.BridgeProof;
 import ironwood.compiler.bridge.BridgeResultOriginContract;
 import ironwood.compiler.ir.IrProgram;
 import ironwood.compiler.ir.IrCallableKind;
-import ironwood.compiler.ir.IrFunction;
 
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /** Immutable projection of the selected semantic analyses, bound to their IR. */
 public final class BridgeConstructionFacts {
     private final IrProgram program;
-    private final Map<BridgeCallableId, BridgeProof<BridgeConstructionContract>> constructors;
+
     private final Map<BridgeCallableId, Set<Integer>> borrowedInputs;
     private final Map<BridgeCallableId, Set<Integer>> returnOnlyInputs;
     private final Set<BridgeCallableId> staticCallables;
     private final Set<BridgeCallableId> finalCallables;
     private final Set<BridgeCallableId> constructibleConstructors;
     private final Map<BridgeCallableId, BridgeProof<BridgeResultOriginContract>> resultOrigins;
-    private final Map<BridgeCallableId, BridgeCallableId> generatedConstructors;
+
     private final Map<String, Set<ironwood.compiler.ir.IrType>> genericAllocations;
 
     private BridgeConstructionFacts(IrProgram program,
-            Map<BridgeCallableId, BridgeProof<BridgeConstructionContract>> constructors,
             Map<BridgeCallableId, Set<Integer>> borrowedInputs,
             Map<BridgeCallableId, Set<Integer>> returnOnlyInputs, Set<BridgeCallableId> staticCallables,
             Set<BridgeCallableId> finalCallables, Set<BridgeCallableId> constructibleConstructors,
             Map<BridgeCallableId, BridgeProof<BridgeResultOriginContract>> resultOrigins,
-            Map<BridgeCallableId, BridgeCallableId> generatedConstructors,
             Map<String, Set<ironwood.compiler.ir.IrType>> genericAllocations) {
         this.program = program;
-        this.constructors = Map.copyOf(constructors);
         this.borrowedInputs = Map.copyOf(borrowedInputs);
         this.returnOnlyInputs = Map.copyOf(returnOnlyInputs);
         this.staticCallables = Set.copyOf(staticCallables);
         this.finalCallables = Set.copyOf(finalCallables);
         this.constructibleConstructors = Set.copyOf(constructibleConstructors);
         this.resultOrigins = Map.copyOf(resultOrigins);
-        this.generatedConstructors = Map.copyOf(generatedConstructors);
         this.genericAllocations = Map.copyOf(genericAllocations);
     }
 
     static BridgeConstructionFacts project(IrProgram raw, IrProgram specialized,
-            Map<String, TypeSymbol> types, EscapeSummaryAnalyzer escapes,
-            OwnedArrayFieldAnalyzer ownership) {
-        Map<BridgeCallableId, BridgeProof<BridgeConstructionContract>> facts = new LinkedHashMap<>();
+            Map<String, TypeSymbol> types, EscapeSummaryAnalyzer escapes) {
         Map<BridgeCallableId, Set<Integer>> borrowed = new LinkedHashMap<>();
         Map<BridgeCallableId, Set<Integer>> returnOnly = new LinkedHashMap<>();
         Set<BridgeCallableId> statics = new java.util.LinkedHashSet<>();
@@ -97,23 +85,10 @@ public final class BridgeConstructionFacts {
                 borrowed.put(id, Set.copyOf(inputs));
                 returnOnly.put(id, Set.copyOf(returnedInputs));
             }
-            if (function.constructor()) {
-                // Managed constructors use exact zeroed layouts and roots. Retired
-                // exclusive-field proofs cannot certify a legacy rollback capability.
-                facts.put(id, BridgeProof.unknown("managed construction supplies no legacy rollback capability"));
-            }
+
         }
-        return new BridgeConstructionFacts(specialized, facts, borrowed, returnOnly, statics, finals, constructible, results, Map.of(),
+        return new BridgeConstructionFacts(specialized, borrowed, returnOnly, statics, finals, constructible, results,
                 unchanged ? BridgeGenericAllocations.project(raw, types) : Map.of());
-    }
-
-    /** Preserve only unchanged source facts across the fixed, privately built adapters. */
-    public BridgeConstructionFacts withGeneratedEntries(BridgeEntryModule entries) {
-        return withGeneratedEntries(entries, Optional.empty());
-    }
-
-    public BridgeConstructionFacts withGeneratedEntries(BridgeEntryModule entries, BridgeExceptionEntries exceptions) {
-        return withGeneratedEntries(entries, Optional.of(exceptions));
     }
 
     /** Context specialization changes dispatch. Do not project obsolete ownership or
@@ -122,54 +97,11 @@ public final class BridgeConstructionFacts {
      */
     public BridgeConstructionFacts forManagedBridge(ironwood.compiler.CompilationArtifact artifact,
             BridgeEntryModule entries, BridgeExceptionEntries exceptions) {
-        if (!matches(artifact.program().orElseThrow()) || !entries.matchesOriginal(artifact) || !entries.destructions().isEmpty())
-            throw new IllegalArgumentException("managed construction facts require exact source and non-destructive entries");
+        if (!matches(artifact.program().orElseThrow()) || !entries.matchesOriginal(artifact))
+            throw new IllegalArgumentException("managed construction facts require exact source and managed entries");
         ironwood.compiler.backend.GcManagedHeapVerifier.verifyBridge(exceptions.program());
-        return new BridgeConstructionFacts(exceptions.program(), Map.of(), Map.of(), Map.of(), Set.of(), Set.of(), Set.of(),
-                Map.of(), Map.of(), Map.of());
-    }
-
-    private BridgeConstructionFacts withGeneratedEntries(BridgeEntryModule entries, Optional<BridgeExceptionEntries> exceptions) {
-        List<IrFunction> additions = new ArrayList<>();
-        entries.entries().forEach(entry -> additions.add(entry.function()));
-        entries.destructions().forEach(destruction -> additions.add(destruction.function()));
-        checkSynthesis(entries.program(), additions);
-        IrProgram candidate = entries.program();
-        if (exceptions.isPresent()) {
-            var extraction = exceptions.orElseThrow();
-            additions.addAll(extraction.accessors().values());
-            additions.add(extraction.trace());
-            candidate = extraction.program();
-            checkSynthesis(candidate, additions);
-        }
-        Map<BridgeCallableId, BridgeCallableId> generated = new LinkedHashMap<>();
-        for (var entry : entries.entries()) {
-            var source = entry.root().callable();
-            if (source.kind() == IrCallableKind.CONSTRUCTOR) generated.put(BridgeCallableId.of(entry.function()), source);
-        }
-        // New functions receive no borrowing, ownership or result-origin facts.
-        // Consumers must still inspect their actual operations and full closure.
-        return new BridgeConstructionFacts(candidate, constructors, borrowedInputs, returnOnlyInputs,
-                staticCallables, finalCallables, constructibleConstructors, resultOrigins, generated, genericAllocations);
-    }
-
-    private void checkSynthesis(IrProgram candidate, List<IrFunction> additions) {
-        var restored = new IrProgram(candidate.moduleName(), candidate.classes(), candidate.staticFields(),
-                candidate.typeInitializations(), candidate.arrayTypes(), candidate.stringConstants(), candidate.dispatchSlots(),
-                program.functions(), program.entryPoint(), candidate.allocationFailure(), program.exportRoots());
-        List<IrFunction> expected = new ArrayList<>(program.functions());
-        expected.addAll(additions);
-        Set<String> symbols = expected.stream().map(IrFunction::linkageName).collect(Collectors.toSet());
-        Set<String> exports = additions.stream().map(IrFunction::linkageName).collect(Collectors.toSet());
-        if (!restored.equals(program) || candidate.entryPoint().isPresent()
-                || symbols.size() != expected.size() || candidate.functions().size() != expected.size()
-                || !Set.copyOf(candidate.functions()).equals(Set.copyOf(expected)) || !candidate.exportRoots().equals(exports)) {
-            throw new IllegalArgumentException("generated construction facts require exact additive synthesis of the original program");
-        }
-    }
-
-    Optional<BridgeCallableId> generatedConstructor(BridgeCallableId entry) {
-        return Optional.ofNullable(generatedConstructors.get(entry));
+        return new BridgeConstructionFacts(exceptions.program(), Map.of(), Map.of(), Set.of(), Set.of(), Set.of(),
+                Map.of(), Map.of());
     }
 
     /** Carry conservative facts only through an execution of the fixed native passes. */
@@ -177,23 +109,13 @@ public final class BridgeConstructionFacts {
         if (!transformation.startsWith(program)) {
             throw new IllegalArgumentException("native-link facts require the exact analyzed input program");
         }
-        Map<BridgeCallableId, BridgeProof<BridgeConstructionContract>> construction = new LinkedHashMap<>();
         Map<BridgeCallableId, Set<Integer>> borrowed = new LinkedHashMap<>();
         Map<BridgeCallableId, Set<Integer>> returned = new LinkedHashMap<>();
         Set<BridgeCallableId> statics = new java.util.LinkedHashSet<>();
         Set<BridgeCallableId> finals = new java.util.LinkedHashSet<>();
         Set<BridgeCallableId> constructible = new java.util.LinkedHashSet<>();
         Map<BridgeCallableId, BridgeProof<BridgeResultOriginContract>> results = new LinkedHashMap<>();
-        Map<BridgeCallableId, BridgeCallableId> generated = new LinkedHashMap<>();
         transformation.origins().forEach((target, source) -> {
-            var proof = constructors.get(source);
-            if (proof != null) {
-                construction.put(target, proof.status() == BridgeProof.Status.PROVED
-                        ? BridgeProof.proved(new BridgeConstructionContract(target,
-                                proof.contract().orElseThrow().ownedStorageFields(), proof.contract().orElseThrow().ownedElementFields()),
-                                "confined source construction preserved by the recorded native-link passes")
-                        : proof);
-            }
             if (borrowedInputs.containsKey(source)) borrowed.put(target, borrowedInputs.get(source));
             if (returnOnlyInputs.containsKey(source)) returned.put(target, returnOnlyInputs.get(source));
             if (staticCallables.contains(source)) statics.add(target);
@@ -203,12 +125,11 @@ public final class BridgeConstructionFacts {
                 results.put(target, target.equals(source) ? resultOrigins.get(source)
                         : BridgeProof.unknown("specialized result parameter provenance requires separate proof"));
             }
-            if (generatedConstructors.containsKey(source)) generated.put(target, generatedConstructors.get(source));
         });
         // No effect query is skipped: consumers re-scan final calls, dispatch,
-        // generated rollback and cleanup. Unknown source facts stay unknown.
-        return new BridgeConstructionFacts(transformation.program(), construction, borrowed, returned,
-                statics, finals, constructible, results, generated, genericAllocations);
+        // protected entries and JNI completion. Unknown source facts stay unknown.
+        return new BridgeConstructionFacts(transformation.program(), borrowed, returned,
+                statics, finals, constructible, results, genericAllocations);
     }
 
     Set<ironwood.compiler.ir.IrType> genericAlternatives(ironwood.compiler.ir.IrType type,
@@ -218,16 +139,12 @@ public final class BridgeConstructionFacts {
         // present in source allocations. Generated constructor entries inherit
         // that same restriction; no export permission follows from this fact.
         for (var root : roots.roots()) {
-            var id = generatedConstructors.getOrDefault(root.callable(), root.callable());
+            var id = root.callable();
             if (id.kind() == IrCallableKind.CONSTRUCTOR && !id.parameters().isEmpty()
                     && id.parameters().getFirst().typeArguments().contains(type)) return Set.of();
             if (id.parameters().contains(type)) return Set.of();
         }
         return genericAllocations.getOrDefault(type.referenceName(), Set.of());
-    }
-
-    public Map<BridgeCallableId, BridgeProof<BridgeConstructionContract>> constructors() {
-        return constructors;
     }
 
     /** Final semantic proof that an input is neither retained, returned nor invalidated. */

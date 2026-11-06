@@ -59,7 +59,6 @@ public final class DataStructureTests extends TestSuite {
         IntArrayList list = new IntArrayList();
         Assertions.assertTrue(list.isEmpty(), "new list is empty");
         Assertions.assertEquals(0, list.size(), "new list size");
-        free list;
     }
 
     @Test
@@ -68,7 +67,6 @@ public final class DataStructureTests extends TestSuite {
         IntArrayList list = new IntArrayList(10);
         Assertions.assertTrue(list.isEmpty(), "new list is empty");
         Assertions.assertEquals(10, list.getInitialCapacity());
-        free list;
     }
 
     @Test
@@ -77,7 +75,6 @@ public final class DataStructureTests extends TestSuite {
         IntArrayList list = new IntArrayList(2.0f);
         Assertions.assertTrue(list.isEmpty());
         Assertions.assertEquals(2.0f, list.getGrowthFactor(), 0.0f);
-        free list;
     }
 
     @Test
@@ -87,7 +84,6 @@ public final class DataStructureTests extends TestSuite {
         Assertions.assertTrue(list.isEmpty());
         Assertions.assertEquals(10, list.getInitialCapacity());
         Assertions.assertEquals(2.0f, list.getGrowthFactor(), 0.0f);
-        free list;
     }
 
     @Test
@@ -96,7 +92,6 @@ public final class DataStructureTests extends TestSuite {
         boolean caught = false;
         try {
             IntArrayList unexpected = new IntArrayList(0);
-            free unexpected; // Reclaim an unexpected successful construction before failing the test.
         } catch (IllegalArgumentException expected) {
             caught = true;
         }
@@ -109,7 +104,6 @@ public final class DataStructureTests extends TestSuite {
         boolean caught = false;
         try {
             IntArrayList unexpected = new IntArrayList(10, 1.0f);
-            free unexpected;
         } catch (IllegalArgumentException expected) {
             caught = true;
         }
@@ -127,7 +121,6 @@ public final class DataStructureTests extends TestSuite {
         Assertions.assertEquals(100, list.get(0));
         Assertions.assertEquals(200, list.get(1));
         Assertions.assertEquals(300, list.get(2));
-        free list;
     }
 
     @Test
@@ -143,7 +136,6 @@ public final class DataStructureTests extends TestSuite {
         Assertions.assertEquals(15, list.get(1));
         Assertions.assertEquals(20, list.get(2));
         Assertions.assertEquals(30, list.get(3));
-        free list;
     }
 
     @Test
@@ -155,7 +147,6 @@ public final class DataStructureTests extends TestSuite {
         list.insert(list.size(), 30);
         Assertions.assertEquals(3, list.size());
         Assertions.assertEquals(30, list.get(2));
-        free list;
     }
 
     @Test
@@ -170,7 +161,6 @@ public final class DataStructureTests extends TestSuite {
             caught = true;
         }
         if (!caught) Assertions.fail("expected IndexOutOfBoundsException");
-        free list;
     }
 
     @Test
@@ -184,7 +174,6 @@ public final class DataStructureTests extends TestSuite {
         Assertions.assertEquals(2, list.size());
         Assertions.assertEquals(10, list.get(0));
         Assertions.assertEquals(30, list.get(1));
-        free list;
     }
 
     @Test
@@ -199,7 +188,6 @@ public final class DataStructureTests extends TestSuite {
             caught = true;
         }
         if (!caught) Assertions.fail("expected IndexOutOfBoundsException");
-        free list;
     }
 
     @Test
@@ -212,7 +200,6 @@ public final class DataStructureTests extends TestSuite {
         Assertions.assertEquals(10, list.get(1));
         Assertions.assertEquals(20, list.removeFirst());
         Assertions.assertEquals(1, list.size());
-        free list;
     }
 
     @Test
@@ -226,7 +213,6 @@ public final class DataStructureTests extends TestSuite {
             caught = true;
         }
         if (!caught) Assertions.fail("expected NoSuchElementException");
-        free list;
     }
 
     @Test
@@ -239,7 +225,6 @@ public final class DataStructureTests extends TestSuite {
         Assertions.assertEquals(20, list.get(1));
         Assertions.assertEquals(20, list.removeLast());
         Assertions.assertEquals(1, list.size());
-        free list;
     }
 
     @Test
@@ -253,7 +238,6 @@ public final class DataStructureTests extends TestSuite {
             caught = true;
         }
         if (!caught) Assertions.fail("expected NoSuchElementException");
-        free list;
     }
 
     @Test
@@ -265,7 +249,6 @@ public final class DataStructureTests extends TestSuite {
         Assertions.assertFalse(list.isEmpty());
         list.remove(0);
         Assertions.assertTrue(list.isEmpty());
-        free list;
     }
 
     @Test
@@ -279,7 +262,6 @@ public final class DataStructureTests extends TestSuite {
         Assertions.assertEquals(10, list.get(0));
         Assertions.assertEquals(20, list.get(1));
         Assertions.assertEquals(30, list.get(2));
-        free list;
     }
 
     @Test
@@ -295,7 +277,6 @@ public final class DataStructureTests extends TestSuite {
         Assertions.assertEquals(20, iterator.next().get());
         Assertions.assertEquals(30, iterator.next().get());
         Assertions.assertFalse(iterator.hasNext());
-        free list;
     }
 
     @Test
@@ -312,7 +293,6 @@ public final class DataStructureTests extends TestSuite {
             caught = true;
         }
         if (!caught) Assertions.fail("expected NoSuchElementException");
-        free list;
     }
 
     @Test
@@ -328,7 +308,6 @@ public final class DataStructureTests extends TestSuite {
         Assertions.assertEquals(2, list.size());
         Assertions.assertEquals(20, list.get(0));
         Assertions.assertEquals(30, list.get(1));
-        free list;
     }
 
     @Test
@@ -344,7 +323,6 @@ public final class DataStructureTests extends TestSuite {
             caught = true;
         }
         if (!caught) Assertions.fail("expected NoSuchElementException");
-        free list;
     }
 
     @Test
@@ -354,7 +332,6 @@ public final class DataStructureTests extends TestSuite {
         Assertions.assertTrue(map.isEmpty());
         Assertions.assertEquals(0, map.size());
         Assertions.assertNull(map.get((byte) 1));
-        free map;
     }
 
     @Test
@@ -365,7 +342,6 @@ public final class DataStructureTests extends TestSuite {
         Assertions.assertEquals("value1", map.get((byte) 1));
         Assertions.assertEquals(1, map.size());
         Assertions.assertFalse(map.isEmpty());
-        free map;
     }
 
     @Test
@@ -376,7 +352,6 @@ public final class DataStructureTests extends TestSuite {
         Assertions.assertEquals("value1", map.put((byte) 1, "value2"));
         Assertions.assertEquals("value2", map.get((byte) 1));
         Assertions.assertEquals(1, map.size());
-        free map;
     }
 
     @Test
@@ -388,7 +363,6 @@ public final class DataStructureTests extends TestSuite {
         Assertions.assertNull(map.get((byte) 1));
         Assertions.assertEquals(0, map.size());
         Assertions.assertTrue(map.isEmpty());
-        free map;
     }
 
     @Test
@@ -398,7 +372,6 @@ public final class DataStructureTests extends TestSuite {
         Assertions.assertFalse(map.containsKey((byte) 1));
         map.put((byte) 1, "value1");
         Assertions.assertTrue(map.containsKey((byte) 1));
-        free map;
     }
 
     @Test
@@ -412,7 +385,6 @@ public final class DataStructureTests extends TestSuite {
         Assertions.assertEquals(0, map.size());
         Assertions.assertNull(map.get((byte) 1));
         Assertions.assertNull(map.get((byte) 2));
-        free map;
     }
 
     @Test
@@ -427,7 +399,6 @@ public final class DataStructureTests extends TestSuite {
         Assertions.assertEquals("value2", iterator.next());
         Assertions.assertEquals(2, map.getCurrIteratorKey());
         Assertions.assertFalse(iterator.hasNext());
-        free map;
     }
 
     @Test
@@ -442,7 +413,6 @@ public final class DataStructureTests extends TestSuite {
             caught = true;
         }
         if (!caught) Assertions.fail("expected NoSuchElementException");
-        free map;
     }
 
     @Test
@@ -450,7 +420,6 @@ public final class DataStructureTests extends TestSuite {
 
         ByteMap<String> map = new ByteMap<String>();
         Assertions.assertFalse(map.iterator().hasNext());
-        free map;
     }
 
     @Test
@@ -470,7 +439,6 @@ public final class DataStructureTests extends TestSuite {
             caught = true;
         }
         if (!caught) Assertions.fail("expected IllegalArgumentException");
-        free map;
     }
 
     @Test
@@ -483,7 +451,6 @@ public final class DataStructureTests extends TestSuite {
         Assertions.assertEquals("One", iterator.next());
         Assertions.assertEquals(1, map.getCurrIteratorKey());
         Assertions.assertFalse(iterator.hasNext());
-        free map;
     }
 
     @Test
@@ -501,7 +468,6 @@ public final class DataStructureTests extends TestSuite {
         Assertions.assertEquals("Ten", iterator.next());
         Assertions.assertEquals(10, map.getCurrIteratorKey());
         Assertions.assertFalse(iterator.hasNext());
-        free map;
     }
 
     @Test
@@ -516,7 +482,6 @@ public final class DataStructureTests extends TestSuite {
         Assertions.assertEquals("Max", iterator.next());
         Assertions.assertEquals((byte) 255, map.getCurrIteratorKey());
         Assertions.assertFalse(iterator.hasNext());
-        free map;
     }
 
     @Test
@@ -529,7 +494,6 @@ public final class DataStructureTests extends TestSuite {
         iterator.remove();
         Assertions.assertEquals(0, map.size());
         Assertions.assertNull(map.get((byte) 1));
-        free map;
     }
 
     @Test
@@ -545,7 +509,6 @@ public final class DataStructureTests extends TestSuite {
             caught = true;
         }
         if (!caught) Assertions.fail("expected NoSuchElementException");
-        free map;
     }
 
     @Test
@@ -564,7 +527,6 @@ public final class DataStructureTests extends TestSuite {
         Assertions.assertEquals(1, map.getCurrIteratorKey());
         Assertions.assertEquals("Two", reused.next());
         Assertions.assertEquals(2, map.getCurrIteratorKey());
-        free map;
     }
 
     @Test
@@ -580,7 +542,6 @@ public final class DataStructureTests extends TestSuite {
         Assertions.assertEquals(1, map.getCurrIteratorKey());
         Assertions.assertEquals("Two", iterator.next());
         Assertions.assertEquals(2, map.getCurrIteratorKey());
-        free map;
     }
 
     @Test
@@ -599,7 +560,6 @@ public final class DataStructureTests extends TestSuite {
         map.clear();
         long after = System.allocationCount();
         Assertions.assertEquals(before, after);
-        free map;
     }
 
     @Test
@@ -673,14 +633,6 @@ public final class DataStructureTests extends TestSuite {
         genericLinked.add(stored);
         Assertions.assertTrue(genericLinked.contains(query));
 
-        free genericLinked;
-        free genericArray;
-        free hybrid;
-        free longLinked;
-        free intLinked;
-        free linked;
-        free longArray;
-        free intArray;
     }
 
     @Test
@@ -751,17 +703,6 @@ public final class DataStructureTests extends TestSuite {
         Assertions.assertFalse(binaryMap.containsValue("missing"));
         Assertions.assertFalse(binaryMap.containsValue(null));
 
-        free binaryMap;
-        free key;
-        free textMap;
-        free charMap;
-        free byteMap;
-        free longMap;
-        free intMap;
-        free linkedMap;
-        free identityMap;
-        free equalityMap;
-        free map;
     }
 
     @Test
@@ -836,10 +777,6 @@ public final class DataStructureTests extends TestSuite {
         Assertions.assertEquals(0, asymmetric.lastIndexOf(query));
         Assertions.assertTrue(asymmetric.remove(query));
 
-        free asymmetric;
-        free longs;
-        free integers;
-        free values;
     }
 
     @Test
@@ -868,8 +805,6 @@ public final class DataStructureTests extends TestSuite {
         }
         Assertions.assertTrue(rejected);
 
-        free view;
-        free backing;
     }
 
     @Test
@@ -938,22 +873,5 @@ public final class DataStructureTests extends TestSuite {
         long after = System.allocationCount();
         Assertions.assertEquals(before, after);
 
-        free binaryMap;
-        free key;
-        free textMap;
-        free charMap;
-        free byteMap;
-        free longMap;
-        free intMap;
-        free linkedMap;
-        free identityMap;
-        free map;
-        free hybrid;
-        free longLinked;
-        free intLinked;
-        free linked;
-        free longArray;
-        free intArray;
-        free genericArray;
     }
 }

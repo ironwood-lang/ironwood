@@ -3,7 +3,6 @@
 package ironwood.compiler.bridge;
 
 import ironwood.compiler.CompilationArtifact;
-import ironwood.compiler.BridgeOwnedCallbackAdmission;
 import ironwood.compiler.ir.IrForeignCallInstruction;
 import ironwood.compiler.ir.IrType;
 
@@ -27,31 +26,13 @@ public final class BridgeCallbackNativeSources {
         return generate(artifact, proxies, Map.of(), generation);
     }
 
-    public static Sources generateOwned(BridgeOwnedCallbackAdmission admission, BridgeOwnedCallbackJavaSources.Sources java,
-            BridgeGeneration generation) {
-        var owners = new java.util.LinkedHashMap<IrType, Integer>();
-        for (int index = 0; index < java.facades().size(); index++) {
-            var type = IrType.reference(java.facades().get(index).binaryName());
-            if (!admission.lifetime().protocol().constructedRootTypes().contains(type)) {
-                throw new IllegalArgumentException("callback facade lacks exact owner storage");
-            }
-            owners.put(type, index);
-        }
-        return generate(admission.artifact(), admission.listeners(), owners, generation);
-    }
-
-    private static Sources generate(CompilationArtifact artifact, BridgeListenerProxies proxies, Map<IrType, Integer> owners,
-            BridgeGeneration generation) {
-        return generate(artifact, proxies, owners, generation, false);
-    }
-
     static Sources generateManaged(CompilationArtifact artifact, BridgeListenerProxies proxies,
             Map<IrType, Integer> owners, BridgeGeneration generation) {
-        return generate(artifact, proxies, owners, generation, true);
+        return generate(artifact, proxies, owners, generation);
     }
 
     private static Sources generate(CompilationArtifact artifact, BridgeListenerProxies proxies, Map<IrType, Integer> owners,
-            BridgeGeneration generation, boolean managed) {
+            BridgeGeneration generation) {
         proxies.validateArtifact(artifact);
         var methods = new ArrayList<Method>();
         var source = new StringBuilder();
@@ -95,17 +76,17 @@ public final class BridgeCallbackNativeSources {
                     if (owners.containsKey(method.parameters().get(index))) {
                         references.add(index);
                         source.append("    jobject reference").append(index).append(" = NULL;\n");
-                        if (managed) source.append("    jobject anchor").append(index).append(" = NULL;\n");
+                        source.append("    jobject anchor").append(index).append(" = NULL;\n");
                     }
                 }
-                if (managed && !references.isEmpty()) source.append("    void *slots[] = {")
+                if (!references.isEmpty()) source.append("    void *slots[] = {")
                         .append(references.stream().map(index -> "&argument" + index).collect(java.util.stream.Collectors.joining(", ")))
                         .append("};\n    struct iw_gc_foreign_root roots __attribute__((cleanup(iw_gc_foreign_root_close))) = {0};\n")
                         .append("    if (!iw_gc_foreign_root_open(&roots, slots, ").append(references.size()).append(")) iw_gc_transition_refuse();\n");
                 for (int index : references) {
-                    source.append("    reference").append(index).append(managed ? " = iw_gc_callback_wrap(env, " : " = iw_owned_wrap(env, ")
+                    source.append("    reference").append(index).append(" = iw_gc_callback_wrap(env, ")
                             .append(owners.get(method.parameters().get(index))).append(", argument").append(index)
-                            .append(managed ? ", &anchor" + index : "").append(");\n")
+                            .append(", &anchor" + index).append(");\n")
                             .append("    if ((*env)->ExceptionCheck(env)) goto conversion_failed;\n");
                 }
                 if (generation != null || !method.parameters().isEmpty()) {
@@ -128,14 +109,14 @@ public final class BridgeCallbackNativeSources {
                         .append(", ").append(field)
                         .append(generation == null && method.parameters().isEmpty() ? ", NULL);\n" : ", arguments);\n");
                 releaseReferences(source, references);
-                if (managed) for (int index : references.reversed()) source.append("    iw_gc_callback_close(env, anchor").append(index).append(");\n");
+                for (int index : references.reversed()) source.append("    iw_gc_callback_close(env, anchor").append(index).append(");\n");
                 source.append("    if ((*env)->ExceptionCheck(env)) iw_callback_capture(frame);\n");
                 if (returns) source.append("    return (").append(carrierC(method.result())).append(")result;\n");
                 else if (!references.isEmpty()) source.append("    return;\n");
                 if (!references.isEmpty()) {
                     source.append("conversion_failed:\n");
                     releaseReferences(source, references);
-                    if (managed) for (int index : references.reversed()) source.append("    iw_gc_callback_close(env, anchor").append(index).append(");\n");
+                    for (int index : references.reversed()) source.append("    iw_gc_callback_close(env, anchor").append(index).append(");\n");
                     source.append("    iw_callback_capture(frame);\n");
                 }
                 source.append("}\n");

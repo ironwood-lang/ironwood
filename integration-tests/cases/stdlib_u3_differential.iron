@@ -45,9 +45,8 @@ class Main {
                 int unit = reader.read();
                 while (unit >= 0) { System.out.println(unit); unit = reader.read(); }
                 reader.close();
-            } finally { free reader; }
-        } finally { free source; }
-        free bytes;
+            } finally { ; }
+        } finally { ; }
         ByteArrayOutputStream output = new ByteArrayOutputStream(1);
         OutputStreamWriter writer = new OutputStreamWriter(output);
         writer.write("A¢€");
@@ -59,41 +58,32 @@ class Main {
         writer.write('Z');
         writer.write(0xd800);
         writer.close();
-        free writer;
         byte[] encoded = output.toByteArray();
         int i = 0;
         while (i < encoded.length) { System.out.println(encoded[i++] & 255); }
-        free encoded;
         output.close();
         output.reset();
         output.write(0);
         output.writeTo(output);
         System.out.println(output.size());
-        free output;
         StringReader text = new StringReader("a\r\nb\rc\n\nlast");
         BufferedReader lines = new BufferedReader(text, 1);
         while (true) {
             String line = lines.readLine();
-            if (line == null) { free line; break; }
+            if (line == null) { ; break; }
             System.out.println(line);
-            free line;
         }
         lines.close();
         lines.close();
-        free lines;
-        free text;
         StringWriter strings = new StringWriter(1);
         BufferedWriter buffered = new BufferedWriter(strings, 2);
         buffered.write("abc", 1, 2);
         buffered.newLine();
         buffered.close();
-        free buffered;
         strings.close();
         strings.write('z');
         String result = strings.toString();
         System.out.println(result);
-        free result;
-        free strings;
         return 42;
     }
 }

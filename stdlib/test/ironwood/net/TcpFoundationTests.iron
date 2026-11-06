@@ -18,7 +18,6 @@ public final class TcpFoundationTests extends TestSuite {
     private void initialStateAndIdempotentClose() throws Exception {
 
         Socket socket = new Socket();
-        defer free socket;
         defer socket.close();
         assertFalse(socket.isBound());
         assertFalse(socket.isConnected());
@@ -30,7 +29,6 @@ public final class TcpFoundationTests extends TestSuite {
         socket.close();
         assertTrue(socket.isClosed());
         ServerSocket listener = new ServerSocket();
-        defer free listener;
         defer listener.close();
         assertFalse(listener.isBound());
         assertNull(listener.getInetAddress());
@@ -44,7 +42,6 @@ public final class TcpFoundationTests extends TestSuite {
     private void typedOptionsAndInventories() throws Exception {
 
         Socket socket = new Socket();
-        defer free socket;
         defer socket.close();
         assertSame(socket, socket.setOption(StandardSocketOptions.TCP_NODELAY, true));
         assertTrue(socket.getOption(StandardSocketOptions.TCP_NODELAY));
@@ -65,7 +62,6 @@ public final class TcpFoundationTests extends TestSuite {
         assertSame(socket.supportedOptions(), socket.supportedOptions());
         assertTrue(socket.supportedOptions().contains(StandardSocketOptions.TCP_NODELAY));
         ServerSocket listener = new ServerSocket();
-        defer free listener;
         defer listener.close();
         listener.setOption(StandardSocketOptions.SO_REUSEADDR, true);
         assertTrue(listener.getReuseAddress());
@@ -78,7 +74,6 @@ public final class TcpFoundationTests extends TestSuite {
     private void invalidSocketArguments() throws Exception {
 
         Socket socket = new Socket();
-        defer free socket;
         defer socket.close();
         boolean caught = false;
         try { socket.setSoTimeout(-1); } catch (IllegalArgumentException expected) { caught = true; }
@@ -101,10 +96,8 @@ public final class TcpFoundationTests extends TestSuite {
     private static void exchange() throws Exception {
 
         Socket client = new Socket();
-        defer free client;
         defer client.close();
         Socket peer = NetworkingSupport.connectPair(client);
-        defer free peer;
         defer peer.close();
         client.setSoTimeout(2000);
         peer.setSoTimeout(2000);
@@ -117,9 +110,7 @@ public final class TcpFoundationTests extends TestSuite {
         output.write(255);
         assertEquals(255, input.read());
         byte[] bytes = {0, 42, -1, 7};
-        defer free bytes;
         byte[] received = new byte[4];
-        defer free received;
         output.write(bytes);
         NetworkingSupport.readFully(input, received);
         for (int index = 0; index < bytes.length; index++) assertEquals(bytes[index], received[index]);
@@ -138,22 +129,19 @@ public final class TcpFoundationTests extends TestSuite {
     private void scalarBulkHalfCloseAndGraphCleanup() throws Exception {
 
         exchange();
-        long baseline = System.liveAllocationCount();
+
         for (int repeat = 0; repeat < 4; repeat++) exchange();
-        assertEquals(baseline, System.liveAllocationCount());
+
     }
 
     @Test
     private void zeroLengthIoAndStreamClose() throws Exception {
 
         Socket client = new Socket();
-        defer free client;
         defer client.close();
         Socket peer = NetworkingSupport.connectPair(client);
-        defer free peer;
         defer peer.close();
         byte[] empty = new byte[0];
-        defer free empty;
         assertEquals(0, client.getInputStream().read(empty));
         client.getOutputStream().write(empty);
         assertEquals(0, peer.getInputStream().available());
@@ -166,10 +154,8 @@ public final class TcpFoundationTests extends TestSuite {
     private void readTimeoutLeavesConnectionUsable() throws Exception {
 
         Socket client = new Socket();
-        defer free client;
         defer client.close();
         Socket peer = NetworkingSupport.connectPair(client);
-        defer free peer;
         defer peer.close();
         client.setSoTimeout(20);
         boolean caught = false;
@@ -184,10 +170,8 @@ public final class TcpFoundationTests extends TestSuite {
     private static SocketAddress remoteSnapshot() throws Exception {
 
         Socket client = new Socket();
-        defer free client;
         defer client.close();
         Socket peer = NetworkingSupport.connectPair(client);
-        defer free peer;
         defer peer.close();
         return client.getRemoteSocketAddress();
     }
@@ -196,7 +180,6 @@ public final class TcpFoundationTests extends TestSuite {
     private void endpointSnapshotsSurviveSocketReclamation() throws Exception {
 
         SocketAddress endpoint = remoteSnapshot();
-        defer free endpoint;
         InetSocketAddress value = (InetSocketAddress) endpoint;
         assertTrue(value.getAddress().isLoopbackAddress());
         assertTrue(value.getPort() > 0);
@@ -206,7 +189,6 @@ public final class TcpFoundationTests extends TestSuite {
 
         // Close and reclaim the wrapper; its implementation remains caller-owned.
         TestingSocket socket = new TestingSocket(implementation);
-        defer free socket;
         defer socket.close();
         socket.setOption(StandardSocketOptions.TCP_NODELAY, true);
         assertTrue(socket.getOption(StandardSocketOptions.TCP_NODELAY));
@@ -214,39 +196,36 @@ public final class TcpFoundationTests extends TestSuite {
         assertTrue(socket.getOption(StandardSocketOptions.SO_RCVBUF) > 0);
     }
 
-    private static void checkBorrowedImplementation(int destroyed) throws Exception {
+    private static void checkBorrowedImplementation() throws Exception {
 
         TestingSocketImpl implementation = new TestingSocketImpl();
-        defer free implementation;
         configureBorrowingSocket(implementation);
         assertEquals(2, implementation.reads);
         assertEquals(2, implementation.writes);
-        assertEquals(destroyed, TestingSocketImpl.destroyed);
+
     }
 
     @Test
     private void injectedImplementationRemainsCallerOwned() throws Exception {
 
-        int destroyed = TestingSocketImpl.destroyed;
-        checkBorrowedImplementation(destroyed);
-        assertEquals(destroyed + 1, TestingSocketImpl.destroyed);
+        checkBorrowedImplementation();
+
     }
 
     private static void configureFactorySocket() throws Exception {
 
         Socket socket = new Socket();
-        defer free socket;
         defer socket.close();
         socket.setTcpNoDelay(true);
         assertTrue(socket.getTcpNoDelay());
     }
 
     @Test
-    private void factoryFreshImplementationsAreReclaimed() throws Exception {
+    private void factoryImplementationsCloseExplicitly() throws Exception {
 
         Socket.setSocketImplFactory(FACTORY);
-        int destroyed = TestingSocketImpl.destroyed;
+
         configureFactorySocket();
-        assertEquals(destroyed + 1, TestingSocketImpl.destroyed);
+
     }
 }

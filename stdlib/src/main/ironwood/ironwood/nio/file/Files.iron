@@ -95,7 +95,7 @@ public final class Files {
             error = writeStringValue(text, (String) content);
         } else {
             // A user-defined sequence may mutate or throw while being observed.
-            // Snapshot once before opening the destination, then always reclaim it.
+            // Snapshot once before opening the destination; managed aliases remain valid.
             char[] snapshot = new char[content.length()];
             copy(content, snapshot);
             error = writeCharsValue(text, snapshot);

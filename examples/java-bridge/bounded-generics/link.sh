@@ -8,8 +8,8 @@ ironwood_select_java "$BRIDGE_JDK_ROOT"
 ironwood_require_jdk
 GENERIC_ROOT=$(CDPATH= cd -- "$GENERIC_EXAMPLE/../../.." && pwd)
 set -x
-"$GENERIC_ROOT/bin/ironwoodc" --java-bridge --export boundedbench --unfreed=off -O3 \
+"$GENERIC_ROOT/bin/ironwoodc" --java-bridge --export boundedbench -O3 \
     --license "$GENERIC_ROOT/LICENSE-MIT" --license "$GENERIC_ROOT/LICENSE-APACHE" \
     -cp "$GENERIC_EXAMPLE/target/classes" -o "$GENERIC_EXAMPLE/target/generics.jar"
-javac --release 21 -Xlint:all -Werror -cp "$GENERIC_EXAMPLE/target/generics.jar" \
+javac "$BRIDGE_JDK_ROOT/examples/java-bridge/support/BridgeLifetime.java" --release 21 -Xlint:all -Werror -cp "$GENERIC_EXAMPLE/target/generics.jar" \
     -d "$GENERIC_EXAMPLE/target/consumer" "$GENERIC_EXAMPLE/Consumer.java"

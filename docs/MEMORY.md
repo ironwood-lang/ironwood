@@ -54,15 +54,14 @@ There is no missing-free warning or alternate manual memory mode. Identifiers,
 classes and methods named `free` or `destructor` are ordinary names.
 `defer free(value);` defers an ordinary void method call.
 
-Unnamed temporaries, owned rendering results and constructor failure graphs
-use the same managed lifetime as all other objects. Final linking rejects
-reachable obsolete managed-deallocation IR, even in programs without collection.
-Dead AST/IR/proof scaffolding remains for GC7; it grants no reclamation behavior.
-Optimization, initialization, native acquisition and pool safety analysis remain.
-The [GC7 checkpoint](GC7_IMPLEMENTATION.md) removes the old outer free-proof
-refinement loop and principal function-level reclamation proofs. Remaining
-shared consumers and structural retirement keep GC7 incomplete. Legacy bridge
-rollback capabilities are not inferred from empty ownership facts.
+Unnamed temporaries, renderings and partially constructed graphs use the same
+managed lifetime as other objects. GC7 removes the former free-proof fixed point,
+managed destruction/rollback AST and IR, ownership descriptors and old admission
+paths. Final linking rejects calls to legacy managed-deallocation symbols.
+Conservative value flow, initialization, pool origins, native acquisition,
+foreign confinement, collection effects, exact roots and layouts remain. See the
+[GC7 implementation and verification](GC7_IMPLEMENTATION.md) and
+[disposition ledger](GC7_DISPOSITION.md).
 
 ## Defer, exceptions and resources
 
@@ -112,6 +111,6 @@ Every independent native image owns its collector and roots. Schema 2 binds
 required protocol versions and actual SDK/payload hashes before user execution.
 Raw shared IR, unknown foreign lifetimes, async callbacks and raw cross-image
 managed references remain unsupported. Linux arm64 and arm64e remain gated.
-GC7 owns remaining repository consumer migration and broad dead-code removal;
+GC7 completes repository consumer migration and obsolete managed-free proof removal;
 GC8 owns whole-project performance and resident-memory acceptance. GC5 does not
 claim completion of the complete GC project or self-hosting readiness.

@@ -36,9 +36,6 @@ class Main {
         exact = null;
         grid[0] = null;
         grid[1] = null;
-        free first;
-        free second;
-        free grid;
         return result;
     }
 }

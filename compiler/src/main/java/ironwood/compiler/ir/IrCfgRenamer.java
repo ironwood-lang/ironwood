@@ -78,8 +78,7 @@ public final class IrCfgRenamer {
                     i.devirtualizedFrom(), i.specializationArguments(), i.sourceSpan());
             case IrCharacterInstruction i -> new IrCharacterInstruction(
                     values.apply(i.result()), i.operation(), operand(i.codePoint()), i.sourceSpan());
-            case IrDestroyArrayElementsInstruction i -> new IrDestroyArrayElementsInstruction(
-                    operand(i.array()), i.sourceSpan());
+
             case IrEnsureTypeInitializedInstruction i -> new IrEnsureTypeInitializedInstruction(
                     i.typeName(), i.sourceSpan());
             case IrExceptionCaughtInstruction i -> new IrExceptionCaughtInstruction(
@@ -98,8 +97,7 @@ public final class IrCfgRenamer {
                     values.apply(i.result()), i.operation(), operand(i.value()), i.sourceSpan());
             case IrFloatingParseInstruction i -> new IrFloatingParseInstruction(
                     values.apply(i.result()), operand(i.text()), i.sourceSpan());
-            case IrFreeInstruction i -> new IrFreeInstruction(
-                    operand(i.allocation()), i.sourceSpan());
+
             case IrIdentityHashCodeInstruction i -> new IrIdentityHashCodeInstruction(
                     values.apply(i.result()), operand(i.object()), i.sourceSpan());
             case IrInstanceOfInstruction i -> new IrInstanceOfInstruction(
@@ -132,16 +130,10 @@ public final class IrCfgRenamer {
                     operand(i.value()), i.sourceSpan());
             case IrPrintStreamWriteInstruction i -> new IrPrintStreamWriteInstruction(
                     operand(i.stream()), i.value().map(p -> new IrStringConcatPart(p.kind(), operand(p.value()))), i.newline(), i.sourceSpan());
-            case IrRawDeallocateInstruction i -> new IrRawDeallocateInstruction(
-                    operand(i.allocation()), i.sourceSpan());
+
             case IrReferenceConversionInstruction i -> new IrReferenceConversionInstruction(
                     values.apply(i.result()), operand(i.value()), i.sourceSpan());
-            case IrReleaseOwnedThrowableMessageInstruction i -> new IrReleaseOwnedThrowableMessageInstruction(
-                    operand(i.throwable()), operand(i.message()), i.sourceSpan());
-            case IrReleaseOwnedToStringResultInstruction i -> new IrReleaseOwnedToStringResultInstruction(
-                    operand(i.object()), operand(i.result()), i.sourceSpan());
-            case IrRollbackInstruction i -> new IrRollbackInstruction(
-                    operand(i.allocation()), i.sourceSpan());
+
             case IrSecondaryExceptionAtInstruction i -> new IrSecondaryExceptionAtInstruction(
                     values.apply(i.result()), operand(i.primary()), operand(i.index()), i.sourceSpan());
             case IrSecondaryExceptionCountInstruction i -> new IrSecondaryExceptionCountInstruction(

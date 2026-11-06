@@ -8,15 +8,9 @@ import ironwood.process.ProcessResult;
 import ironwood.process.ProcessRunner;
 
 /**
- * One tool invocation's argument vector, replacing the Java baseline's
- * {@code List<String>} commands (NativeBackend, LlvmToolchain,
- * MacNativeTools, TlsDependency). The arguments live in a private creation
- * array of exactly the command's length (D163): each slot is written once
- * with a fresh copy, lent through an indexed getter and retired by the
- * destructor loop. A run lends the storage to ProcessRunner.runToFile, the
- * one call the creation-array proof admits, because the runner's audited
- * contract borrows the array and its Strings for the call only; no caller
- * frees an argument.
+ * One tool invocation's fixed argument vector, replacing Java List<String>
+ * commands. Each recorded argument is an independent String; ordinary managed
+ * references cover both indexed getters and ProcessRunner.runToFile calls.
  */
 public final class Command {
 
@@ -93,11 +87,4 @@ public final class Command {
         return ProcessRunner.runToFile(this.arguments, directory, output);
     }
 
-    destructor {
-
-        for (int index = 0; index < this.arguments.length; index++) {
-            free this.arguments[index];
-        }
-        free this.arguments;
-    }
 }

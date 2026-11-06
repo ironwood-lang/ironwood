@@ -30,6 +30,7 @@ final class IrModelInventoryTests {
             throw new AssertionError("IrModel.iron is stale: regenerate it with IrModelInventory.main");
         }
         String operations = Files.readString(Path.of(OPERATIONS));
+        if (!operations.equals(IrModelInventory.generateVariants())) throw new AssertionError("operation catalog is stale");
         for (String[] root : new String[][]{{"Instruction", "INSTRUCTION"}, {"Terminator", "TERMINATOR"},
                 {"Operand", "OPERAND"}}) {
             long shared = transcript().lines().filter(line -> line.startsWith("record ")
@@ -57,13 +58,14 @@ final class IrModelInventoryTests {
                 source.replace("    public enum Enumeration {\n", "    public enum Enumeration {\n        IR_PHANTOM_KIND,\n"));
         for (String mutation : mutations) {
             if (mutation.equals(source)) throw new AssertionError("inventory mutation did not apply");
-            for (UnfreedMode mode : UnfreedMode.values()) {
-                CompilationArtifact artifact = new CompilerPipeline(mode)
+            // This fixture scope preserves independent local names.
+{
+                CompilationArtifact artifact = new CompilerPipeline()
                         .compile(List.of(SourceFile.of("test/IrModel.iron", mutation)));
                 String messages = String.join("; ", artifact.diagnostics().stream()
                         .map(diagnostic -> diagnostic.message()).toList());
                 if (artifact.successful() || !messages.contains(MISSING)) {
-                    throw new AssertionError("untreated IR variant compiled under " + mode + ": " + messages);
+                    throw new AssertionError("untreated IR variant compiled under " + "GC" + ": " + messages);
                 }
             }
         }
@@ -75,7 +77,7 @@ final class IrModelInventoryTests {
         try {
             Path classes = root.resolve("classes");
             run(List.of(IrModelInventory.TARGET.toString(), "integration-tests/cases/compiler_ir_model.iron",
-                    "--unfreed=warn", "-d", classes.toString()));
+                    "-d", classes.toString()));
             Path archive = root.resolve("model.ironjar");
             ByteArrayOutputStream ignored = new ByteArrayOutputStream();
             if (IronJarMain.run(new String[]{"--create", "--file", archive.toString(), classes.toString()},
@@ -84,8 +86,7 @@ final class IrModelInventoryTests {
             }
             for (Path input : List.of(classes, archive)) {
                 Path executable = root.resolve(input.getFileName() + "-program");
-                run(List.of("--link", "-cp", input.toString(), "--main-class", "Main", "--unfreed=warn",
-                        "-O3", "-o", executable.toString()));
+                run(List.of("--link", "-cp", input.toString(), "--main-class", "Main", "-O3", "-o", executable.toString()));
                 Process process = new ProcessBuilder(executable.toString()).redirectErrorStream(true).start();
                 String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
                 if (!process.waitFor(30, TimeUnit.SECONDS)) {
@@ -118,8 +119,8 @@ final class IrModelInventoryTests {
         for (String type : enums) {
             out.append("enum ").append(type).append(' ').append(unquote(arm(source, "constants", type))).append('\n');
         }
-        // 113 records at D265, plus IrProcessInstruction (D272).
-        if (records.size() != 114 || enums.size() != 20) {
+        // Current reduced model after GC7 retirement, including the GC2-GC6 roots and foreign operations.
+        if (records.size() != 117 || enums.size() != 22) {
             throw new AssertionError("inventory size " + records.size() + " records, " + enums.size() + " enums");
         }
         return out.toString();

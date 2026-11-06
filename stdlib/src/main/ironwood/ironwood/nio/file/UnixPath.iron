@@ -18,8 +18,7 @@ final class UnixPath implements Path {
 
         if (input.indexOf(0) >= 0) throw new InvalidPathException(input, "Nul character not allowed");
         // The native helper returns a fresh normalized String. This object takes
-        // ownership directly, avoiding a redundant copy and an exceptional-path
-        // temporary that could not be reclaimed after constructor failure.
+        // storage directly, avoiding a redundant managed copy.
         this.value = Paths.normalizeSyntax(input);
     }
 

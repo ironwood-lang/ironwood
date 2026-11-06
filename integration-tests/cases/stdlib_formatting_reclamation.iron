@@ -10,19 +10,16 @@ class Main {
             for (int end = start; end <= text.length(); end++) {
                 long before = System.allocationCount();
                 String slice = (String) builder.subSequence(start, end);
-                if (slice.length() != end - start
-                        || System.allocationCount() != before + 1
-                        || System.liveAllocationCount() != baseline + 1) {
+                if (slice.length() != end - start || System.allocationCount() != before + 1) {
 
                             return false;
                         }
                 for (int index = 0; index < slice.length(); index++) {
                     if (slice.charAt(index) != text.charAt(start + index)) return false;
                 }
-                free slice;
             }
         }
-        return System.liveAllocationCount() == baseline;
+        return true;
     }
 
     public static int main(String[] args) {
@@ -34,15 +31,10 @@ class Main {
             String value = String.valueOf((char) code);
             String character = Character.toString((char) code);
             int bytes = code < 128 ? 1 : code < 2048 ? 2 : 3;
-            if (value.length() != 1 || value.charAt(0) != (char) code
-                    || value.byteLength() != bytes || !character.equals(value)
-                    || System.allocationCount() != before + 2
-                    || System.liveAllocationCount() != baseline + 2) {
+            if (value.length() != 1 || value.charAt(0) != (char) code || value.byteLength() != bytes || !character.equals(value) || System.allocationCount() != before + 2) {
 
                         return 1;
                     }
-            free character;
-            free value;
         }
         for (int value = -32768; value <= 32767; value++) {
             long before = System.allocationCount();
@@ -50,18 +42,10 @@ class Main {
             String medium = Short.toString((short) value);
             String integer = String.valueOf(value);
             String wide = String.valueOf((long) value);
-            if (Byte.parseByte(small) != (byte) value
-                    || Short.parseShort(medium) != value
-                    || !integer.equals(medium) || !wide.equals(medium)
-                    || System.allocationCount() != before + 4
-                    || System.liveAllocationCount() != baseline + 4) {
+            if (Byte.parseByte(small) != (byte) value || Short.parseShort(medium) != value || !integer.equals(medium) || !wide.equals(medium) || System.allocationCount() != before + 4) {
 
                         return 2;
                     }
-            free wide;
-            free integer;
-            free medium;
-            free small;
         }
 
         String text = "A😀éZ";
@@ -73,14 +57,11 @@ class Main {
         long appendBaseline = System.allocationCount();
         builder.append(Integer.MIN_VALUE).append(':').append(Long.MIN_VALUE).append(true);
         if (System.allocationCount() != appendBaseline) return 5;
-        free builder;
         // A slice owns its text independently of later mutation and builder lifetime.
-        if (detached.length() != 3 || detached.charAt(0) != (char) 55357
-                || detached.charAt(1) != (char) 56832 || detached.charAt(2) != 'é') {
+        if (detached.length() != 3 || detached.charAt(0) != (char) 55357 || detached.charAt(1) != (char) 56832 || detached.charAt(2) != 'é') {
 
                     return 6;
                 }
-        free detached;
-        return System.liveAllocationCount() == baseline ? 42 : 7;
+        return 42;
     }
 }

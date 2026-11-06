@@ -49,9 +49,7 @@ class Main {
 
         int length = args.length * 3;
         int[] values = new int[length];
-        defer free values;
         int[] indexes = { -2147483648, -1, 0, length - 1, length, 2147483647 };
-        defer free indexes;
         for (int at : indexes) {
             boolean valid = at >= 0 && at < length;
             boolean rejected = false;

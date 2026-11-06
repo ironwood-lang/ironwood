@@ -26,11 +26,7 @@ final class SelectiveInlining {
         Set<String> excluded = new HashSet<>();
         program.entryPoint().ifPresent(f -> excluded.add(f.linkageName()));
         excluded.addAll(program.exportRoots());
-        program.classes().forEach(c -> {
-            c.dispatchEntries().forEach(e -> excluded.add(e.targetLinkageName()));
-            c.destructorChain().ifPresent(excluded::add);
-            c.constructorRollback().ifPresent(excluded::add);
-        });
+
         for (IrFunction function : program.functions()) {
             functions.put(function.linkageName(), function);
             Set<String> callees = new LinkedHashSet<>();

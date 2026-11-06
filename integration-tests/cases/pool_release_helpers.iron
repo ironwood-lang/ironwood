@@ -37,10 +37,6 @@ class Messages {
         return sb.toString();
     }
 
-    destructor {
-
-        free this.pool;
-    }
 }
 
 class Main {
@@ -111,11 +107,8 @@ class Main {
     static int check() {
 
         Builder builder = new Builder();
-        defer free builder;
         ArrayObjectPool<StringBuilder> pool = new ArrayObjectPool<StringBuilder>(1, builder);
-        defer free pool;
         MultiArrayObjectPool<StringBuilder> second = new MultiArrayObjectPool<StringBuilder>(1, builder);
-        defer free second;
         long warmed = System.allocationCount();
         for (int i = 0; i < 1000; i++) {
             forwarding(pool);
@@ -131,14 +124,10 @@ class Main {
         }
         if (finallyLength(pool) != 14 || Builder.created != creations) return 7;
         String first = finallyMessage(pool, "Ironwood");
-        defer free first;
         String next = deferredMessage(pool, "Reader");
-        defer free next;
         if (!first.equals("Hello Ironwood") || !next.equals("Hello Reader")) return 3;
         Messages messages = new Messages(builder);
-        defer free messages;
         String result = messages.message("Again");
-        defer free result;
         if (!result.equals("Hello Again")) return 4;
         return 0;
     }
@@ -146,9 +135,13 @@ class Main {
     public static int main(String[] args) {
 
         if (FAILURE == null) return 8;
-        long live = System.liveAllocationCount();
+        int warmup = check();
+        if (warmup != 0) return warmup;
+        ironwood.lang.Memory.collect();
+        long baseline = System.liveAllocationCount();
         int result = check();
         if (result != 0) return result;
-        return System.liveAllocationCount() == live ? 42 : 5;
+        ironwood.lang.Memory.collect();
+        return System.liveAllocationCount() == baseline ? 42 : 5;
     }
 }

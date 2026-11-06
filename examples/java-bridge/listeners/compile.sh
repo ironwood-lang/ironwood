@@ -7,5 +7,5 @@ source "$BRIDGE_JDK_ROOT/scripts/jdk.sh"
 ironwood_select_java "$BRIDGE_JDK_ROOT"
 cd "$EXAMPLE_DIR"
 set -x
-ironwoodc --source-path src/main/ironwood -d target/classes --unfreed=error \
+ironwoodc --source-path src/main/ironwood -d target/classes \
     src/main/ironwood/org/ironwood/javabridge/listeners/*.iron

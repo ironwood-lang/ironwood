@@ -20,8 +20,6 @@ public class ArraysStringsAndIo {
 
         int result = values[0] + values[1]
                 + greeting.length() + greeting.byteLength();
-        free messages;
-        free values;
         return result;
     }
 }

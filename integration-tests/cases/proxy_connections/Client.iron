@@ -28,16 +28,12 @@ class ProxyClient {
                         Socket socket = new Socket(proxy);
                         return socket;
                     } finally {
-                        free proxy;
                     }
                 } finally {
-                    free password;
                 }
             } finally {
-                free username;
             }
         } finally {
-            free endpoint;
         }
     }
 
@@ -90,7 +86,6 @@ class ProxyClient {
             socket.shutdownOutput();
             if (input.read() != -1) throw new IllegalStateException("Missing EOF");
         } finally {
-            free bytes;
         }
     }
 
@@ -112,10 +107,8 @@ class ProxyClient {
                 try {
                     if (!endpoint.equals(snapshot)) throw new IllegalStateException("Wrong remote endpoint");
                 } finally {
-                    free snapshot;
                 }
             } finally {
-                free endpoint;
             }
             if (!socket.getTcpNoDelay() || !socket.getKeepAlive() || socket.getSoTimeout() != 2000) throw new IllegalStateException("Lost socket options");
             if (args[7].equals("failure") || args[7].equals("timeout")) throw new IllegalStateException("Unexpected proxy success");
@@ -125,7 +118,6 @@ class ProxyClient {
             try {
                 if (((InetSocketAddress) afterClose).getPort() != Integer.parseInt(args[5])) throw new IllegalStateException();
             } finally {
-                free afterClose;
             }
         } catch (SocketTimeoutException expected) {
             if (!args[7].equals("timeout")) throw expected;
@@ -137,40 +129,31 @@ class ProxyClient {
             if (!socket.isClosed()) throw new IllegalStateException("Failed connection remained open");
             System.out.println("PROXY_FAILURE");
         } finally {
-            try { socket.close(); } finally { free socket; }
+            try { socket.close(); } finally { ; }
         }
     }
 
     public static int main(String[] args) throws Exception {
 
-        long baseline = -1L;
+        boolean ready = false;
         long allocations = 0L;
         boolean complete = false;
         try {
             // Establish the existing process-lifetime option inventory, default
-            // factory and NO_PROXY before measuring per-connection reclamation.
+            // factory and NO_PROXY before measuring per-connection allocation.
             if (Proxy.NO_PROXY.type() != Proxy.Type.DIRECT) return 2;
             Socket warm = new Socket();
             try {
                 warm.supportedOptions();
                 warm.getSoTimeout();
-            } finally { try { warm.close(); } finally { free warm; } }
-            baseline = System.liveAllocationCount();
+            } finally { try { warm.close(); } finally { ; } }
+            ready = true;
             allocations = System.allocationCount();
             System.out.println("PROXY_READY");
             run(args);
             complete = true;
         } catch (OutOfMemoryError expected) {
-            if (baseline < 0L) System.out.println("PROXY_WARMUP_OOM");
-        }
-        // Ordinary caught exceptions remain allocated by Ironwood's exception
-        // policy; the OOM singleton and successful connection must leave no graph.
-        if (baseline >= 0L && (!complete || args[7].equals("success"))) {
-            if (System.liveAllocationCount() != baseline) {
-                System.out.print("LEAK ");
-                System.out.println(System.liveAllocationCount() - baseline);
-                return 1;
-            }
+            if (!ready) System.out.println("PROXY_WARMUP_OOM");
         }
         if (complete) {
             System.out.println("PROXY_COMPLETE");

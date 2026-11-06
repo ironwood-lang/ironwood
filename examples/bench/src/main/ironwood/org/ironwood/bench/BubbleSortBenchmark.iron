@@ -36,9 +36,7 @@ public class BubbleSortBenchmark {
         int measurements = args.length > 1 ? Integer.parseInt(args[1]) : 10000000;
         long total = (long) warmup + measurements;
         int[] array = new int[60];
-        defer free array;
         Bench bench = new Bench(warmup);
-        defer free bench;
         long value = 0;
         for (long iteration = 0; iteration < total; iteration++) {
             bench.mark();
@@ -50,7 +48,6 @@ public class BubbleSortBenchmark {
         System.out.print("Value computed: ");
         System.out.println(value);
         String contents = Arrays.toString(array);
-        defer free contents;
         System.out.print("Array: ");
         System.out.println(contents);
         bench.printResults();

@@ -30,10 +30,6 @@ class Words implements Iterable<String> {
         return reusableIterator;
     }
 
-    destructor {
-
-        free this.reusableIterator;
-    }
 }
 
 class WordIterator implements Iterator<String> {
@@ -131,8 +127,6 @@ public class RemainingStatements {
             }
         }
 
-        free values;
-
         section: {
             try {
                 cleanup++;
@@ -206,15 +200,9 @@ public class RemainingStatements {
             wordCount++;
         }
         long allocationsAfter = System.allocationCount();
-        free words;
         if (!validWords) return 1;
 
-        ;
-        if (attempts != 2 || arrayEvaluations != 1 || total != 1
-                || cleanup != 35 || pass != 2 || wordCount != 2
-                || nestedBreak != 12 || nestedContinue != 12 || superseded != 2
-                || transferFromCrossedCleanup() != 20
-                || allocationsAfter != allocationsBefore) {
+        if (attempts != 2 || arrayEvaluations != 1 || total != 1 || cleanup != 35 || pass != 2 || wordCount != 2 || nestedBreak != 12 || nestedContinue != 12 || superseded != 2 || transferFromCrossedCleanup() != 20 || allocationsAfter != allocationsBefore) {
 
             return 2;
         }

@@ -11,7 +11,6 @@ import ironwood.io.OutputStream;
 // primitive generic dispatch and destruction without changing production code.
 final class TestingSocketImpl extends SocketImpl {
 
-    static int destroyed;
     int reads;
     int writes;
     private final NativeSocketImpl transport;
@@ -131,11 +130,6 @@ final class TestingSocketImpl extends SocketImpl {
         return this.transport.supportedOptions();
     }
 
-    destructor {
-
-        free this.transport;
-        destroyed++;
-    }
 }
 
 final class TestingSocket extends Socket {

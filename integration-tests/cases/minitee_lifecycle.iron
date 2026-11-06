@@ -8,8 +8,6 @@ package org.ironwood.minitee;
 class LifecycleChecks {
 
     public static int main(String[] args) {
-
-        long before = System.liveAllocationCount();
         boolean failed = false;
         try {
             for (int index = 0; index < 128; index++) {
@@ -19,7 +17,7 @@ class LifecycleChecks {
 
             failed = true;
         }
-        if (System.liveAllocationCount() != before) return 2;
+
         return failed ? 43 : 42;
     }
 }

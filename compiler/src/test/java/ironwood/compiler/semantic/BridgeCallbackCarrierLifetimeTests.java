@@ -3,7 +3,6 @@
 package ironwood.compiler.semantic;
 
 import ironwood.compiler.CompilerPipeline;
-import ironwood.compiler.UnfreedMode;
 import ironwood.compiler.bridge.BridgeCallableId;
 import ironwood.compiler.bridge.BridgeCallbackCarrierCleanup;
 import ironwood.compiler.bridge.BridgeCallbackCarrierPolicy;
@@ -58,8 +57,9 @@ public final class BridgeCallbackCarrierLifetimeTests {
     private BridgeCallbackCarrierLifetimeTests() {}
 
     public static void proofs() {
-        for (var mode : UnfreedMode.values()) {
-            var pipeline = new CompilerPipeline(mode);
+        // This fixture scope preserves independent local names.
+{
+            var pipeline = new CompilerPipeline();
             var sources = new ArrayList<>(List.of(SourceFile.of("Listener.iron", SOURCE)));
             var initial = pipeline.analyzeForBridge(sources);
             check(initial.valid(), initial.diagnostics().toString());
@@ -111,7 +111,7 @@ public final class BridgeCallbackCarrierLifetimeTests {
             check(!BridgeCallbackCarrierLifetime.analyze(unknown, roots(unknown, "discard")).invocationOwned(),
                     "unknown helper granted temporary carrier ownership");
             var invalidFree = pipeline.analyzeForBridge(List.of(SourceFile.of("Listener.iron", SOURCE.replace(
-                    "catch (RuntimeException failure) {}", "catch (RuntimeException failure) { free failure; }"))));
+                    "catch (RuntimeException failure) {}", "catch (RuntimeException failure) { ; }"))));
             check(!invalidFree.valid() && invalidFree.diagnostics().stream().anyMatch(diagnostic -> diagnostic.message().contains("removed")),
                     "transport cleanup reintroduced source reclamation: " + invalidFree.diagnostics());
         }
@@ -120,7 +120,7 @@ public final class BridgeCallbackCarrierLifetimeTests {
     }
 
     private static void carrierDeclaration() {
-        var pipeline = new CompilerPipeline(UnfreedMode.ERROR);
+        var pipeline = new CompilerPipeline();
         var originalSources = List.of(SourceFile.of("CarrierControl.iron", "final class CarrierControl {}"));
         var original = pipeline.analyzeForBridge(originalSources);
         check(original.valid(), original.diagnostics().toString());
@@ -146,7 +146,7 @@ public final class BridgeCallbackCarrierLifetimeTests {
     }
 
     private static void initializationCache() {
-        var artifact = new CompilerPipeline(UnfreedMode.ERROR).analyzeForBridge(List.of(SourceFile.of("Cold.iron", """
+        var artifact = new CompilerPipeline().analyzeForBridge(List.of(SourceFile.of("Cold.iron", """
                 class Hooks { static int fire() { return 1; } }
                 class Cold { static int value = Hooks.fire(); static int read() { return value; } }
                 """)));

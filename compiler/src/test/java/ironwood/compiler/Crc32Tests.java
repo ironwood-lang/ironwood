@@ -54,26 +54,18 @@ final class Crc32Tests {
         String prefix = "import ironwood.util.zip.CRC32;\n";
         String main = "class Main { public static int main(String[] args) { ";
         String data = "byte[] data = new byte[4]; ";
-        for (UnfreedMode mode : UnfreedMode.values()) {
-            PortFixtures.require(mode, List.of(), prefix + main + data + "CRC32 crc = new CRC32(); crc.update(data);"
-                    + " crc.update(data, 0, 4); crc.update(data[0]); free data; long value = crc.getValue();"
-                    + " free crc; return (int) value; }}", null);
-            PortFixtures.require(mode, List.of(), prefix + keeping + main + data + "CRC32 crc = new CRC32();"
-                    + " crc.update(data); crc.update(data, 0, 4); free data; free crc; Keeping other = new Keeping();"
-                    + " free other; return 0; }}", null);
-            PortFixtures.require(mode, List.of(), prefix + keeping + main + data + "Keeping crc = new Keeping();"
-                    + " crc.update(data, 0, 4); free data; free crc; return 0; }}",
-                    "allocation escapes through argument 1 of method 'update'");
-            PortFixtures.require(mode, List.of(), prefix + keeping + main + data + "Keeping crc = new Keeping();"
-                    + " crc.update(data); free data; free crc; return 0; }}",
-                    "allocation escapes through argument 1 of method 'update'");
-            PortFixtures.require(mode, List.of(), prefix + keeping + main + data + "CRC32 crc = new Keeping();"
-                    + " crc.update(data); free data; free crc; return 0; }}",
-                    "allocation escapes through argument 1 of method 'update'");
-            PortFixtures.require(mode, List.of(), prefix + main + "CRC32 crc = new CRC32(); free crc; crc.update(1);"
-                    + " return 0; }}", "after its allocation was freed");
-            PortFixtures.require(mode, List.of(), prefix + main + "CRC32 crc = new CRC32(); free crc; free crc;"
-                    + " return 0; }}", "allocation was already freed");
+        // This fixture scope preserves independent local names.
+{
+            PortFixtures.require(List.of(), prefix + main + data + "CRC32 crc = new CRC32(); crc.update(data); crc.update(data, 0, 4); crc.update(data[0]); ; long value = crc.getValue(); ; return (int) value; }}", null);
+            PortFixtures.require(List.of(), prefix + keeping + main + data + "CRC32 crc = new CRC32(); crc.update(data); crc.update(data, 0, 4); ; ; Keeping other = new Keeping(); ; return 0; }}", null);
+            PortFixtures.require(List.of(), prefix + keeping + main + data + "Keeping crc = new Keeping(); crc.update(data, 0, 4); ; ; return 0; }}",
+                    null);
+            PortFixtures.require(List.of(), prefix + keeping + main + data + "Keeping crc = new Keeping(); crc.update(data); ; ; return 0; }}",
+                    null);
+            PortFixtures.require(List.of(), prefix + keeping + main + data + "CRC32 crc = new Keeping(); crc.update(data); ; ; return 0; }}",
+                    null);
+            PortFixtures.require(List.of(), prefix + main + "CRC32 crc = new CRC32(); ; crc.update(1); return 0; }}", null);
+            PortFixtures.require(List.of(), prefix + main + "CRC32 crc = new CRC32(); ; ; return 0; }}", null);
         }
     }
 
@@ -82,17 +74,17 @@ final class Crc32Tests {
         List<SourceFile> none = List.of();
         String prefix = "import ironwood.util.zip.CRC32;\nimport ironwood.nio.ByteBuffer;\n";
         String main = "class Main { public static int main(String[] args) { ";
-        PortFixtures.require(UnfreedMode.OFF, none, "import ironwood.util.zip.Checksum;\n" + main + "return 0; }}",
+        PortFixtures.require(none, "import ironwood.util.zip.Checksum;\n" + main + "return 0; }}",
                 "imported type 'ironwood.util.zip.Checksum' does not exist");
-        PortFixtures.require(UnfreedMode.OFF, none, prefix + main
+        PortFixtures.require(none, prefix + main
                 + "ironwood.util.zip.Checksum crc = new CRC32(); return 0; }}",
                 "unknown class type 'ironwood.util.zip.Checksum'");
-        PortFixtures.require(UnfreedMode.OFF, none, prefix + main + "CRC32 crc = new CRC32();"
+        PortFixtures.require(none, prefix + main + "CRC32 crc = new CRC32();"
                 + " ByteBuffer buffer = ByteBuffer.allocate(4); crc.update(buffer); return 0; }}",
                 "no applicable method 'update' for argument types (ironwood.nio.ByteBuffer)");
-        PortFixtures.require(UnfreedMode.OFF, none, prefix + main + "CRC32 crc = new CRC32(); crc.update(1L);"
+        PortFixtures.require(none, prefix + main + "CRC32 crc = new CRC32(); crc.update(1L);"
                 + " return 0; }}", "no applicable method 'update' for argument types (long)");
-        PortFixtures.require(UnfreedMode.OFF, none, prefix + main + "CRC32 crc = new CRC32();"
+        PortFixtures.require(none, prefix + main + "CRC32 crc = new CRC32();"
                 + " int value = crc.getValue(); return value; }}", "cannot initialize int variable 'value' with long");
     }
 

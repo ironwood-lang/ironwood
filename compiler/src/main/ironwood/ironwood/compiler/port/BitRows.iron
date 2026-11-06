@@ -195,8 +195,4 @@ public final class BitRows {
         return bit >>> 6;
     }
 
-    destructor {
-
-        free this.words;
-    }
 }

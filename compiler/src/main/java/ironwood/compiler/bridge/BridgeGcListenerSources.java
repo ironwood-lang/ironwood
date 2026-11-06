@@ -11,7 +11,7 @@ final class BridgeGcListenerSources {
     private BridgeGcListenerSources() {}
 
     static String generate(CompilationArtifact artifact, BridgeObjectAdmission admission,
-            BridgePermanentJavaSources.Sources java, BridgeGeneration generation, Map<IrType, Integer> facades) {
+            BridgeFacadeSources.Sources java, BridgeGeneration generation, Map<IrType, Integer> facades) {
 
         var proof = admission.entries().gcCallbacks().orElseThrow();
         var callbacks = BridgeCallbackNativeSources.generateManaged(artifact, proof.listeners(), facades, generation);

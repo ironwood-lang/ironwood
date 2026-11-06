@@ -67,7 +67,7 @@ final class FileSystemExceptionTests {
             output.reset();
             check(Main.run(new String[]{"--link", "-cp", classes.toString(), "--main-class", "Main",
                     "-o", image.toString(), "-O" + level}, print, print) == 0, output.toString());
-            BridgeEntryTests.run(directory, List.of(image.toString()), "native-O" + level);
+            GcTestProcesses.run(directory, List.of(image.toString()), "native-O" + level);
         }
         System.out.println("filesystem exception differential evidence: " + directory);
     }
@@ -79,7 +79,7 @@ final class FileSystemExceptionTests {
                 .append("        if (!verify(value, ").append(literal(expected.getFile())).append(", ")
                 .append(literal(expected.getOtherFile())).append(", ").append(literal(expected.getReason())).append(", ")
                 .append(literal(expected.getMessage())).append(")) return ").append(identities.size()).append(";\n")
-                .append("        free value;\n");
+                .append("        ;\n");
     }
 
     private static String literal(String value) { return value == null ? "null" : BridgeJavaSources.quote(value); }

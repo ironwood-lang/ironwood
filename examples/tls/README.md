@@ -3,7 +3,7 @@
 # Verified TLS echo
 
 This M5 example uses `TlsClient`, a supplied local CA, mandatory hostname
-verification, borrowed streams and explicit close/free. It exchanges a byte and
+verification, borrowed streams and explicit source close and managed lifetime. It exchanges a byte and
 a binary buffer with a loopback TLS peer and returns 42. No Internet access is
 used. Disposable certificates and keys stay in ignored `target/`.
 

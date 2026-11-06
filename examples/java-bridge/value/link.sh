@@ -15,7 +15,7 @@ printf '+'
 printf ' %q' "${COMMAND[@]}"
 printf '\n'
 "${COMMAND[@]}"
-COMMAND=(javac --release 21 -cp target/ironwood-values.jar -d target/consumer-classes
+COMMAND=(javac "$BRIDGE_JDK_ROOT/examples/java-bridge/support/BridgeLifetime.java" --release 21 -cp target/ironwood-values.jar -d target/consumer-classes
     src/main/java/org/ironwood/javabridge/consumer/Main.java)
 printf '+'
 printf ' %q' "${COMMAND[@]}"

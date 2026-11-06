@@ -8,7 +8,6 @@
 // and List.hashCode; Map.equals and Map.hashCode over keyed snapshots and
 // their key lists; SnapshotSet membership; prefix copies of item and int
 // sequences, as TypeName.qualifierReference takes them. Prints the shared transcript and
-// exits 42; every helper result and builder is freed, and the strings stay
 // process-lived.
 import ironwood.ds.ArrayList;
 import ironwood.ds.HashMap;
@@ -52,7 +51,6 @@ class Main {
     static String pair(char first, char second) {
 
         StringBuilder text = new StringBuilder();
-        defer free text;
         text.append(first).append(second);
         return text.toString();
     }
@@ -80,9 +78,7 @@ class Main {
     static void order() {
 
         StringOrder order = new StringOrder();
-        defer free order;
         StringBuilder signs = new StringBuilder();
-        defer free signs;
         for (int left = 0; left < texts.length; left++) {
             for (int right = 0; right < texts.length; right++) {
                 int sign = Integer.signum(order.compare(texts[left], texts[right]));
@@ -92,11 +88,9 @@ class Main {
         }
         System.out.println("signs " + signs.toString());
         ArrayList<String> sorted = new ArrayList<String>();
-        defer free sorted;
         for (int index = texts.length - 1; index >= 0; index--) sorted.add(texts[index]);
         sorted.sortWithComparator(order);
         StringBuilder positions = new StringBuilder();
-        defer free positions;
         for (int index = 0; index < sorted.size(); index++) {
             String text = sorted.get(index);
             int original = -1;
@@ -114,18 +108,14 @@ class Main {
     static int frozenExtremes(ArrayList<Ranked> candidates, ByRank byRank) {
 
         SnapshotList<Ranked> frozen = new SnapshotList<Ranked>(candidates);
-        defer free frozen;
         return Extremes.minimum(frozen, byRank).id * 100 + Extremes.maximum(frozen, byRank).id;
     }
 
     static void extremes() {
 
         ByRank byRank = new ByRank();
-        defer free byRank;
         int[] keys = {5, 3, 9, 3, 9, 1, 1, 7};
-        defer free keys;
         ArrayList<Ranked> candidates = new ArrayList<Ranked>();
-        defer free candidates;
         Ranked none = Extremes.minimum(candidates, byRank);
         System.out.println("empty " + (none == null));
         for (int index = 0; index < keys.length; index++) {
@@ -141,19 +131,12 @@ class Main {
     static void lists() {
 
         SnapshotList<String> one = Lists.single("x");
-        defer free one;
         SnapshotList<String> two = Lists.of("x", "y");
-        defer free two;
         SnapshotList<String> three = Lists.of("x", "y", "z");
-        defer free three;
         SnapshotList<String> four = Lists.of("x", "y", "z", "w");
-        defer free four;
         SnapshotList<String> again = Lists.of("x", "y");
-        defer free again;
         SnapshotList<String> swapped = Lists.of("y", "x");
-        defer free swapped;
         SnapshotList<String> empty = Lists.empty();
-        defer free empty;
         System.out.println("hash " + Lists.hash(empty) + " " + Lists.hash(one) + " " + Lists.hash(two)
                 + " " + Lists.hash(three) + " " + Lists.hash(four));
         System.out.println("equal " + Lists.equal(two, again) + " " + Lists.equal(two, swapped) + " "
@@ -169,37 +152,26 @@ class Main {
     static void maps() {
 
         HashMap<String, String> firstBuilder = new HashMap<String, String>();
-        defer free firstBuilder;
         firstBuilder.put("k1", "v1");
         firstBuilder.put("k2", "v2");
         firstBuilder.put("k3", "v3");
         SnapshotMap<String, String> first = snapshotOf(firstBuilder);
-        defer free first;
         SnapshotList<String> firstKeys = Lists.of("k1", "k2", "k3");
-        defer free firstKeys;
         HashMap<String, String> sameBuilder = new HashMap<String, String>();
-        defer free sameBuilder;
         sameBuilder.put("k3", "v3");
         sameBuilder.put("k1", "v1");
         sameBuilder.put("k2", "v2");
         SnapshotMap<String, String> same = snapshotOf(sameBuilder);
-        defer free same;
         SnapshotList<String> sameKeys = Lists.of("k3", "k1", "k2");
-        defer free sameKeys;
         HashMap<String, String> otherBuilder = new HashMap<String, String>();
-        defer free otherBuilder;
         otherBuilder.put("k1", "v1");
         otherBuilder.put("k2", "changed");
         otherBuilder.put("k3", "v3");
         SnapshotMap<String, String> other = snapshotOf(otherBuilder);
-        defer free other;
         HashMap<String, String> shortBuilder = new HashMap<String, String>();
-        defer free shortBuilder;
         shortBuilder.put("k1", "v1");
         SnapshotMap<String, String> shorter = snapshotOf(shortBuilder);
-        defer free shorter;
         SnapshotList<String> shortKeys = Lists.single("k1");
-        defer free shortKeys;
         System.out.println("map equal " + Maps.equal(first, firstKeys, same) + " " + Maps.equal(same, sameKeys, first)
                 + " " + Maps.equal(first, firstKeys, other) + " " + Maps.equal(shorter, shortKeys, first));
         System.out.println("map hash " + Maps.hash(first, firstKeys) + " " + Maps.hash(same, sameKeys) + " "
@@ -209,13 +181,10 @@ class Main {
     static void sets() {
 
         HashSet<String> builder = new HashSet<String>();
-        defer free builder;
         for (int index = 1; index < 7; index++) builder.add(texts[index]);
         SnapshotSet<String> snapshot = new SnapshotSet<String>(builder);
-        defer free snapshot;
         builder.add("later");
         StringBuilder found = new StringBuilder();
-        defer free found;
         for (int index = 0; index < texts.length; index++) found.append(snapshot.contains(texts[index]) ? '1' : '0');
         System.out.println("set " + snapshot.size() + " " + found.toString() + " " + snapshot.contains("later"));
     }
@@ -223,32 +192,25 @@ class Main {
     static void prefixes() {
 
         SnapshotList<String> four = Lists.of("x", "y", "z", "w");
-        defer free four;
         IntArrayList builder = new IntArrayList();
-        defer free builder;
         builder.add(0);
         builder.add(2);
         builder.add(1);
         SnapshotInts counts = new SnapshotInts(builder);
-        defer free counts;
         for (int count = 0; count <= 4; count++) {
             SnapshotList<String> items = Lists.prefix(four, count);
             StringBuilder line = new StringBuilder();
-            defer free line;
             line.append("prefix ").append(count).append(' ').append(items.size()).append(' ')
                     .append(Lists.hash(items));
             if (count <= 3) {
                 SnapshotInts values = Lists.prefix(counts, count);
                 line.append(" ints ").append(values.size()).append(' ').append(values.sum()).append(' ')
                         .append(values.hashCode());
-                free values;
             }
             System.out.println(line.toString());
-            free items;
         }
         try {
             SnapshotList<String> unexpected = Lists.prefix(four, 5);
-            free unexpected;
         } catch (IndexOutOfBoundsException expected) {
             System.out.println("prefix 5 rejected");
         }

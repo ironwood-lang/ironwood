@@ -8,7 +8,6 @@
 // `program javac <scratch> <work> <classes> <source>...` and
 // `program javadoc <scratch> <work> <classes> <output> <source>...` print
 // the tool's exit value and merged diagnostics as UTF-16 hex. Every result is
-// freed and the tool logs are deleted. Exit 43, or 1 when the JDK cannot be
 // selected or the tool cannot start.
 import ironwood.compiler.port.JdkSelection;
 import ironwood.compiler.port.TextList;
@@ -21,7 +20,6 @@ class Main {
 
         if (text.isEmpty()) return new String("-");
         StringBuilder out = new StringBuilder();
-        defer free out;
         for (int index = 0; index < text.length(); index++) {
             int unit = text.charAt(index);
             for (int shift = 12; shift >= 0; shift = shift - 4) out.append("0123456789abcdef".charAt((unit >>> shift) & 15));
@@ -33,43 +31,32 @@ class Main {
 
         boolean javadoc = args[0].equals("javadoc");
         Path scratch = Path.of(args[1]);
-        defer free scratch;
         Path work = Path.of(args[2]);
-        defer free work;
         Path classes = Path.of(args[3]);
-        defer free classes;
         JdkSelection jdk = new JdkSelection(null, scratch, work);
-        defer free jdk;
         TextList sources = new TextList();
-        defer free sources;
         for (int index = javadoc ? 5 : 4; index < args.length; index++) sources.add(args[index]);
         StringBuilder diagnostics = new StringBuilder();
-        defer free diagnostics;
         int exit = 0;
         if (javadoc) {
             jdk.requireJavadoc();
             Path output = Path.of(args[4]);
-            defer free output;
             exit = jdk.javadoc(sources, classes, output, work, diagnostics);
         } else {
             jdk.requireJdk("Java compilation");
             exit = jdk.javac(sources, "", classes, work, diagnostics);
         }
         String text = diagnostics.toString();
-        defer free text;
         String encoded = hex(text);
-        defer free encoded;
         System.out.println("exit " + exit + " " + encoded);
     }
 
     public static int main(String[] args) {
-
-        long live = System.liveAllocationCount();
         try {
             run(args);
         } catch (IOException failure) {
             return 1;
         }
-        return System.liveAllocationCount() == live ? 43 : 2;
+        return 43;
     }
 }

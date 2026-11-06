@@ -21,7 +21,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.regex.Pattern;
 
 public final class Main {
@@ -69,8 +68,7 @@ public final class Main {
             return 1;
         }
 
-        CompilerPipeline pipeline = new CompilerPipeline(commandLine.unfreedMode(),
-                commandLine.explainRejectedFree(), null);
+        CompilerPipeline pipeline = new CompilerPipeline();
         CompilationArtifact artifact;
         if (commandLine.link()) {
             artifact = commandLine.mainClass() == null
@@ -273,7 +271,7 @@ public final class Main {
                                Path emitLlvm, Path llvmHome,
                                List<Path> sourcePath, List<Path> classPath,
                                OptimizationLevel optimizationLevel, String mainClass,
-                               boolean link, UnfreedMode unfreedMode, boolean explainRejectedFree,
+                               boolean link,
                                TargetMachine targetMachine,
                                Integer inlineThreshold, boolean selectiveInlining, Boolean partialInlining,
                                Path optimizationReport) {
@@ -291,8 +289,6 @@ public final class Main {
             Path llvmHome = null;
             String mainClass = null;
             boolean link = false;
-            UnfreedMode unfreedMode = UnfreedMode.WARN;
-            boolean explainRejectedFree = false;
             List<Path> sourcePath = List.of(Path.of("."));
             boolean sourcePathSpecified = false;
             List<Path> classPath = List.of(Path.of("."));
@@ -478,7 +474,7 @@ public final class Main {
             }
             return new CommandLine(positional.stream().map(Path::of).toList(), output,
                     classOutput, emitLlvm, llvmHome, sourcePath, classPath,
-                    optimizationLevel, mainClass, link, unfreedMode, explainRejectedFree, targetMachine,
+                    optimizationLevel, mainClass, link, targetMachine,
                     inlineThreshold, selectiveInlining, partialInlining, optimizationReport);
         }
 

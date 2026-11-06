@@ -12,9 +12,7 @@ import ironwood.compiler.ast.EnhancedForStatement;
 import ironwood.compiler.ast.Expression;
 import ironwood.compiler.ast.ExpressionStatement;
 import ironwood.compiler.ast.DeferStatement;
-import ironwood.compiler.ast.DeferredFreeStatement;
 import ironwood.compiler.ast.ForStatement;
-import ironwood.compiler.ast.FreeStatement;
 import ironwood.compiler.ast.IfStatement;
 import ironwood.compiler.ast.LabeledStatement;
 import ironwood.compiler.ast.LocalVariableDeclaration;
@@ -63,7 +61,7 @@ final class AnonymousDiamondBodyInference {
         }
         List<CallableSymbol> callables = new ArrayList<>(owner.constructors());
         callables.addAll(owner.declaredMethods().values());
-        owner.destructor().ifPresent(callables::add);
+
         owner.staticInitializer().ifPresent(callables::add);
         for (CallableSymbol callable : callables) {
             callable.body().ifPresent(body -> visit(body, callable.returnType()));
@@ -90,14 +88,10 @@ final class AnonymousDiamondBodyInference {
                     assignment.equalsSpan(), assignment.value(), assignment.span()), Optional.empty());
         } else if (statement instanceof DeferStatement deferred) {
             plan(deferred.call(), Optional.empty());
-        } else if (statement instanceof DeferredFreeStatement deferred) {
-            plan(deferred.target(), Optional.empty());
         } else if (statement instanceof ExpressionStatement expression) {
             plan(expression.expression(), Optional.empty());
         } else if (statement instanceof ThrowStatement thrown) {
             plan(thrown.value(), Optional.empty());
-        } else if (statement instanceof FreeStatement freed) {
-            plan(freed.value(), Optional.empty());
         } else if (statement instanceof YieldStatement yielded) {
             plan(yielded.value(), Optional.empty());
         } else if (statement instanceof IfStatement conditional) {

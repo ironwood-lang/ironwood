@@ -56,25 +56,15 @@ the file continues through EOF and `checkError()` produces status 74 afterward.
 
 ## What the code demonstrates
 
-- [`StreamCopy.iron`](src/main/ironwood/org/ironwood/minitee/StreamCopy.iron)
-  works with `InputStream` and `OutputStream`, reuses one 8 KiB byte array for
-  the entire copy, handles short reads, and frees the array with `defer free`.
-- [`TeeOutputStream.iron`](src/main/ironwood/org/ironwood/minitee/TeeOutputStream.iron)
-  borrows two abstract outputs in private fields. Writes, flushes, and closes
-  attempt both outputs even if the first fails. Ironwood preserves the first
-  exception and attaches a later failure as secondary. Close is idempotent.
-- [`Minitee.iron`](src/main/ironwood/org/ironwood/minitee/Minitee.iron)
-  handles arguments and owns the file stream and tee. It explicitly closes the
-  tee before checking stdout errors. Deferred close remains a failure guard and
-  does nothing after the explicit close. Deferred frees reclaim the tee before
-  the borrowed file object. A file-close guard also covers failure to allocate
-  the tee.
+The tee closes its explicitly configured outputs according to its resource
+contract. The tee, outputs and copy buffers remain ordinary shared managed
+objects. Dropping an anchor or collecting does not close an output. Failure
+cleanup retains the existing primary/secondary ordering.
 
-Closing and freeing are separate operations. The tee never frees its borrowed
-outputs, and closing it does not release the compiler-tracked borrow. Standard
-streams remain process-owned; closing `System.out` only flushes it. The compiler
-proves that the reachable output implementations do not retain the copy buffer
-before accepting its `free`.
+Source close and managed collection have separate roles. Shared output aliases
+are legal; callers must keep their explicit resource lifecycle valid while any
+operation can use them. GC7 accepts these managed graphs and retains native
+resource/confinement rejection controls independently.
 
 ## Verification
 
@@ -87,9 +77,6 @@ From the repository root, run these focused checks:
 ./scripts/check-licenses.sh
 ```
 
-The minitee integration tests cover byte-exact
-copying, append and empty input, option parsing, live pipe delivery, loose-class
-and archive linking, and `-O3` native execution. Generated large inputs verify
-one copy-buffer allocation; injected failures verify exception ordering,
-allocation-failure cleanup, and repeated use under a low descriptor limit.
-A negative compile test rejects freeing an output while the tee still borrows it.
+Focused tests preserve tee output, resource cleanup and failure order. Shared
+managed outputs are acceptance cases; removed reclamation spellings and genuine
+native/resource misuse retain separate rejection coverage.

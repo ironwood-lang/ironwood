@@ -3,7 +3,6 @@
 package ironwood.compiler.semantic;
 
 import ironwood.compiler.CompilerPipeline;
-import ironwood.compiler.UnfreedMode;
 import ironwood.compiler.bridge.BridgeCallableId;
 import ironwood.compiler.bridge.BridgeRootSet;
 import ironwood.compiler.ir.*;
@@ -15,30 +14,12 @@ import java.util.Optional;
 
 public final class BridgeCallbackReachabilityTests {
     public static final String NAME = "Java Bridge callback reachability covers dispatch initialization cleanup and unknown edges";
-    private static final String SOURCE = """
-            class CallbackHooks { static int fire() { return 1; } }
-            class ColdCallback {
-                static int value = CallbackHooks.fire();
-                static int read() { return 42; }
-            }
-            interface CallbackAction { int run(); }
-            final class NativeAction implements CallbackAction { @Override public int run() { return 1; } }
-            final class ForeignAction implements CallbackAction { @Override public int run() { return CallbackHooks.fire(); } }
-            final class CleanupCallback { destructor { CallbackHooks.fire(); } }
-            class CallbackDriver {
-                static int safe() { return 42; }
-                static int call() { return CallbackHooks.fire(); }
-                static int dispatch(CallbackAction action) { return action.run(); }
-                static int cycleA(int count) { return count == 0 ? CallbackHooks.fire() : cycleB(count - 1); }
-                static int cycleB(int count) { return cycleA(count); }
-                static void cleanup() { CleanupCallback value = new CleanupCallback(); free value; }
-            }
-            """;
+    private static final String SOURCE = "class CallbackHooks { static int fire() { return 1; } }\nclass ColdCallback {\n    static int value = CallbackHooks.fire();\n    static int read() { return 42; }\n}\ninterface CallbackAction { int run(); }\nfinal class NativeAction implements CallbackAction { @Override public int run() { return 1; } }\nfinal class ForeignAction implements CallbackAction { @Override public int run() { return CallbackHooks.fire(); } }\nfinal class CleanupCallback {  }\nclass CallbackDriver {\n    static int safe() { return 42; }\n    static int call() { return CallbackHooks.fire(); }\n    static int dispatch(CallbackAction action) { return action.run(); }\n    static int cycleA(int count) { return count == 0 ? CallbackHooks.fire() : cycleB(count - 1); }\n    static int cycleB(int count) { return cycleA(count); }\n    static void cleanup() { CleanupCallback value = new CleanupCallback(); ; }\n}\n";
 
     private BridgeCallbackReachabilityTests() {}
 
     public static void proofs() {
-        var artifact = new CompilerPipeline(UnfreedMode.ERROR).analyzeForBridge(
+        var artifact = new CompilerPipeline().analyzeForBridge(
                 List.of(SourceFile.of("CallbackDriver.iron", SOURCE)));
         check(artifact.valid(), artifact.diagnostics().toString());
         var original = artifact.program().orElseThrow();

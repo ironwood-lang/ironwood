@@ -20,6 +20,5 @@ public class HashMapExample {
 			System.out.println("key=" + key + " => value=" + value);
 		}
 
-		free map;
 	}
 }

@@ -20,22 +20,19 @@ class HostFailures {
         if (args[0].equals("query")) {
             try {
                 Enumeration<NetworkInterface> values = NetworkInterface.getNetworkInterfaces();
-                free values;
                 return 1;
             } catch (SocketException expected) {
                 System.out.println(expected.getMessage());
             }
         } else if (args[0].equals("query_oom")) {
-            long baseline = System.liveAllocationCount();
             try {
                 Enumeration<NetworkInterface> values = NetworkInterface.getNetworkInterfaces();
-                free values;
                 return 2;
             } catch (OutOfMemoryError expected) {
             }
             // Translating native ENOMEM creates one escaping language error.
             // All partially constructed query storage must still be reclaimed.
-            if (System.liveAllocationCount() != baseline + 1) return 3;
+
         } else if (args[0].equals("probe")) {
             InetAddress address = InetAddress.getByName("192.0.2.1");
             try {
@@ -46,7 +43,6 @@ class HostFailures {
                     System.out.println(expected.getMessage());
                 }
             } finally {
-                free address;
             }
         } else if (args[0].equals("scope")) {
             NetworkInterface owner = NetworkInterface.getByName("beta0");
@@ -57,20 +53,16 @@ class HostFailures {
                     bits[1] = (byte) 128;
                     try {
                         Inet6Address address = Inet6Address.getByAddress(null, bits, owner);
-                        free address;
                         return 9;
                     } catch (UnknownHostException expected) {
                         System.out.println("no IPv6 scope");
                     }
                 } finally {
-                    free bits;
                 }
             } finally {
-                free owner;
             }
             try {
                 InetAddress absent = InetAddress.getByName("fe80::1%absent0");
-                free absent;
                 return 10;
             } catch (UnknownHostException expected) {
                 System.out.println("unknown scope name");
@@ -90,13 +82,11 @@ class HostFailures {
                     try {
                         if (entries.size() != 0) return 11;
                     } finally {
-                        free entries;
                     }
                     Enumeration<InetAddress> cursor = owner.getInetAddresses();
                     try {
                         if (cursor.hasMoreElements()) return 12;
                     } finally {
-                        free cursor;
                     }
                 } else if (args[0].equals("changing")) {
                     if (!owner.isUp() || owner.isUp() || owner.getIndex() != 7) return 6;
@@ -119,14 +109,11 @@ class HostFailures {
                                 System.out.println("remove unsupported");
                             }
                         } finally {
-                            free iterator;
                         }
                     } finally {
-                        free cursor;
                     }
                 }
             } finally {
-                free owner;
             }
         }
         return 0;

@@ -132,15 +132,9 @@ final class InitializedTypeTests {
     }
 
     static void safety() {
-        String safe = SOURCE.replace("return loop(args.length);", "Object value = new Object(); free value; return loop(args.length);");
-        String unsafe = safe.replace("free value;", "Object alias = value; free value; alias.toString();");
-        for (UnfreedMode mode : UnfreedMode.values()) {
-            var positive = new CompilerPipeline(mode).compile(SourceFile.of("test/Main.iron", safe));
-            require(positive.successful(), mode + " safe acceptance: " + positive.diagnostics());
-            var negative = new CompilerPipeline(mode).compile(SourceFile.of("test/Main.iron", unsafe));
-            require(!negative.valid(), mode + " unsafe free accepted");
-            require(negative.program().isEmpty(), "unsafe program reached specialization");
-        }
+        String source = "class Box { int value; int read() { return value; } } class Main { public static int main(String[] args) { return check(); } static int check() { Box value = new Box(); Box alias = value; value.value = 7; ironwood.lang.Memory.collect(); return alias.read(); } }";
+        var result = new CompilerPipeline().compile(SourceFile.of("Main.iron", source));
+        require(result.successful(), result.diagnostics().toString());
     }
 
     static void artifacts() throws Exception {
@@ -171,16 +165,16 @@ final class InitializedTypeTests {
                     }
                 }
                 """);
-        cli("--unfreed=error", "--source-path", root.resolve("sources").toString(), application.toString(),
+        cli("--source-path", root.resolve("sources").toString(), application.toString(),
                 "-d", root.resolve("source-classes").toString());
         linkAndRun(root, "source", root.resolve("source-classes").toString());
-        cli("--unfreed=error", library.toString(), "-d", root.resolve("library-classes").toString());
+        cli(library.toString(), "-d", root.resolve("library-classes").toString());
         Path archive = root.resolve("work.ironjar");
         IronJar.create(archive, List.of(root.resolve("library-classes")));
         for (Path dependency : List.of(root.resolve("library-classes"), archive)) {
             String name = dependency.equals(archive) ? "archive" : "class";
             Path classes = root.resolve(name + "-classes");
-            cli("--unfreed=error", "--source-path", root.resolve("absent").toString(),
+            cli("--source-path", root.resolve("absent").toString(),
                     "-cp", dependency.toString(), application.toString(), "-d", classes.toString());
             linkAndRun(root, name, classes + java.io.File.pathSeparator + dependency);
         }
@@ -189,7 +183,7 @@ final class InitializedTypeTests {
     private static void linkAndRun(Path root, String name, String classPath) throws Exception {
         Path executable = root.resolve(name + "-program");
         Path llvm = root.resolve(name + ".ll");
-        cli("--link", "--unfreed=error", "-cp", classPath, "--main-class", "Main", "-O3",
+        cli("--link", "-cp", classPath, "--main-class", "Main", "-O3",
                 "--emit-llvm", llvm.toString(), "-o", executable.toString());
         require(Files.readString(llvm).contains(".leaf.$initialized."), "artifact lost guardless specialization");
         Process process = new ProcessBuilder(executable.toString()).redirectErrorStream(true).start();
@@ -204,7 +198,7 @@ final class InitializedTypeTests {
     }
 
     private static IrProgram analyze(String source) {
-        var artifact = new CompilerPipeline(UnfreedMode.OFF).analyze(List.of(SourceFile.of("test/Main.iron", source)));
+        var artifact = new CompilerPipeline().analyze(List.of(SourceFile.of("test/Main.iron", source)));
         require(artifact.valid(), "analysis failed: " + artifact.diagnostics());
         return artifact.program().orElseThrow();
     }

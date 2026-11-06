@@ -46,8 +46,6 @@ public class InheritanceAndInterfaces {
         plusValue = null;
         timesValue = null;
         tagged = null;
-        free times;
-        free plus;
         return result;
     }
 }

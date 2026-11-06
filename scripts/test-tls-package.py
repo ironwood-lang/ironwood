@@ -59,9 +59,9 @@ class Forge { static long value() { return TlsClient.TlsNative.readByte(1L); } }
         for key, name in (('openssl', 'openssl-static'), ('ca', 'mozilla-ca-bundle')):
             assert '\t'.join((name, pins[key + '.version'], pins[key + '.license'], pins[key + '.url'])) in inventory
     run([root / 'bin/ironwoodc', example / 'src/main/ironwood/org/ironwood/tls/TlsEcho.iron',
-         '-d', example / 'target/classes', '--unfreed=error'])
+         '-d', example / 'target/classes'])
     run([root / 'bin/ironwoodc', '--link', '-cp', example / 'target/classes', '--main-class', 'org.ironwood.tls.TlsEcho',
-         '-o', example / 'target/TlsEcho', '-O3', '--unfreed=error'])
+         '-o', example / 'target/TlsEcho', '-O3'])
     # These deliberately unusable ambient paths cannot influence a custom-root client.
     env.update({'OPENSSL_CONF': '/nonexistent/ironwood-openssl.cnf', 'OPENSSL_MODULES': '/nonexistent/ironwood-providers',
                 'SSL_CERT_FILE': '/nonexistent/ironwood-ca', 'SSL_CERT_DIR': '/nonexistent/ironwood-ca-dir'})
@@ -91,7 +91,7 @@ class Forge { static long value() { return TlsClient.TlsNative.readByte(1L); } }
     archive = project / 'target/wget.ironjar'
     run([root / 'bin/ironjar', '--create', '--file', archive, project / 'target/classes'])
     run([root / 'bin/ironwoodc', '--link', '-cp', archive, '--main-class', 'org.ironwood.wget.Wget',
-         '-o', project / 'target/wget-archive', '-O3', '--unfreed=error'])
+         '-o', project / 'target/wget-archive', '-O3'])
     print(run([sys.executable, root / 'scripts/test-networking-m6.py', '--skip-build', '--smoke',
                '--binary', project / 'target/wget-archive']).strip())
     for binary in (project / 'target/wget', project / 'target/wget-archive'):
@@ -115,7 +115,7 @@ class Plain {
 
         ironwood.net.tls.TlsClient client = new ironwood.net.tls.TlsClient();
         try { client.connect("localhost", 443, 1); }
-        finally { try { client.close(); } finally { free client; } }
+        finally { client.close(); }
     }
 
     public static int main(String[] args) throws Exception {
@@ -126,13 +126,13 @@ class Plain {
 ''')
     plain_classes = project / 'target/plain-classes'
     run([root / 'bin/ironwoodc', plain, '--source-path', root / 'examples/tcp/src/main/ironwood',
-         '-d', plain_classes, '--unfreed=error'])
+         '-d', plain_classes])
     plain_archive = project / 'target/plain.ironjar'
     run([root / 'bin/ironjar', '--create', '--file', plain_archive, plain_classes])
     for label, path in (('classes', plain_classes), ('archive', plain_archive)):
         binary = project / ('target/plain-app-' + label)
         run([root / 'bin/ironwoodc', '--link', '-cp', path, '--main-class', 'Plain', '-o', binary,
-             '-O3', '--unfreed=error'])
+             '-O3'])
         run([binary], 42)
         symbols = run([llvm / 'bin/llvm-nm', binary])
         assert 'ironwood_tls_' not in symbols and '_SSL_' not in symbols

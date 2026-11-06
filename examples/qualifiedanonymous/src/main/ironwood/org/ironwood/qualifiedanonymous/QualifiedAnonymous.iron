@@ -89,7 +89,6 @@ public class QualifiedAnonymous {
         };
         int result = value.result();
         // Reclaim the named instance while preserving the inline qualifier/argument syntax.
-        free value;
         return result;
     }
 }

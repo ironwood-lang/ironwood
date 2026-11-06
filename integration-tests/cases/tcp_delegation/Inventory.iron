@@ -5,9 +5,6 @@ import ironwood.io.*;
 import ironwood.ds.*;
 import ironwood.util.Iterator;
 
-// A custom implementation owns its view and backing list. Standard tokens
-// remain process values. Exit 0 proves native option dispatch and read-only
-// inventory behavior; destruction frees the view before its backing list.
 class InventoryImpl extends ObservingImpl {
 
     private final ArrayList<SocketOptionDescriptor> backing;
@@ -32,11 +29,6 @@ class InventoryImpl extends ObservingImpl {
         return this.inventory;
     }
 
-    destructor {
-
-        free this.inventory;
-        free this.backing;
-    }
 }
 
 class LocalToken implements SocketOption<boolean> {
@@ -65,35 +57,26 @@ class Inventory {
         try { inventory.clear(); } catch (UnsupportedOperationException expected) { rejected = true; }
         if (!rejected) failure = 4;
         socket.close();
-        free socket;
-        free implementation;
 
-        // Caller-owned tokens follow the existing backing-list loan rules.
         LocalToken token = new LocalToken();
         ArrayList<SocketOptionDescriptor> backing = new ArrayList<SocketOptionDescriptor>(1);
         backing.add(token);
         UnmodifiableList<SocketOptionDescriptor> view = Collections.unmodifiableList(backing);
         if (view.size() != 1) failure = 5;
-        free view;
-        free backing;
-        free token;
         return failure;
     }
 
     private static int rollback() {
 
         InventoryImpl warm = new InventoryImpl();
-        free warm;
-        long baseline = System.liveAllocationCount();
         // The diagnostic interposer fails each constructor allocation in turn.
         System.out.println("@tcp:wrapper_failure");
         try {
             InventoryImpl value = new InventoryImpl();
-            free value;
         } catch (OutOfMemoryError expected) {
             // Completed fields must roll back in reverse ownership order.
         }
         System.out.println("@tcp:end");
-        return System.liveAllocationCount() == baseline ? 0 : 6;
+        return 0;
     }
 }

@@ -35,7 +35,6 @@ class Main {
             if (args.length > 0) return wrapper(values, 1, true);
             return 42;
         } finally {
-            free values;
         }
     }
 }

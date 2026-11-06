@@ -22,10 +22,8 @@ import ironwood.compiler.ast.EnhancedForStatement;
 import ironwood.compiler.ast.Expression;
 import ironwood.compiler.ast.ExpressionStatement;
 import ironwood.compiler.ast.DeferStatement;
-import ironwood.compiler.ast.DeferredFreeStatement;
 import ironwood.compiler.ast.FieldAccessExpression;
 import ironwood.compiler.ast.ForStatement;
-import ironwood.compiler.ast.FreeStatement;
 import ironwood.compiler.ast.IfStatement;
 import ironwood.compiler.ast.InstanceOfExpression;
 import ironwood.compiler.ast.InterfaceDeclaration;
@@ -284,12 +282,8 @@ final class TypeDependencyScanner {
             scan(assignment.value(), names, values, typeParameters);
         } else if (statement instanceof DeferStatement deferred) {
             scan(deferred.call(), names, values, typeParameters);
-        } else if (statement instanceof DeferredFreeStatement deferred) {
-            scan(deferred.target(), names, values, typeParameters);
         } else if (statement instanceof ExpressionStatement expression) {
             scan(expression.expression(), names, values, typeParameters);
-        } else if (statement instanceof FreeStatement free) {
-            scan(free.value(), names, values, typeParameters);
         } else if (statement instanceof ReturnStatement returnStatement) {
             returnStatement.value().ifPresent(value -> scan(value, names, values, typeParameters));
         } else if (statement instanceof ThrowStatement throwStatement) {

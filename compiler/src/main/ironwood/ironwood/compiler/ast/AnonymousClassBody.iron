@@ -16,7 +16,7 @@ public final class AnonymousClassBody {
     private final SnapshotList<FieldDeclaration> fields;
     private final SnapshotList<InstanceInitialization> instanceInitializations;
     private final SnapshotList<StaticInitialization> staticInitializations;
-    private final DestructorDeclaration destructorDeclaration;
+
     private final SnapshotList<MethodDeclaration> methods;
     private final SnapshotList<TypeDeclaration> memberTypes;
     private final SourceSpan span;
@@ -25,7 +25,7 @@ public final class AnonymousClassBody {
     public AnonymousClassBody(SnapshotList<FieldDeclaration> fields,
                               SnapshotList<InstanceInitialization> instanceInitializations,
                               SnapshotList<StaticInitialization> staticInitializations,
-                              DestructorDeclaration destructorDeclaration, SnapshotList<MethodDeclaration> methods,
+                              SnapshotList<MethodDeclaration> methods,
                               SnapshotList<TypeDeclaration> memberTypes, SourceSpan span) {
 
         if (fields == null) throw new NullPointerException();
@@ -36,7 +36,7 @@ public final class AnonymousClassBody {
         this.fields = fields;
         this.instanceInitializations = instanceInitializations;
         this.staticInitializations = staticInitializations;
-        this.destructorDeclaration = destructorDeclaration;
+
         this.methods = methods;
         this.memberTypes = memberTypes;
         this.span = span;
@@ -60,13 +60,7 @@ public final class AnonymousClassBody {
         return this.staticInitializations;
     }
 
-    /** @return the {@code destructor} component, renamed because {@code destructor} is an Ironwood keyword */
-    public DestructorDeclaration destructorDeclaration() {
-
-        return this.destructorDeclaration;
-    }
-
-    /** @return the {@code methods} component */
+/** @return the {@code methods} component */
     public SnapshotList<MethodDeclaration> methods() {
 
         return this.methods;

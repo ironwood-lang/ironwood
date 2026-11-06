@@ -5,9 +5,9 @@ import ironwood.compiler.bridge.BridgeProof;
 import ironwood.compiler.source.SourceFile;
 import java.util.List;
 
-/** Managed construction must not accidentally certify an empty legacy rollback. */
+/** Managed construction facts preserve shared graphs and exact program identity. */
 final class Gc7RetirementTests {
-    static final String NAME = "GC7 managed construction never grants legacy rollback capabilities";
+    static final String NAME = "GC7 managed construction preserves shared field graphs";
 
     private Gc7RetirementTests() {}
 
@@ -24,9 +24,6 @@ final class Gc7RetirementTests {
         check(artifact.valid(), artifact.diagnostics().toString());
         var facts = artifact.bridgeConstructionFacts().orElseThrow();
         check(facts.matches(artifact.program().orElseThrow()), "construction facts lost their program identity");
-        check(!facts.constructors().isEmpty(), "missing constructor refusal inventory");
-        check(facts.constructors().values().stream().allMatch(proof -> proof.status() == BridgeProof.Status.UNKNOWN),
-                "retired ownership facts granted a legacy rollback capability");
         var managed = BridgeObjectAdmission.proveManaged(artifact, List.of("gc7"));
         check(managed.status() == BridgeProof.Status.PROVED, managed.reason());
     }

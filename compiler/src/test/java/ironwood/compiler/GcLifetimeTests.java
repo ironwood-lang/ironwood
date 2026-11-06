@@ -31,7 +31,7 @@ public final class GcLifetimeTests {
     }
     private static IrProgram closure() throws Exception {
         var base = GcRootTests.closure();
-        var artifact = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(List.of(SourceFile.of("gc4_lifetimes.iron",
+        var artifact = new CompilerPipeline().analyzeForBridge(List.of(SourceFile.of("gc4_lifetimes.iron",
                 Files.readString(Path.of("integration-tests/cases/gc4_lifetimes.iron")))));
         check(artifact.valid(), artifact.diagnostics().toString());
         var input = artifact.program().orElseThrow();
@@ -56,7 +56,7 @@ public final class GcLifetimeTests {
         var fields = List.of(new IrField(sourceThrowable.name(), "message", OBJECT, 0, SPAN),
                 new IrField(sourceThrowable.name(), "cause", THROWABLE, 1, SPAN),
                 new IrField(sourceThrowable.name(), "<gcMetadata>", OBJECT, 2, SPAN),
-                new IrField(sourceThrowable.name(), "ownedMessage", OBJECT, 3, SPAN),
+                new IrField(sourceThrowable.name(), "causeMessage", OBJECT, 3, SPAN),
                 new IrField(sourceThrowable.name(), "causeInitialized", IrType.I1, 4, SPAN));
         classes.add(new IrClass(sourceThrowable.name(), sourceThrowable.kind(), sourceThrowable.superclass(), List.of(), fields,
                 sourceThrowable.typeId(), sourceThrowable.typeMembership(), List.of(), SPAN));

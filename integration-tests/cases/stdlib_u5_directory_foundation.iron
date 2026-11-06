@@ -16,29 +16,19 @@ class Main {
 
         Path root = Path.of(args[0]);
         BasicFileAttributes rootAttributes = Files.readAttributes(root);
-        if (!rootAttributes.isDirectory() || rootAttributes.isRegularFile()
-                || rootAttributes.isSymbolicLink() || rootAttributes.size() < 0L
-                || rootAttributes.fileKey() != null) return 1;
+        if (!rootAttributes.isDirectory() || rootAttributes.isRegularFile() || rootAttributes.isSymbolicLink() || rootAttributes.size() < 0L || rootAttributes.fileKey() != null) return 1;
         FileTime modified = rootAttributes.lastModifiedTime();
         FileTime modifiedCopy = FileTime.fromMillis(modified.toMillis());
-        if (!modified.equals(modifiedCopy) || modified.compareTo(modifiedCopy) != 0
-                || modified.hashCode() != modifiedCopy.hashCode()) return 2;
-        free modifiedCopy;
-        free modified;
-        free rootAttributes;
+        if (!modified.equals(modifiedCopy) || modified.compareTo(modifiedCopy) != 0 || modified.hashCode() != modifiedCopy.hashCode()) return 2;
 
         Path file = root.resolve("alpha.txt");
         BasicFileAttributes fileAttributes = Files.readAttributes(file);
-        if (!fileAttributes.isRegularFile() || fileAttributes.isDirectory()
-                || fileAttributes.size() != 5L) return 3;
-        free fileAttributes;
+        if (!fileAttributes.isRegularFile() || fileAttributes.isDirectory() || fileAttributes.size() != 5L) return 3;
 
         Path link = root.resolve("alpha-link");
         if (!Files.isSymbolicLink(link)) return 4;
         BasicFileAttributes followedLink = Files.readAttributes(link);
-        if (!followedLink.isRegularFile() || followedLink.isSymbolicLink()
-                || followedLink.size() != 5L) return 5;
-        free followedLink;
+        if (!followedLink.isRegularFile() || followedLink.isSymbolicLink() || followedLink.size() != 5L) return 5;
 
         DirectoryStream<Path> stream = Files.newDirectoryStream(root);
         Iterator<Path> iterator = stream.iterator();
@@ -55,8 +45,6 @@ class Main {
             if (name.toString().equals("child")) child = true;
             if (name.toString().equals("alpha-link")) symbolic = true;
             count++;
-            free name;
-            free entry;
         }
         if (stream.hasNext()) return 7;
         boolean exhausted = false;
@@ -76,7 +64,6 @@ class Main {
             closed = true;
         }
         if (!closed) return 9;
-        free stream;
 
         boolean missing = false;
         Path absent = root.resolve("absent");
@@ -87,10 +74,6 @@ class Main {
         }
         if (!missing) return 10;
 
-        free absent;
-        free link;
-        free file;
-        free root;
         return 42;
     }
 }

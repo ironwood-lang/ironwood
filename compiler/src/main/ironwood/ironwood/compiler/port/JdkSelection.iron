@@ -63,9 +63,7 @@ public final class JdkSelection {
 
         this.values = new TextList();
         Path java = selectJava(root, workingDirectory);
-        defer free java;
         String listing = inspect(java, scratch);
-        defer free listing;
         addProperty(this.values, listing, "java.home", java);
         addProperty(this.values, listing, "java.specification.version", java);
         addProperty(this.values, listing, "java.runtime.version", java);
@@ -116,12 +114,10 @@ public final class JdkSelection {
         int feature = this.feature();
         if (feature < 21 || feature > 25) {
             String version = this.values.get(RUNTIME_VERSION);
-            defer free version;
             throw failure("Java Bridge ", operation, " requires JDK 21, 22, 23, 24 or 25; detected ", version);
         }
         if (!this.launcher("javac")) {
             String home = this.values.get(HOME);
-            defer free home;
             throw failure("Java Bridge ", operation, " requires the selected JDK's javac component: ", home);
         }
     }
@@ -152,7 +148,6 @@ public final class JdkSelection {
         this.requireJdk("Javadoc generation");
         if (!this.launcher("javadoc")) {
             String home = this.values.get(HOME);
-            defer free home;
             throw failure("Java Bridge producer requires the selected JDK's Javadoc component: ", home, "", "");
         }
     }
@@ -172,7 +167,6 @@ public final class JdkSelection {
     public int javac(TextList sources, String classPath, Path classes, Path work, StringBuilder diagnostics) throws IOException {
 
         Command command = new Command(14 + sources.size());
-        defer free command;
         this.tool(command, "javac");
         command.add("--release").add("21").add("-encoding").add("UTF-8").add("-proc:none").add("-Xlint:all");
         command.add("-Werror").add("--class-path").add(classPath).add("--source-path").add("").add("-d").add(classes);
@@ -194,7 +188,6 @@ public final class JdkSelection {
     public int javadoc(TextList sources, Path classes, Path output, Path work, StringBuilder diagnostics) throws IOException {
 
         Command command = new Command(14 + sources.size());
-        defer free command;
         this.tool(command, "javadoc");
         command.add("--release").add("21").add("-encoding").add("UTF-8").add("-quiet").add("-Xdoclint:none");
         command.add("-notimestamp").add("--class-path").add(classes).add("--source-path").add("").add("-d").add(output);
@@ -207,19 +200,15 @@ public final class JdkSelection {
 
         String javaHome = System.getenv("JAVA_HOME");
         if (javaHome != null && !javaHome.isEmpty()) {
-            defer free javaHome;
             String spelling = javaHome + "/bin/java";
-            defer free spelling;
             Path selected = workingDirectory.resolve(spelling);
             if (Files.isExecutable(selected)) return selected;
-            free selected;
             throw failure("selected Java is missing; set JAVA_HOME to a JDK: ", spelling, "", "");
         }
-        if (javaHome != null) free javaHome;
+        if (javaHome != null) ;
         if (root != null) {
             Path bundled = root.resolve("toolchain/lib/jvm/bin/java");
             if (Files.isExecutable(bundled)) return bundled;
-            free bundled;
         }
         Path found = onPath(workingDirectory);
         if (found == null) throw new IOException("selected Java is missing; set JAVA_HOME to a JDK: java on PATH");
@@ -231,7 +220,6 @@ public final class JdkSelection {
         String path = System.getenv("PATH");
         Path found = null;
         if (path != null) {
-            defer free path;
             found = ExecutableSearch.find("java", path, workingDirectory);
         }
         return found;
@@ -241,18 +229,14 @@ public final class JdkSelection {
     private static String inspect(Path java, Path scratch) throws IOException {
 
         Command command = new Command(3);
-        defer free command;
         command.add(java).add("-XshowSettings:properties").add("-version");
         Path log = Files.createTempFile(scratch, "jdk-", ".log");
-        defer free log;
         try {
             ProcessResult result = command.run(null, log);
-            defer free result;
             if (Files.size(log) > OUTPUT_LIMIT || result.exitValue() != 0) {
                 throw failure("could not inspect selected Java: ", java.toString(), "", "");
             }
             byte[] bytes = Files.readAllBytes(log);
-            defer free bytes;
             return new String(bytes);
         } finally {
             Files.deleteIfExists(log);
@@ -283,14 +267,12 @@ public final class JdkSelection {
     private boolean launcher(String name) {
 
         Path tool = this.homeChild("bin/", name);
-        defer free tool;
         return Files.isRegularFile(tool) && Files.isExecutable(tool);
     }
 
     private void requireHeader(String name) throws IOException {
 
         Path header = this.homeChild("", name);
-        defer free header;
         if (!Files.isRegularFile(header) || !Files.isReadable(header)) {
             throw failure("Java Bridge producer requires the selected JDK's JNI header: ", header.toString(), "", "");
         }
@@ -300,7 +282,6 @@ public final class JdkSelection {
     private void tool(Command command, String name) {
 
         Path tool = this.homeChild("bin/", name);
-        defer free tool;
         command.add(tool);
     }
 
@@ -308,11 +289,8 @@ public final class JdkSelection {
     private Path homeChild(String directory, String name) {
 
         String home = this.values.get(HOME);
-        defer free home;
         Path homePath = Path.of(home);
-        defer free homePath;
         String relative = directory + name;
-        defer free relative;
         return homePath.resolve(relative);
     }
 
@@ -320,7 +298,6 @@ public final class JdkSelection {
 
         for (int index = 0; index < sources.size(); index++) {
             String source = sources.get(index);
-            defer free source;
             command.add(source);
         }
     }
@@ -329,12 +306,9 @@ public final class JdkSelection {
     private static int run(Command command, Path work, StringBuilder diagnostics) throws IOException {
 
         Path log = Files.createTempFile(work, "jdk-tool-", ".log");
-        defer free log;
         try {
             ProcessResult result = command.run(work, log);
-            defer free result;
             String output = Files.readString(log);
-            defer free output;
             diagnostics.append(output);
             return result.exitValue();
         } finally {
@@ -346,7 +320,6 @@ public final class JdkSelection {
     private static IOException failure(String first, String second, String third, String fourth) {
 
         StringBuilder message = new StringBuilder();
-        defer free message;
         message.append(first);
         message.append(second);
         message.append(third);
@@ -355,8 +328,4 @@ public final class JdkSelection {
         return new IOException(text);
     }
 
-    destructor {
-
-        free this.values;
-    }
 }

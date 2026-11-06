@@ -81,12 +81,9 @@ public class GenericCallables {
         CallableValue expected = CallableUtility.expected();
 
         int result = expected != null ? 1 : nested.number();
-        free holder;
-        free copier;
         dispatched = null;
         explicit = null;
         nested = null;
-        free original;
         return result;
     }
 }

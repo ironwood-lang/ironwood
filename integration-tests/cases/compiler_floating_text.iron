@@ -21,7 +21,6 @@ class Main {
         String text = Double.toString(value);
         double back = Double.parseDouble(text);
         System.out.println("d " + Double.doubleToLongBits(value) + " " + text + " " + Double.doubleToLongBits(back));
-        free text;
     }
 
     static void emitFloat(float value) {
@@ -29,7 +28,6 @@ class Main {
         String text = Float.toString(value);
         float back = Float.parseFloat(text);
         System.out.println("f " + Float.floatToIntBits(value) + " " + text + " " + Float.floatToIntBits(back));
-        free text;
     }
 
     public static int main(String[] args) {
@@ -47,8 +45,6 @@ class Main {
             float single = Float.intBitsToFloat((int) (next() >>> 32));
             if (!Float.isNaN(single)) emitFloat(single);
         }
-        free doubles;
-        free floats;
         return 0;
     }
 }

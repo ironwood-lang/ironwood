@@ -22,7 +22,6 @@ import ironwood.compiler.diagnostic.Diagnostic;
 import ironwood.compiler.ir.IrConstant;
 import ironwood.compiler.ir.IrEnumConstant;
 import ironwood.compiler.ir.IrImmortalObject;
-import ironwood.compiler.ir.IrNull;
 import ironwood.compiler.ir.IrOperand;
 import ironwood.compiler.ir.IrStaticField;
 import ironwood.compiler.ir.IrType;

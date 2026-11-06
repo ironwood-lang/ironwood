@@ -6,7 +6,6 @@
 // restoreDeque. 3,000 seeded operations print a transcript that must equal
 // docs/self-hosting/m3/helpers-evidence/ScopeStackReference.java. Saved
 // snapshots live in a process-lived static list; every other stack and
-// snapshot is freed. Exit 42 after the allocation checks.
 import ironwood.ds.ArrayList;
 import ironwood.compiler.port.ScopeStack;
 import ironwood.compiler.port.SnapshotList;
@@ -27,7 +26,6 @@ class Main {
     static String render(ScopeStack<String> stack, int skip) {
 
         StringBuilder text = new StringBuilder();
-        defer free text;
         text.append('[');
         for (int depth = skip; depth < stack.size(); depth++) {
             if (depth > skip) text.append(',');
@@ -40,12 +38,10 @@ class Main {
     static void transcript() {
 
         ScopeStack<String> stack = new ScopeStack<String>();
-        defer free stack;
         int hash = 17;
         for (int step = 0; step < 3000; step++) {
             int op = next(20);
             StringBuilder line = new StringBuilder();
-            defer free line;
             if (op < 8) {
                 String name = names[next(names.length)];
                 stack.push(name);
@@ -62,7 +58,6 @@ class Main {
             } else if (op < 15) {
                 String rendered = render(stack, op == 13 ? 0 : 1);
                 line.append(op == 13 ? "all " : "outer ").append(rendered);
-                free rendered;
             } else if (op < 16) {
                 saved.add(stack.snapshot());
                 line.append("save ").append(saved.size() - 1);
@@ -89,7 +84,6 @@ class Main {
             String text = line.toString();
             hash = 31 * hash + text.hashCode();
             if (step < 200 || step % 100 == 0) System.out.println(text);
-            free text;
         }
         System.out.println("hash " + hash + " saved " + saved.size());
     }
@@ -101,7 +95,6 @@ class Main {
 
         long before = System.allocationCount();
         ScopeStack<String> stack = new ScopeStack<String>();
-        defer free stack;
         if (System.allocationCount() - before != 2) return false;
         before = System.allocationCount();
         for (int index = 0; index < 8; index++) stack.push(names[index]);
@@ -113,7 +106,6 @@ class Main {
         stack.push(names[8]);
         if (System.allocationCount() - before != 1) return false;
         SnapshotList<String> copy = stack.snapshot();
-        defer free copy;
         before = System.allocationCount();
         stack.clear();
         stack.restore(copy);

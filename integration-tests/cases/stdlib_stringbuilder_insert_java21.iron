@@ -45,7 +45,6 @@ class Main {
             small.append("abcd");
             small.insert(position, small);
             show(small);
-            free small;
         }
         StringBuilder builder = new StringBuilder(64);
         ThrowingText throwing = new ThrowingText();
@@ -56,8 +55,6 @@ class Main {
             // The suffix and live length already changed before charAt threw.
             show(builder);
         }
-        free throwing;
-        free builder;
         return 42;
     }
 }

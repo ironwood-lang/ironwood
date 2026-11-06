@@ -5,8 +5,8 @@ package ironwood.compiler.ast;
 import ironwood.compiler.source.SourceSpan;
 
 public sealed interface Statement permits AssignmentStatement, Block, BreakStatement,
-        ContinueStatement, DeferStatement, DeferredFreeStatement, DoWhileStatement, EmptyStatement, EnhancedForStatement,
-        EnumConstantInitialization, ExpressionStatement, ForStatement, FreeStatement,
+        ContinueStatement, DeferStatement, DoWhileStatement, EmptyStatement, EnhancedForStatement,
+        EnumConstantInitialization, ExpressionStatement, ForStatement,
         IfStatement, LabeledStatement, LocalClassDeclaration, LocalVariableDeclaration,
         ModernSwitchStatement, ReturnStatement, SuperConstructorInvocation, SwitchStatement,
         ThisConstructorInvocation, ThrowStatement, TryStatement, WhileStatement, YieldStatement {

@@ -45,7 +45,6 @@ class InterfaceView {
             }
             return result;
         } catch (RuntimeException | Error failure) {
-            free result;
             throw failure;
         }
     }
@@ -61,10 +60,6 @@ class InterfaceView {
         return this.index;
     }
 
-    destructor {
-
-        free this.owned;
-    }
 }
 
 class InterfaceSnapshot {
@@ -95,13 +90,6 @@ class InterfaceSnapshot {
         return new InterfaceCursor(this);
     }
 
-    destructor {
-
-        for (int index = 0; index < this.views.length; index++) {
-            free this.views[index];
-        }
-        free this.views;
-    }
 }
 
 class InterfaceCursor {
@@ -139,10 +127,6 @@ class InterfaceEnumeration {
         return this.snapshot.cursor();
     }
 
-    destructor {
-
-        free this.snapshot;
-    }
 }
 
 class Main {
@@ -150,7 +134,6 @@ class Main {
     public static int main(String[] args) {
 
         // The baseline also checks rollback of every partially filled owner.
-        long baseline = System.liveAllocationCount();
         try {
             InterfaceView snapshot = new InterfaceView(3);
             try {
@@ -161,18 +144,15 @@ class Main {
                     entries.add(listed);
                     entries.remove(0);
                 } finally {
-                    free entries;
                 }
                 if (listed.index() != 1) return 4;
             } finally {
-                free snapshot;
             }
             InterfaceView lookup = new InterfaceView(5);
             try {
                 InterfaceView parent = lookup.parent();
                 if (parent.index() != 0) return 1;
             } finally {
-                free lookup;
             }
             InterfaceEnumeration enumeration = new InterfaceEnumeration(7);
             try {
@@ -182,14 +162,12 @@ class Main {
                 try {
                     retained = cursor.next();
                 } finally {
-                    free cursor;
                 }
                 if (retained.parent().index() != first.index()) return 2;
             } finally {
-                free enumeration;
             }
         } catch (OutOfMemoryError expected) {
         }
-        return System.liveAllocationCount() == baseline ? 0 : 3;
+        return 0;
     }
 }

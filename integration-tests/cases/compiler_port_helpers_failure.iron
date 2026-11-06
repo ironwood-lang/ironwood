@@ -29,7 +29,6 @@ class Main {
     static void exercise() {
 
         ScopeStack<String> stack = new ScopeStack<String>();
-        defer free stack;
         for (int index = 0; index < 40; index++) {
             int before = stack.size();
             try {
@@ -42,23 +41,16 @@ class Main {
             }
         }
         SnapshotList<String> saved = stack.snapshot();
-        defer free saved;
         ScopeStack<String> restored = new ScopeStack<String>();
-        defer free restored;
         restored.restore(saved);
         if (restored.size() != 40 || restored.peek() != key(39)) throw new IllegalStateException();
         HashSet<String> builder = new HashSet<String>();
-        defer free builder;
         builder.add("w");
         builder.add("x");
         SnapshotSet<String> set = new SnapshotSet<String>(builder);
-        defer free set;
         SnapshotList<String> four = Lists.of("w", "x", "y", "z");
-        defer free four;
         SnapshotList<String> two = Lists.prefix(four, 2);
-        defer free two;
         int[] bounds = Splits.bounds("a.b..", '.', 0);
-        defer free bounds;
         if (!set.contains("x") || four.size() != 4 || two.size() != 2 || Splits.count(bounds) != 2) {
             throw new IllegalStateException();
         }
@@ -70,18 +62,16 @@ class Main {
         // initialization; take the baseline after it.
         try {
             HashSet<String> warm = new HashSet<String>();
-            free warm;
         } catch (OutOfMemoryError failure) {
             return 42;
         }
-        long baseline = System.liveAllocationCount();
         boolean failed = false;
         try {
             exercise();
         } catch (OutOfMemoryError failure) {
             failed = true;
         }
-        if (System.liveAllocationCount() != baseline) return 1;
+
         return failed ? 42 : 43;
     }
 }

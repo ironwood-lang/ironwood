@@ -49,9 +49,7 @@ class Main {
         bytes.putInt(0x12345678).putLong(0x0102030405060708L).putChar('Z')
                 .putFloat(1.5f).putDouble(-2.25);
         bytes.flip();
-        if (bytes.getInt() != 0x12345678 || bytes.getLong() != 0x0102030405060708L
-                || bytes.getChar() != 'Z' || bytes.getFloat() != 1.5f
-                || bytes.getDouble() != -2.25) return false;
+        if (bytes.getInt() != 0x12345678 || bytes.getLong() != 0x0102030405060708L || bytes.getChar() != 'Z' || bytes.getFloat() != 1.5f || bytes.getDouble() != -2.25) return false;
         bytes.clear().order(ByteOrder.LITTLE_ENDIAN).putInt(0x12345678).flip();
         if ((bytes.get() & 255) != 0x78) return false;
         bytes.clear().put((byte) 1).put((byte) 2).put((byte) 3).flip();
@@ -65,8 +63,7 @@ class Main {
         if (bytes.get() != (byte) 9) return false;
         bytes.compact();
         byte[] backing = bytes.array();
-        boolean result = bytes.position() == 1 && bytes.get(0) == (byte) 3
-                && backing[0] == (byte) 3;
+        boolean result = bytes.position() == 1 && bytes.get(0) == (byte) 3 && backing[0] == (byte) 3;
         // array() publishes shared storage, so this owning buffer is deliberately
         // not reclaimed. A slice remains a compiler-tracked loan from its owner.
         return result;
@@ -88,19 +85,9 @@ class Main {
         byte[] snapshot = bytes.toByteArray();
         ByteArrayInputStream source = new ByteArrayInputStream(snapshot);
         DataInputStream input = new DataInputStream(source);
-        boolean result = input.readBoolean() && input.readInt() == 0x12345678
-                && input.readLong() == 0x0102030405060708L && input.readFloat() == 1.5f
-                && input.readDouble() == -2.25;
+        boolean result = input.readBoolean() && input.readInt() == 0x12345678 && input.readLong() == 0x0102030405060708L && input.readFloat() == 1.5f && input.readDouble() == -2.25;
         String text = input.readUTF();
         result = result && text.equals(expectedText) && size == snapshot.length;
-        free text;
-        free expectedText;
-        free expectedUnits;
-        free input;
-        free source;
-        free snapshot;
-        free output;
-        free bytes;
         return result;
     }
 
@@ -119,14 +106,7 @@ class Main {
         ByteArrayOutputStream target = new ByteArrayOutputStream();
         long transferred = transferSource.transferTo(target);
         byte[] transferredBytes = target.toByteArray();
-        boolean result = transferred == 2L && transferredBytes.length == 2
-                && transferredBytes[0] == (byte) 5 && transferredBytes[1] == (byte) 6;
-        free transferredBytes;
-        free target;
-        free transferSource;
-        free remaining;
-        free source;
-        free sourceBytes;
+        boolean result = transferred == 2L && transferredBytes.length == 2 && transferredBytes[0] == (byte) 5 && transferredBytes[1] == (byte) 6;
         return result;
     }
 
@@ -135,8 +115,7 @@ class Main {
         byte[] completeBytes = new byte[5];
         DefaultBulkInputStream complete = new DefaultBulkInputStream(3, -1);
         int completeCount = complete.read(completeBytes, 1, 3);
-        boolean result = completeCount == 3 && completeBytes[1] == (byte) 1
-                && completeBytes[2] == (byte) 2 && completeBytes[3] == (byte) 3;
+        boolean result = completeCount == 3 && completeBytes[1] == (byte) 1 && completeBytes[2] == (byte) 2 && completeBytes[3] == (byte) 3;
 
         byte[] partialBytes = new byte[3];
         DefaultBulkInputStream partial = new DefaultBulkInputStream(3, 1);
@@ -164,13 +143,6 @@ class Main {
         }
         result = result && nonProgressRejected;
 
-        free reader;
-        free failed;
-        free failedBytes;
-        free partial;
-        free partialBytes;
-        free complete;
-        free completeBytes;
         return result;
     }
 
@@ -182,8 +154,6 @@ class Main {
         buffer.append('c');
         String text = writer.toString();
         boolean result = text.equals("abc");
-        free text;
-        free writer;
 
         ByteArrayOutputStream streamBytes = new ByteArrayOutputStream();
         PrintStream stream = new PrintStream(streamBytes);
@@ -192,9 +162,6 @@ class Main {
         stream.close();
         String streamText = streamBytes.toString();
         result = result && streamText.equals("🌲=7\n") && !stream.checkError();
-        free streamText;
-        free stream;
-        free streamBytes;
 
         StringWriter printTarget = new StringWriter();
         PrintWriter printer = new PrintWriter(printTarget);
@@ -203,9 +170,6 @@ class Main {
         printer.close();
         String printed = printTarget.toString();
         result = result && printed.equals("value=9\n") && !printer.checkError();
-        free printed;
-        free printer;
-        free printTarget;
         return result;
     }
 
@@ -215,18 +179,12 @@ class Main {
         Path name = path.getName(1);
         Path target = Path.of("alpha/delta/file");
         Path relative = path.relativize(target);
-        boolean result = path.getNameCount() == 3 && name.toString().equals("beta")
-                && path.startsWith("alpha/beta") && relative.toString().equals("../../delta/file");
-        free relative;
-        free target;
-        free name;
-        free path;
+        boolean result = path.getNameCount() == 3 && name.toString().equals("beta") && path.startsWith("alpha/beta") && relative.toString().equals("../../delta/file");
         return result;
     }
 
     public static int main(String[] args) throws IOException {
 
-        return buffers() && dataStreams() && genericStreams() && streamDefaults()
-                && writers() && paths() ? 42 : 1;
+        return buffers() && dataStreams() && genericStreams() && streamDefaults() && writers() && paths() ? 42 : 1;
     }
 }

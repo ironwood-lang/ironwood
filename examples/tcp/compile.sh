@@ -7,7 +7,7 @@ EXAMPLE_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$EXAMPLE_DIR"
 
 SOURCES=(src/main/ironwood/org/ironwood/tcp/*.iron)
-COMMAND=(ironwoodc --source-path src/main/ironwood -d target/classes --unfreed=error "${SOURCES[@]}")
+COMMAND=(ironwoodc --source-path src/main/ironwood -d target/classes "${SOURCES[@]}")
 printf '+'
 printf ' %q' "${COMMAND[@]}"
 printf '\n'

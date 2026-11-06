@@ -17,12 +17,9 @@ class Main {
     static void temporaries(Path scratch) throws IOException {
 
         Path file = Files.createTempFile(scratch, "file-", ".tmp");
-        defer free file;
         try {
             Path real = file.toRealPath();
-            defer free real;
             BasicFileAttributes attributes = Files.readAttributesNoFollow(real);
-            defer free attributes;
             if (!attributes.isRegularFile() || !Files.isReadable(file) || Files.isExecutable(file)) {
                 throw new IllegalStateException();
             }
@@ -32,31 +29,25 @@ class Main {
         }
         if (Files.deleteIfExists(file)) throw new IllegalStateException();
         Path directory = Files.createTempDirectory(scratch, "directory-");
-        defer free directory;
         if (!Files.isExecutable(directory) || !Files.deleteIfExists(directory)) throw new IllegalStateException();
     }
 
     static void defaults() throws IOException {
 
         Path file = Files.createTempFile(null, null);
-        defer free file;
         Files.delete(file);
         Path directory = Files.createTempDirectory("default-");
-        defer free directory;
         Files.delete(directory);
     }
 
     static void exercise(String scratchText) throws IOException {
 
         Path scratch = Path.of(scratchText);
-        defer free scratch;
         temporaries(scratch);
         defaults();
     }
 
     public static int main(String[] args) {
-
-        long baseline = System.liveAllocationCount();
         boolean failed = false;
         try {
             exercise(args[0]);
@@ -65,7 +56,7 @@ class Main {
         } catch (IOException unexpected) {
             return 2;
         }
-        if (System.liveAllocationCount() != baseline) return 1;
+
         return failed ? 42 : 43;
     }
 }

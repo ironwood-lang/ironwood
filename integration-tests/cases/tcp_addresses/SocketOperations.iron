@@ -31,13 +31,13 @@ class SocketOperations {
                     InetAddress remote = client.getInetAddress();
                     if (!remote.getHostName().equals("localhost")) return 7;
                 } finally {
-                    try { peer.close(); } finally { free peer; }
+                    try { peer.close(); } finally { ; }
                 }
             } finally {
-                try { client.close(); } finally { free client; }
+                try { client.close(); } finally { ; }
             }
         } finally {
-            try { server.close(); } finally { free server; }
+            try { server.close(); } finally { ; }
         }
         return 0;
     }

@@ -33,7 +33,6 @@ class Main {
 
         try {
             byte[] result = inflate.inflate(bytes, 0, length, 1 << 26);
-            free result;
             return false;
         } catch (IOException expected) {
             return true;
@@ -43,7 +42,6 @@ class Main {
     static boolean rejectsSize(Inflate inflate, byte[] bytes, int size) {
 
         byte[] output = new byte[size];
-        defer free output;
         try {
             inflate.inflate(bytes, 0, bytes.length, output);
             return false;
@@ -65,12 +63,9 @@ class Main {
     static void check(Inflate inflate, byte[] bytes, byte[] decoded, int consumed) throws IOException {
 
         byte[] exact = new byte[decoded.length];
-        defer free exact;
         if (inflate.inflate(bytes, 0, bytes.length, exact) != consumed || !same(exact, decoded)) failures++;
         byte[] placed = placed(bytes);
-        defer free placed;
         byte[] moved = inflate.inflate(placed, 13, bytes.length + 5, 1 << 26);
-        defer free moved;
         if (inflate.consumed() != consumed || !same(moved, decoded)) failures++;
         if (!rejectsSize(inflate, bytes, decoded.length + 1)) failures++;
         if (decoded.length > 0 && !rejectsSize(inflate, bytes, decoded.length - 1)) failures++;
@@ -85,11 +80,8 @@ class Main {
     static void stream(Inflate inflate, Sha256 digest, String name) throws IOException {
 
         Path path = Path.of(name);
-        defer free path;
         Path file = path.getFileName();
-        defer free file;
         byte[] bytes = Files.readAllBytes(path);
-        defer free bytes;
         byte[] decoded = null;
         try {
             decoded = inflate.inflate(bytes, 0, bytes.length, 1 << 26);
@@ -97,13 +89,10 @@ class Main {
             System.out.println(file.toString() + " error");
             return;
         }
-        defer free decoded;
         int consumed = inflate.consumed();
         digest.update(decoded, 0, decoded.length);
         String hex = digest.hexDigest();
-        defer free hex;
         String prefix = hex.substring(0, 16);
-        defer free prefix;
         System.out.println(file.toString() + " ok " + decoded.length + " " + prefix + " " + consumed);
         check(inflate, bytes, decoded, consumed);
     }
@@ -111,9 +100,7 @@ class Main {
     public static int main(String[] args) {
 
         Inflate inflate = new Inflate();
-        defer free inflate;
         Sha256 digest = new Sha256();
-        defer free digest;
         try {
             for (int index = 0; index < args.length; index++) stream(inflate, digest, args[index]);
         } catch (IOException failure) {

@@ -5,8 +5,7 @@ package ironwood.compiler.ir;
 import java.util.List;
 
 public record IrArrayType(IrType type, int typeId, List<Integer> typeMembership,
-                          List<IrDispatchEntry> dispatchEntries,
-                          boolean toStringReturnsOwnedFresh) {
+                          List<IrDispatchEntry> dispatchEntries) {
     public IrArrayType {
         if (!type.isArray()) {
             throw new IllegalArgumentException("array metadata requires an array IR type");

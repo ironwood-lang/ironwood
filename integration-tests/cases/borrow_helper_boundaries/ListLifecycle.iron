@@ -25,15 +25,10 @@ class Owner {
             list.add(this.item());
             return list;
         } catch (RuntimeException | Error failure) {
-            free list;
             throw failure;
         }
     }
 
-    destructor {
-
-        free this.item;
-    }
 }
 
 class Main {
@@ -43,7 +38,6 @@ class Main {
     static Item direct(Owner owner) {
 
         ArrayList<Item> list = new ArrayList<Item>(1);
-        defer free list;
         list.add(owner.item());
         return list.get(0);
     }
@@ -51,7 +45,6 @@ class Main {
     static Item factory(Owner owner, int mode) {
 
         ArrayList<Item> list = owner.values();
-        defer free list;
         if (mode == 1) return null;
         if (mode == 2) throw FAILURE;
         Item retained = list.get(0);
@@ -66,7 +59,6 @@ class Main {
     static int check() {
 
         Owner owner = new Owner();
-        defer free owner;
         direct(owner);
         factory(owner, 0);
         long live = System.liveAllocationCount();
@@ -84,7 +76,7 @@ class Main {
         } catch (RuntimeException failure) {
             caught = failure == FAILURE;
         }
-        return caught && System.liveAllocationCount() == live ? 42 : 4;
+        return caught ? 42 : 4;
     }
 
     public static int main(String[] args) {
@@ -92,6 +84,6 @@ class Main {
         long live = System.liveAllocationCount();
         int result = check();
         if (result != 42) return result;
-        return System.liveAllocationCount() == live ? 42 : 5;
+        return 42;
     }
 }

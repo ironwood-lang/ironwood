@@ -40,9 +40,7 @@ class Main {
         launch("inherited directory", null, "out.log", helper, "cwd", null);
         launch("relative output", child, "relative.log", helper, "cwd", null);
         Path here = Path.of("relative.log");
-        defer free here;
         Path there = Path.of("child/relative.log");
-        defer free there;
         System.out.println(Files.exists(here) && !Files.exists(there)
                 ? "relative output -> written in the parent's directory" : "relative output -> misplaced");
         launch("stdin", null, "out.log", helper, "stdin", null);
@@ -58,7 +56,6 @@ class Main {
         launch("missing output parent", null, "missing-dir/out.log", helper, "exit", "0");
         launch("directory as output", null, "child", helper, "exit", "0");
         String[] empty = {};
-        defer free empty;
         run("empty command", empty, null, "out.log");
         launch("relative executable", null, "out.log", "process_helper", "exit", "0");
         repeated();
@@ -70,22 +67,15 @@ class Main {
     static void literals() throws IOException {
 
         Path output = Path.of("out.log");
-        defer free output;
         String surrogate = text((char) 0xD800);
-        defer free surrogate;
         String[] literal = {helper, "argv", "a b", "'q'", "\"d\"", "$HOME", "*", ";|&", "back\\slash", "", "🌲",
                 surrogate};
-        defer free literal;
         ProcessResult result = ProcessRunner.runToFile(literal, null, output);
-        defer free result;
         completed("literal argv", result, output);
         String nul = text((char) 0);
-        defer free nul;
         String[] withNul = {helper, "argv", nul};
-        defer free withNul;
         try {
             ProcessResult rejected = ProcessRunner.runToFile(withNul, null, output);
-            free rejected;
             System.out.println("NUL argument -> launched");
         } catch (IllegalArgumentException expected) {
             System.out.println("NUL argument -> !IllegalArgumentException");
@@ -98,7 +88,6 @@ class Main {
 
         int length = first == null ? 1 : second == null ? 2 : 3;
         String[] command = new String[length];
-        defer free command;
         command[0] = executable;
         if (length > 1) command[1] = first;
         if (length > 2) command[2] = second;
@@ -112,17 +101,14 @@ class Main {
             return;
         }
         Path directoryPath = Path.of(directory);
-        defer free directoryPath;
         attempt(name, command, directoryPath, output);
     }
 
     static void attempt(String name, String[] command, Path directoryPath, String output) {
 
         Path outputPath = Path.of(output);
-        defer free outputPath;
         try {
             ProcessResult result = ProcessRunner.runToFile(command, directoryPath, outputPath);
-            defer free result;
             completed(name, result, outputPath);
         } catch (IOException failure) {
             failed(name, failure);
@@ -134,7 +120,6 @@ class Main {
     static void completed(String name, ProcessResult result, Path output) throws IOException {
 
         StringBuilder line = new StringBuilder();
-        defer free line;
         line.append(name).append(" -> ");
         if (result.signaled()) line.append("signal ").append(result.signal()).append(' ');
         line.append("exit ").append(result.exitValue());
@@ -143,9 +128,7 @@ class Main {
             line.append(" size ").append(size);
         } else {
             String text = Files.readString(output);
-            defer free text;
             String flat = text.replace('\n', '|');
-            defer free flat;
             line.append(" output ").append(flat);
         }
         emit(line);
@@ -154,7 +137,6 @@ class Main {
     static void failed(String name, IOException failure) {
 
         StringBuilder line = new StringBuilder();
-        defer free line;
         line.append(name).append(" -> !");
         if (failure instanceof NoSuchFileException) line.append("NoSuchFileException");
         else if (failure instanceof AccessDeniedException) line.append("AccessDeniedException");
@@ -174,13 +156,9 @@ class Main {
     static void descriptors() throws IOException {
 
         Path plain = Path.of("plain.txt");
-        defer free plain;
         FileInputStream input = new FileInputStream(plain);
-        defer free input;
         Path here = Path.of(".");
-        defer free here;
         DirectoryStream<Path> entries = Files.newDirectoryStream(here);
-        defer free entries;
         launch("open descriptors", null, "out.log", helper, "fds", null);
         entries.close();
         input.close();
@@ -191,13 +169,10 @@ class Main {
 
         int before = openDescriptors();
         String[] command = {helper, "exit", "0"};
-        defer free command;
         Path output = Path.of("repeat.log");
-        defer free output;
         for (int round = 0; round < 300; round++) {
             ProcessResult result = ProcessRunner.runToFile(command, null, output);
             int value = result.exitValue();
-            free result;
             if (value != 0) throw new IllegalStateException();
         }
         int after = openDescriptors();
@@ -208,15 +183,11 @@ class Main {
     static int openDescriptors() throws IOException {
 
         String system = System.getProperty("os.name");
-        defer free system;
         Path directory = Path.of(system.startsWith("Mac") ? "/dev/fd" : "/proc/self/fd");
-        defer free directory;
         DirectoryStream<Path> entries = Files.newDirectoryStream(directory);
-        defer free entries;
         int count = 0;
         while (entries.hasNext()) {
             Path entry = entries.nextEntry();
-            free entry;
             count++;
         }
         entries.close();
@@ -227,7 +198,6 @@ class Main {
     static String text(char unit) {
 
         StringBuilder value = new StringBuilder();
-        defer free value;
         value.append('a').append(unit).append('b');
         return value.toString();
     }
@@ -235,9 +205,7 @@ class Main {
     static void emit(StringBuilder line) {
 
         String text = line.toString();
-        defer free text;
         String shown = text.replace(scratch, "<s>");
-        defer free shown;
         System.out.println(shown);
     }
 }

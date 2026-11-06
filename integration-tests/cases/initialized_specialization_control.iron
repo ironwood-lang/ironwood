@@ -96,7 +96,6 @@ class Main {
         int sum = 0;
         for (int i = 0; i < count; i++) {
             Box value = new Box(i);
-            defer free value;
             defer note(i);
             try {
                 for (int j = 0; j < 4; j++) {
@@ -133,10 +132,7 @@ class Main {
     public static int main(String[] args) {
 
         Early early = new Early();
-        defer free early;
         Late late = new Late();
-        defer free late;
-        long live = System.liveAllocationCount();
         if (control(0, false) != 0 || cleanup != 0 || captured != 0) return 1;
         if (control(3, false) != 38 || cleanup != 3 || captured != 123) return 2;
         Mutable.current = Mode.FIRST;
@@ -145,7 +141,7 @@ class Main {
         Mutable.current = Mode.FIRST;
         captured = 0;
         if (control(3, true) != 142 || cleanup != 9 || captured != 123) return 4;
-        if (System.liveAllocationCount() != live) return 5;
+
         if (dispatch(late, 0, true) != 0 || hidden != 0) return 6;
         if (dispatch(early, 2, true) != 30 || hidden != 0) return 7;
         if (dispatch(late, 2, false) != 20 || hidden != 0) return 8;

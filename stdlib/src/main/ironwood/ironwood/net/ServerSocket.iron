@@ -87,7 +87,7 @@ public class ServerSocket implements Closeable {
 
     /**
      * Creates an unbound facade borrowing a non-null caller-owned implementation. Close cascades
-     * to it; free does not reclaim it. Keep the implementation and its delegates alive until
+     * to it. Keep its resource lifecycle and delegates valid until
      * facade reclamation.
      *
      * @param implementation the non-null implementation to borrow
@@ -231,7 +231,7 @@ public class ServerSocket implements Closeable {
     /**
      * Closes the resource idempotently and marks this facade closed before delegating. Also closes
      * a caller-supplied implementation without adopting it. Managed storage and cached metadata
-     * remain until free; prior binding history is preserved.
+     * remain reachable with the object; prior binding history is preserved.
      *
      * @throws IOException if the implementation reports a close failure
      */

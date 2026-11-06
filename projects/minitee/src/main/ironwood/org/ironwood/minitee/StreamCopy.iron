@@ -7,14 +7,12 @@ import ironwood.io.InputStream;
 import ironwood.io.OutputStream;
 
 // Copy arbitrary bytes without decoding or accumulating the input. One 8 KiB
-// allocation is reused for the complete operation and freed even on failure.
 // Both streams are borrowed; resource lifetime belongs to the caller.
 final class StreamCopy {
 
     static void copy(InputStream input, OutputStream output) throws IOException {
 
         byte[] bytes = new byte[8192];
-        defer free bytes;
         int count = input.read(bytes);
         while (count >= 0) {
             if (count == 0) throw new IOException("Input made no progress");

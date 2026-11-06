@@ -7,4 +7,4 @@ source "$BRIDGE_JDK_ROOT/scripts/jdk.sh"
 ironwood_select_java "$BRIDGE_JDK_ROOT"
 GENERIC_ROOT=$(CDPATH= cd -- "$GENERIC_EXAMPLE/../../.." && pwd)
 set -x
-"$GENERIC_ROOT/bin/ironwoodc" --unfreed=off -d "$GENERIC_EXAMPLE/target/classes" "$GENERIC_EXAMPLE/"*.iron
+"$GENERIC_ROOT/bin/ironwoodc" -d "$GENERIC_EXAMPLE/target/classes" "$GENERIC_EXAMPLE/"*.iron

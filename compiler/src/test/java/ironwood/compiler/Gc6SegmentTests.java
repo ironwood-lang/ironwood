@@ -29,7 +29,7 @@ public final class Gc6SegmentTests {
         var fields = List.of(new IrField(throwable.referenceName(), "message", OBJECT, 0, SPAN),
                 new IrField(throwable.referenceName(), "cause", throwable, 1, SPAN),
                 new IrField(throwable.referenceName(), "<gcMetadata>", OBJECT, 2, SPAN),
-                new IrField(throwable.referenceName(), "ownedMessage", OBJECT, 3, SPAN),
+                new IrField(throwable.referenceName(), "causeMessage", OBJECT, 3, SPAN),
                 new IrField(throwable.referenceName(), "causeInitialized", IrType.I1, 4, SPAN));
         var link = new IrField("Gc6Node", "link", NODE, 0, SPAN);
         var payload = new IrField("Gc6Node", "payload", IrType.I64, 1, SPAN);

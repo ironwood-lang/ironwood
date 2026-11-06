@@ -13,6 +13,8 @@ public final class OrderBookBatch {
 
     }
 
+    public static long allocations() { return System.allocationCount(); }
+
     public static long run(OrderBook book, long cycles, long nextOrderId) {
 
         for (long cycle = 0; cycle < cycles; cycle++) {

@@ -79,9 +79,9 @@ final class BackendHelperTests {
                     target.toString()));
             Path classes = root.resolve("module");
             run(List.of(PORT + "LlvmScan.iron", PORT + "Sha256.iron", "integration-tests/cases/compiler_llvm_scan.iron",
-                    "--unfreed=warn", "-d", classes.toString()));
+                    "-d", classes.toString()));
             Path emitted = real.resolve("emitted.ll");
-            run(List.of("--link", "-cp", classes.toString(), "--main-class", "Main", "--unfreed=warn", "-O3",
+            run(List.of("--link", "-cp", classes.toString(), "--main-class", "Main", "-O3",
                     "--emit-llvm", emitted.toString(), "-o", real.resolve("module-program").toString()));
             Path optimized = real.resolve("optimized.ll");
             tool(List.of(tools.opt().toString(), "-passes=default<O3>", "-S", emitted.toString(), "-o",
@@ -199,8 +199,7 @@ final class BackendHelperTests {
                     1, "error: missing compiler version file: " + missing + "/VERSION\n");
             String expected = "ironwoodc " + CompilerVersion.current() + "\n";
             Path classes = root.resolve("compiler_build_identity");
-            run(List.of(generated.toString(), "integration-tests/cases/compiler_build_identity.iron", "--unfreed=warn",
-                    "-d", classes.toString()));
+            run(List.of(generated.toString(), "integration-tests/cases/compiler_build_identity.iron", "-d", classes.toString()));
             for (Path executable : archived(root, "compiler_build_identity", classes)) {
                 execute(List.of(executable.toString()), null, Map.of(), null, 42, expected);
             }
@@ -219,39 +218,27 @@ final class BackendHelperTests {
                 import ironwood.nio.file.Path;
                 class Main { public static int main(String[] args) throws ironwood.io.IOException {
                 """;
-        for (UnfreedMode mode : UnfreedMode.values()) {
+        // This fixture scope preserves independent local names.
+{
             // Digests own their state; results belong to the caller.
-            require(mode, helpers, prefix + "Md5 digest = new Md5(); digest.updateUtf8(\"a\"); byte[] raw = digest.digest();"
-                    + " free raw; long guid = digest.linkageGuid(\"main\"); free digest; return (int) guid; }}", null);
-            require(mode, helpers, prefix + "Md5 digest = new Md5(); free digest; digest.update(1); return 0; }}",
-                    "after its allocation was freed");
-            require(mode, helpers, prefix + "Md5 digest = new Md5(); byte[] raw = digest.digest(); free raw; free raw;"
-                    + " free digest; return 0; }}", "freed");
+            require(helpers, prefix + "Md5 digest = new Md5(); digest.updateUtf8(\"a\"); byte[] raw = digest.digest(); ; long guid = digest.linkageGuid(\"main\"); ; return (int) guid; }}", null);
+            require(helpers, prefix + "Md5 digest = new Md5(); ; digest.update(1); return 0; }}",
+                    null);
+            require(helpers, prefix + "Md5 digest = new Md5(); byte[] raw = digest.digest(); ; ; ; return 0; }}", null);
             // Slices are independent of their source.
-            require(mode, helpers, prefix + "byte[] source = new byte[4]; byte[] slice = Bytes.slice(source, 1, 3);"
-                    + " free source; int r = slice.length; free slice; return r; }}", null);
-            require(mode, helpers, prefix + "byte[] source = new byte[4]; byte[] slice = Bytes.slice(source, 1, 3);"
-                    + " free slice; free source; return slice.length; }}", "after its allocation was freed");
+            require(helpers, prefix + "byte[] source = new byte[4]; byte[] slice = Bytes.slice(source, 1, 3); ; int r = slice.length; ; return r; }}", null);
+            require(helpers, prefix + "byte[] source = new byte[4]; byte[] slice = Bytes.slice(source, 1, 3); ; ; return slice.length; }}", null);
             // Text and scan results are fresh.
-            require(mode, helpers, prefix + "String text = LlvmText.scientific(1.5); String hex = LlvmText.hexBits(1L);"
-                    + " int r = text.length() + hex.length(); free hex; free text; return r; }}", null);
-            require(mode, helpers, prefix + "String text = LlvmText.decodeSymbol(\"@main\"); free text;"
-                    + " return text.length(); }}", "after its allocation was freed");
-            require(mode, helpers, prefix + "String value = LlvmScan.specification(\"target triple = \\\"t\\\"\", \"triple\");"
-                    + " free value; free value; return 0; }}", "freed");
+            require(helpers, prefix + "String text = LlvmText.scientific(1.5); String hex = LlvmText.hexBits(1L); int r = text.length() + hex.length(); ; ; return r; }}", null);
+            require(helpers, prefix + "String text = LlvmText.decodeSymbol(\"@main\"); ; return text.length(); }}", null);
+            require(helpers, prefix + "String value = LlvmScan.specification(\"target triple = \\\"t\\\"\", \"triple\"); ; ; return 0; }}", null);
             // A parse owns a copy: the caller frees its text at once, and keys outlive the parse.
-            require(mode, helpers, prefix + "String text = \"k=v\".substring(0); PropertiesText parsed = PropertiesText.parse(text);"
-                    + " free text; String key = parsed.key(0); free parsed; int r = key.length(); free key; return r; }}", null);
-            require(mode, helpers, prefix + "PropertiesText parsed = PropertiesText.parse(\"k=v\"); free parsed;"
-                    + " return parsed.size(); }}", "after its allocation was freed");
+            require(helpers, prefix + "String text = \"k=v\".substring(0); PropertiesText parsed = PropertiesText.parse(text); ; String key = parsed.key(0); ; int r = key.length(); ; return r; }}", null);
+            require(helpers, prefix + "PropertiesText parsed = PropertiesText.parse(\"k=v\"); ; return parsed.size(); }}", null);
             // Library roots are lent by their owner.
-            require(mode, helpers, prefix + "LibraryRoots roots = new LibraryRoots(); Installation.librarySourceRoots(null, roots);"
-                    + " int r = roots.size() > 0 ? roots.root(0).toString().length() : 0; free roots; return r; }}", null);
-            require(mode, helpers, prefix + "LibraryRoots roots = new LibraryRoots(); Installation.librarySourceRoots(null, roots);"
-                    + " Path first = roots.root(0); free first; free roots; return 0; }}", "cannot free 'first'");
-            require(mode, helpers, prefix + "StringBuilder error = new StringBuilder(); Path runtime ="
-                    + " Installation.runtimeSource(null, error); free error; if (runtime != null) free runtime;"
-                    + " return 0; }}", null);
+            require(helpers, prefix + "LibraryRoots roots = new LibraryRoots(); Installation.librarySourceRoots(null, roots); int r = roots.size() > 0 ? roots.root(0).toString().length() : 0; ; return r; }}", null);
+            require(helpers, prefix + "LibraryRoots roots = new LibraryRoots(); Installation.librarySourceRoots(null, roots); Path first = roots.root(0); ; ; return 0; }}", null);
+            require(helpers, prefix + "StringBuilder error = new StringBuilder(); Path runtime = Installation.runtimeSource(null, error); ; if (runtime != null) ; return 0; }}", null);
         }
     }
 
@@ -293,8 +280,7 @@ final class BackendHelperTests {
         Path classes = root.resolve(fixture);
         List<String> arguments = new ArrayList<>();
         for (String helper : helpers) arguments.add(PORT + helper + ".iron");
-        arguments.addAll(List.of("integration-tests/cases/" + fixture + ".iron", "--unfreed=warn",
-                "-d", classes.toString()));
+        arguments.addAll(List.of("integration-tests/cases/" + fixture + ".iron", "-d", classes.toString()));
         run(arguments);
         return archived(root, fixture, classes);
     }
@@ -310,8 +296,7 @@ final class BackendHelperTests {
         List<Path> executables = new ArrayList<>();
         for (Path input : List.of(classes, archive)) {
             Path executable = root.resolve(input.getFileName() + "-program");
-            run(List.of("--link", "-cp", input.toString(), "--main-class", "Main", "--unfreed=warn",
-                    "-O3", "-o", executable.toString()));
+            run(List.of("--link", "-cp", input.toString(), "--main-class", "Main", "-O3", "-o", executable.toString()));
             executables.add(executable);
         }
         return executables;
@@ -385,14 +370,14 @@ final class BackendHelperTests {
         return process.exitValue();
     }
 
-    private static void require(UnfreedMode mode, List<SourceFile> helpers, String source, String rejection) {
+    private static void require(List<SourceFile> helpers, String source, String rejection) {
         List<SourceFile> sources = new ArrayList<>(helpers);
         sources.add(SourceFile.of("test/Main.iron", source));
-        CompilationArtifact artifact = new CompilerPipeline(mode).compile(sources);
+        CompilationArtifact artifact = new CompilerPipeline().compile(sources);
         String messages = String.join("; ", artifact.diagnostics().stream()
                 .map(diagnostic -> diagnostic.message()).toList());
         if (rejection == null ? !artifact.successful() : artifact.successful() || !messages.contains(rejection)) {
-            throw new AssertionError("backend helper ownership under " + mode + ": " + messages + "\n" + source);
+            throw new AssertionError("backend helper ownership under " + "GC" + ": " + messages + "\n" + source);
         }
     }
 

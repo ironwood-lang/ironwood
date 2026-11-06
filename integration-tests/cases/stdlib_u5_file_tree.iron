@@ -125,23 +125,16 @@ class Main {
         Path root = Path.of(args[0]);
         CountingVisitor skipped = new CountingVisitor(true);
         Files.walkFileTree(root, skipped);
-        if (skipped.directories != 3 || skipped.files != 4
-                || skipped.symbolicLinks != 2 || skipped.failures != 0
-                || skipped.posts != 2) return 1;
+        if (skipped.directories != 3 || skipped.files != 4 || skipped.symbolicLinks != 2 || skipped.failures != 0 || skipped.posts != 2) return 1;
 
         CountingVisitor recursive = new CountingVisitor(false);
-        long baseline = System.liveAllocationCount();
         Files.walkFileTree(root, recursive);
-        if (recursive.directories != 3 || recursive.files != 5
-                || recursive.symbolicLinks != 2 || recursive.failures != 0
-                || recursive.posts != 3) return 2;
-        if (System.liveAllocationCount() != baseline) return 2;
+        if (recursive.directories != 3 || recursive.files != 5 || recursive.symbolicLinks != 2 || recursive.failures != 0 || recursive.posts != 3) return 2;
+
 
         CountingVisitor followed = new CountingVisitor(false);
         Files.walkFileTree(root, 10, true, followed);
-        if (followed.directories != 3 || followed.files != 4
-                || followed.symbolicLinks != 0 || followed.failures != 1
-                || followed.loops != 1 || followed.posts != 3) return 3;
+        if (followed.directories != 3 || followed.files != 4 || followed.symbolicLinks != 0 || followed.failures != 1 || followed.loops != 1 || followed.posts != 3) return 3;
 
         // Failure exceptions may outlive callbacks and reclaimed traversal paths.
         FailureVisitor retaining = new FailureVisitor(false);
@@ -160,8 +153,7 @@ class Main {
 
         CountingVisitor bounded = new CountingVisitor(false);
         Files.walkFileTree(root, 1, false, bounded);
-        if (bounded.directories != 1 || bounded.files != 4
-                || bounded.symbolicLinks != 1 || bounded.posts != 1) return 4;
+        if (bounded.directories != 1 || bounded.files != 4 || bounded.symbolicLinks != 1 || bounded.posts != 1) return 4;
 
         Path control = Path.of(args[1]);
         ControlVisitor terminate = new ControlVisitor(1);
@@ -182,19 +174,7 @@ class Main {
         if (!nullRejected) return 7;
         DirectoryStream<Path> reopened = Files.newDirectoryStream(control);
         reopened.close();
-        free reopened;
 
-        free invalid;
-        free siblings;
-        free terminate;
-        free control;
-        free bounded;
-        free rethrowing;
-        free retaining;
-        free followed;
-        free recursive;
-        free skipped;
-        free root;
         return 42;
     }
 }

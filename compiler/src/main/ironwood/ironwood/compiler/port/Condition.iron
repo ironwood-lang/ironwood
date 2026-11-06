@@ -4,8 +4,7 @@ package ironwood.compiler.port;
 
 /**
  * Compiler-local replacement for {@code Predicate} (API0613), as in
- * TemporaryBorrowAnalysis.hasCandidate and UnfreedAllocationTracker.observe,
- * which test in encounter order and stop at the first true result.
+ * reference predicates that test in encounter order and stop at the first true result.
  *
  * @param <T> the reference argument type
  */

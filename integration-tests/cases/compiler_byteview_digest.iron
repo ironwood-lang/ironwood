@@ -5,7 +5,6 @@
 // (from source, a .ironclass or the library archive) or a changed copy. For
 // each one this prints the lowercase digest of the content's UTF-8 bytes, as
 // ByteViewIntrinsic.trusted computes it, and whether it equals the trusted
-// SOURCE_SHA256. The digest object is reused; each text and digest is freed.
 // Exit 42 after reading every argument.
 import ironwood.compiler.port.Sha256;
 import ironwood.nio.file.Files;
@@ -19,16 +18,12 @@ class Main {
     public static int main(String[] args) {
 
         Sha256 digest = new Sha256();
-        defer free digest;
         for (int index = 0; index < args.length; index++) {
             Path path = Paths.get(args[index]);
-            defer free path;
             try {
                 String content = Files.readString(path);
-                defer free content;
                 digest.updateUtf8(content);
                 String hex = digest.hexDigest();
-                defer free hex;
                 System.out.println(index + " " + hex + " " + hex.equals(SOURCE_SHA256));
             } catch (ironwood.io.IOException failure) {
                 System.out.println(index + " unreadable");

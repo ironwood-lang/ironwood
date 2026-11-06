@@ -5,7 +5,7 @@ import ironwood.io.*;
 
 // Exact accepted-connection allocation ledger. The peer and reusable payload
 // exist before each measured interval. Numeric results and rendering are charged
-// separately, and every accepted graph must restore its live baseline.
+// separately. Closing native sockets must allocate nothing; collection is separate.
 class Metrics {
 
     public static int main(String[] args) throws IOException {
@@ -21,29 +21,24 @@ class Metrics {
         if (!ipv6) raw[0] = 127;
         raw[raw.length - 1] = 1;
         InetAddress loopback = InetAddress.getByAddress(raw);
-        free raw;
         ServerSocket listener = new ServerSocket();
         listener.bind(null);
         listener.supportedOptions().size();
         byte[] wildcard = listener.getInetAddress().getAddress();
         int policyFailure = wildcard.length == 4 && wildcard[0] == 0 && wildcard[3] == 0 ? 0 : 4;
-        free wildcard;
         InetSocketAddress endpoint = new InetSocketAddress(loopback, listener.getLocalPort());
-        free loopback;
         byte[] bytes = {3, 5, 7, 11};
         byte[] received = new byte[4];
         // Warm only process-lifetime option and factory metadata.
         Socket warm = new Socket();
         warm.supportedOptions().size();
         warm.close();
-        free warm;
         int failure = policyFailure;
         for (int cycle = 0; cycle < cycles; cycle++) {
             Socket peer = new Socket();
             peer.connect(endpoint);
             OutputStream peerOutput = peer.getOutputStream();
             InputStream peerInput = peer.getInputStream();
-            long baseline = System.liveAllocationCount();
             long before = System.allocationCount();
             Socket socket = listener.accept();
             long afterAccept = System.allocationCount();
@@ -69,43 +64,33 @@ class Metrics {
             long resultsBefore = System.allocationCount();
             SocketAddress snapshot = socket.getRemoteSocketAddress();
             long snapshotCost = System.allocationCount() - resultsBefore;
-            free snapshot;
             resultsBefore = System.allocationCount();
             InetAddress copy = socket.getInetAddress().copy();
             long copyCost = System.allocationCount() - resultsBefore;
-            free copy;
             resultsBefore = System.allocationCount();
             byte[] addressBytes = socket.getInetAddress().getAddress();
             long bytesCost = System.allocationCount() - resultsBefore;
             if (addressBytes.length != (ipv6 ? 16 : 4)) failure = 5;
-            free addressBytes;
             resultsBefore = System.allocationCount();
             String rendered = socket.getInetAddress().getHostAddress();
             long renderCost = System.allocationCount() - resultsBefore;
-            free rendered;
             resultsBefore = System.allocationCount();
             String addressText = socket.getInetAddress().toString();
             long addressRender = System.allocationCount() - resultsBefore;
-            free addressText;
             SocketAddress renderedEndpoint = socket.getRemoteSocketAddress();
             resultsBefore = System.allocationCount();
             String endpointText = renderedEndpoint.toString();
             long endpointRender = System.allocationCount() - resultsBefore;
-            free endpointText;
-            free renderedEndpoint;
             resultsBefore = System.allocationCount();
             String socketText = socket.toString();
             long socketRender = System.allocationCount() - resultsBefore;
-            free socketText;
             resultsBefore = System.allocationCount();
             String listenerText = listener.toString();
             long listenerRender = System.allocationCount() - resultsBefore;
-            free listenerText;
+            long beforeClose = System.allocationCount();
             socket.close();
-            free socket;
-            long afterFree = System.liveAllocationCount();
+            long closeAllocations = System.allocationCount() - beforeClose;
             peer.close();
-            free peer;
             System.out.print("LEDGER ");
             System.out.print(afterAccept - before);
             System.out.print(' ');
@@ -115,7 +100,7 @@ class Metrics {
             System.out.print(' ');
             System.out.print(afterRepeated - afterAddresses);
             System.out.print(' ');
-            System.out.print(afterFree - baseline);
+            System.out.print(closeAllocations);
             System.out.print(' ');
             System.out.print(snapshotCost);
             System.out.print(' ');
@@ -134,10 +119,6 @@ class Metrics {
             System.out.println(listenerRender);
         }
         listener.close();
-        free listener;
-        free endpoint;
-        free bytes;
-        free received;
         return failure;
     }
 }

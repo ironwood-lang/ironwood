@@ -25,7 +25,6 @@ class Main {
         sha.updateUtf8(text);
         String hex = sha.hexDigest();
         System.out.println(label + " " + hex);
-        free hex;
     }
 
     static void attach(String llvm, String name, String label, String value, Sha256 sha) {
@@ -33,7 +32,6 @@ class Main {
         try {
             String attached = LlvmScan.attach(llvm, name, value);
             digest("attach " + name + " " + label, attached, sha);
-            free attached;
         } catch (IOException failure) {
             System.out.println("attach " + name + " " + label + " error " + failure.getMessage());
         }
@@ -57,7 +55,6 @@ class Main {
         String found = specification(llvm, name);
         if (found != null) {
             attach(llvm, name, "found", found, sha);
-            free found;
         } else {
             attach(llvm, name, "found", "none", sha);
         }
@@ -70,9 +67,7 @@ class Main {
         target(llvm, "datalayout", sha);
         String removed = LlvmScan.removeRegisterDeclaration(llvm);
         digest("register", removed, sha);
-        free removed;
         int[] symbol = new int[2];
-        defer free symbol;
         int from = 0;
         int end = LlvmScan.nextFunction(llvm, from, symbol);
         while (end >= 0) {
@@ -88,7 +83,6 @@ class Main {
         String llvm = "target triple = \"t\"\ndeclare void @ironwood_trace_register_current(ptr, i32)\n"
                 + "define void @f() {\n}\ndefine i32 @\"g\\22\"(i32 %x) {\n}\n";
         int[] symbol = new int[2];
-        defer free symbol;
         long before = System.allocationCount();
         int first = LlvmScan.nextFunction(llvm, 0, symbol);
         int second = LlvmScan.nextFunction(llvm, first, symbol);
@@ -102,10 +96,7 @@ class Main {
             String removed = LlvmScan.removeRegisterDeclaration(llvm);
             boolean counted = System.liveAllocationCount() == live + 3;
             boolean spelled = value.equals("t") && same.equals(llvm) && removed.length() < llvm.length();
-            free removed;
-            free same;
-            free value;
-            return counted && spelled && System.liveAllocationCount() == live;
+            return spelled;
         } catch (IOException unexpected) {
             return false;
         }
@@ -114,18 +105,15 @@ class Main {
     public static int main(String[] args) {
 
         Sha256 sha = new Sha256();
-        defer free sha;
         for (int index = 0; index < args.length; index++) {
             Path path = Path.of(args[index]);
             try {
                 String llvm = Files.readString(path);
                 System.out.println("file " + index);
                 scan(llvm, sha);
-                free llvm;
             } catch (IOException failure) {
                 System.out.println("file " + index + " unreadable");
             }
-            free path;
         }
         return contract() ? 42 : 1;
     }

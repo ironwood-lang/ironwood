@@ -37,9 +37,9 @@ public record IrFunction(String ownerClass, String sourceName, String linkageNam
     public String traceCallableName() {
         return ownerClass + "." + switch (kind) {
             case CONSTRUCTOR -> "<init>";
-            case DESTRUCTOR -> "<destructor>";
+
             case CLASS_INITIALIZER -> "<clinit>";
-            case CONSTRUCTOR_ROLLBACK -> "<constructor-rollback>";
+
             case METHOD -> sourceName;
         };
     }

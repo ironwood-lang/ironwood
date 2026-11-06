@@ -49,7 +49,6 @@ final class ArchiveEntries {
             byte[] previous = this.contents;
             this.contents = new byte[(int) capacity];
             System.arraycopy(previous, 0, this.contents, 0, this.used);
-            free previous;
         }
         // Computed before indexing the field, so no call falls between load and store.
         int slot = this.names.size() * 2;
@@ -57,7 +56,6 @@ final class ArchiveEntries {
             int[] previous = this.extents;
             this.extents = new int[previous.length * 2];
             System.arraycopy(previous, 0, this.extents, 0, previous.length);
-            free previous;
         }
         System.arraycopy(data, offset, this.contents, this.used, length);
         this.extents[slot] = this.used;
@@ -70,7 +68,6 @@ final class ArchiveEntries {
     void addText(String name, String text) {
 
         byte[] bytes = text.getBytes();
-        defer free bytes;
         this.add(name, bytes, 0, bytes.length);
     }
 
@@ -87,7 +84,6 @@ final class ArchiveEntries {
             this.names.appendTo(stored, index);
             index.append('\n');
             String name = this.names.get(stored);
-            defer free name;
             if (target.contains(name)) throw new IOException("duplicate archive entry '" + name + "'");
             target.add(name, this.contents, this.extents[stored * 2], this.extents[stored * 2 + 1]);
         }
@@ -100,15 +96,8 @@ final class ArchiveEntries {
         for (int position = 0; position < this.names.size(); position++) {
             int stored = this.names.stored(position);
             String name = this.names.get(position);
-            defer free name;
             writer.add(name, this.contents, this.extents[stored * 2], this.extents[stored * 2 + 1]);
         }
     }
 
-    destructor {
-
-        free this.names;
-        free this.contents;
-        free this.extents;
-    }
 }

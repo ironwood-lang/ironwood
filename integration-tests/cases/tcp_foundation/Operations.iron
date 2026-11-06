@@ -14,11 +14,9 @@ class Operations {
         int failure = 0;
         byte[] raw = {127, 0, 0, 1};
         InetAddress address = InetAddress.getByAddress(raw);
-        free raw;
         ServerSocket listener = new ServerSocket();
         listener.bind(null);
         InetSocketAddress endpoint = new InetSocketAddress(address, listener.getLocalPort());
-        free address;
         Socket client = new Socket();
         client.connect(endpoint, 500);
         Socket accepted = listener.accept();
@@ -143,7 +141,6 @@ class Operations {
             System.out.println("@tcp:end");
             if (!timedOut || !pending.isClosed() || System.nanoTime() - started > 250000000L) failure = 21;
             pending.close();
-            free pending;
 
             boolean reset = false;
             System.out.println("@tcp:peer_reset");
@@ -160,16 +157,13 @@ class Operations {
         if (input.read() != -1) failure = 22;
         System.out.println("@tcp:end");
         accepted.close();
-        free accepted;
         client.close();
-        free client;
         listener.setSoTimeout(15);
         timedOut = false;
         System.out.println(faults ? "@tcp:accept_deadline" : "@tcp:real_accept_timeout");
         try {
             Socket unexpected = listener.accept();
             unexpected.close();
-            free unexpected;
         } catch (SocketTimeoutException expected) {
             timedOut = true;
         }
@@ -180,14 +174,8 @@ class Operations {
         last.connect(endpoint);
         Socket recovered = listener.accept();
         recovered.close();
-        free recovered;
         last.close();
-        free last;
         listener.close();
-        free listener;
-        free endpoint;
-        free buffer;
-        free bytes;
         return failure;
     }
 }

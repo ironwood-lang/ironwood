@@ -18,7 +18,6 @@ public final class Client {
         OutputStream output = socket.getOutputStream();
 
         byte[] message = messageText.getBytes();
-        defer free message;
         output.write(message);
         // Signal the end of this request while keeping input open for the reply.
         socket.shutdownOutput(); // sends EOF causing read() to return -1
@@ -27,7 +26,6 @@ public final class Client {
         System.out.println(messageText);
 
         byte[] buffer = new byte[64];
-        defer free buffer;
         System.out.print("GOT: ");
         // TCP can split the reply across reads. Reuse the buffer until EOF.
         int count = input.read(buffer);
@@ -55,7 +53,6 @@ public final class Client {
             }
 
             Socket socket = new Socket(host, port);
-            defer free socket;
             defer socket.close();
             exchange(socket, message);
 

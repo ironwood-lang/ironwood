@@ -61,7 +61,6 @@ class Main {
         } finally {
             normal.close();
         }
-        free normal;
         if (Tracker.closes != 11) return 1;
 
         Resource returning = new Resource();

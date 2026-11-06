@@ -71,16 +71,12 @@ import java.util.Set;
 
 public final class SemanticAnalyzer {
 
-    // Tests force non-convergence with a fixed pass budget; negative derives it from the program.
-
     private static final String ROOT_OBJECT = "ironwood.lang.Object";
     private static final String ROOT_ENUM = "ironwood.lang.Enum";
     private static final IrType MAIN_ARGUMENTS_TYPE =
             IrType.array(IrType.reference("ironwood.lang.String"));
 
     private SourceFile source;
-
-    /** The frees provisional lowering rejected, per function, for the field proofs (D296). */
 
     private ironwood.compiler.bridge.BridgeListenerProxies listenerProxies;
     private GenericTypeSystem genericTypes;
@@ -97,34 +93,7 @@ public final class SemanticAnalyzer {
         this.source = source;
     }
 
-    public SemanticAnalyzer() {
-        this(ironwood.compiler.UnfreedMode.WARN);
-    }
-
-    /** Legacy bootstrap API signature, pending GC7 caller migration. */
-    public SemanticAnalyzer(ironwood.compiler.UnfreedMode unfreedMode) {
-        this(unfreedMode, false, null);
-    }
-
-    public SemanticAnalyzer(ironwood.compiler.UnfreedMode unfreedMode, boolean explainRejectedFree) {
-        this(unfreedMode, explainRejectedFree, null);
-    }
-
-    SemanticAnalyzer(ironwood.compiler.UnfreedMode unfreedMode, boolean explainRejectedFree,
-                     SemanticAnalysisObserver observer) {
-        this(unfreedMode, explainRejectedFree, observer, null);
-    }
-
-    SemanticAnalyzer(ironwood.compiler.UnfreedMode unfreedMode, boolean explainRejectedFree,
-                     SemanticAnalysisObserver observer, RejectedFreeEvidence.Limits evidenceLimits) {
-        this(unfreedMode, explainRejectedFree, observer, evidenceLimits, -1);
-    }
-
-    SemanticAnalyzer(ironwood.compiler.UnfreedMode unfreedMode, boolean explainRejectedFree,
-                     SemanticAnalysisObserver observer, RejectedFreeEvidence.Limits evidenceLimits,
-                     int refinementPassLimit) {
-        java.util.Objects.requireNonNull(unfreedMode);
-    }
+    public SemanticAnalyzer() {}
 
     public SemanticResult analyze(CompilationUnit unit) {
         return analyze(List.of(unit));
@@ -258,7 +227,7 @@ public final class SemanticAnalyzer {
             return new SemanticResult(Optional.empty(), diagnostics);
         }
         if (!validateAcyclicHierarchy(types, diagnostics)) {
-            // Ownership and dispatch analysis require a DAG. A diagnosed cycle
+            // Reference and dispatch analysis require a DAG. A diagnosed cycle
             // must not reach superclass walks that assume this invariant.
             return new SemanticResult(Optional.empty(), diagnostics);
         }
@@ -298,22 +267,20 @@ public final class SemanticAnalyzer {
         CallableSymbol main = findAndValidateMain(types, diagnostics, requireMain, mainClass);
         // Bind source calls before computing dispatch and retention effects. Managed
         // storage needs neither exclusive field ownership nor temporary free proofs.
-        EscapeSummaryAnalyzer escapeSummaries = new EscapeSummaryAnalyzer(types, resolver, null);
-        buildIrTypes(types, hierarchy, dispatchSlots, escapeSummaries);
-        OwnedArrayFieldAnalyzer ownedArrayFields = new OwnedArrayFieldAnalyzer(
-                types, hierarchy, escapeSummaries);
+        EscapeSummaryAnalyzer escapeSummaries = new EscapeSummaryAnalyzer(types, resolver);
+        buildIrTypes(types, hierarchy, dispatchSlots);
         List<IrFunction> boundFunctions = lowerFunctions(types, hierarchy, escapeSummaries,
-                ownedArrayFields, stringPool, new ArrayList<>(), new LinkedHashMap<>());
+                stringPool, new ArrayList<>(), new LinkedHashMap<>());
         Map<String, Set<SourceSpan>> dynamicStringConcatenationSpans =
                 dynamicStringConcatenationSpans(boundFunctions);
         BorrowDispatchAnalysis borrowDispatch = new BorrowDispatchAnalysis(types, hierarchy,
-                boundFunctions, staticFields, main != null, null);
-        escapeSummaries = new EscapeSummaryAnalyzer(types, resolver, ownedArrayFields,
+                boundFunctions, staticFields, main != null);
+        escapeSummaries = new EscapeSummaryAnalyzer(types, resolver,
                 borrowDispatch, dynamicStringConcatenationSpans);
         Map<String, String> constructorDelegations = new LinkedHashMap<>();
         List<IrFunction> functions = new ArrayList<>();
-        buildIrTypes(types, hierarchy, dispatchSlots, escapeSummaries);
-        functions.addAll(lowerFunctions(types, hierarchy, escapeSummaries, ownedArrayFields,
+        buildIrTypes(types, hierarchy, dispatchSlots);
+        functions.addAll(lowerFunctions(types, hierarchy, escapeSummaries,
                 stringPool, diagnostics, constructorDelegations));
         validateConstructorDelegationCycles(types, constructorDelegations, diagnostics);
         validatePoolBuilders(types, hierarchy, escapeSummaries, diagnostics);
@@ -353,7 +320,7 @@ public final class SemanticAnalyzer {
                 specializedProgram.allocationFailure(), specializedProgram.exportRoots());
         return new SemanticResult(Optional.of(program), diagnostics, bridgeAnalysis
                 ? Optional.of(BridgeConstructionFacts.project(rawProgram, program, types,
-                        escapeSummaries, ownedArrayFields)) : Optional.empty(), bridgeAnalysis
+                        escapeSummaries)) : Optional.empty(), bridgeAnalysis
                 ? Optional.of(BridgeApiFacts.project(program, types, hierarchy)) : Optional.empty());
     }
 
@@ -392,8 +359,7 @@ public final class SemanticAnalyzer {
                 for (CallableSymbol constructor : type.constructors()) {
                     callables.add(new TypeCallable(type, constructor, IrCallableKind.CONSTRUCTOR));
                 }
-                type.destructor().ifPresent(destructor -> callables.add(
-                        new TypeCallable(type, destructor, IrCallableKind.DESTRUCTOR)));
+
             }
             for (CallableSymbol method : type.declaredMethods().values()) {
                 if (!method.isAbstract()) {
@@ -406,7 +372,6 @@ public final class SemanticAnalyzer {
 
     private List<IrFunction> lowerFunctions(Map<String, TypeSymbol> types, ClassHierarchy hierarchy,
                                              EscapeSummaryAnalyzer escapeSummaries,
-                                             OwnedArrayFieldAnalyzer ownedArrayFields,
                                              StringPool stringPool, List<Diagnostic> diagnostics,
                                              Map<String, String> constructorDelegations) {
         List<IrFunction> functions = new ArrayList<>();
@@ -415,7 +380,7 @@ public final class SemanticAnalyzer {
             List<Diagnostic> reported = placeholderImplementations.contains(
                     entry.callable().linkageName()) ? new ArrayList<>() : diagnostics;
             functions.add(lowerCallable(entry.type(), entry.callable(), hierarchy, escapeSummaries,
-                    ownedArrayFields, stringPool, reported, constructorDelegations, entry.kind()));
+                    stringPool, reported, constructorDelegations, entry.kind()));
         }
         return functions;
     }
@@ -423,11 +388,10 @@ public final class SemanticAnalyzer {
     private IrFunction lowerCallable(TypeSymbol type, CallableSymbol callable,
                                      ClassHierarchy hierarchy,
                                      EscapeSummaryAnalyzer escapeSummaries,
-                                     OwnedArrayFieldAnalyzer ownedArrayFields,
                                      StringPool stringPool, List<Diagnostic> diagnostics,
                                      Map<String, String> constructorDelegations, IrCallableKind kind) {
         FunctionAnalyzer analyzer = new FunctionAnalyzer(type.source(), callable, hierarchy,
-                escapeSummaries, ownedArrayFields, stringPool, diagnostics,
+                escapeSummaries, stringPool, diagnostics,
                 constructorDelegations);
         IrFunction result = analyzer.analyze().withSourceIdentity(sourceFileName(type.source()), kind);
         return listenerProxies == null ? result : listenerProxies.lower(result, type.irClass(), type.source());
@@ -493,8 +457,7 @@ public final class SemanticAnalyzer {
             // Exact array tests compare descriptor addresses. Negative ids remain private,
             // deterministic descriptor identities and are never membership-table indexes.
             result.add(new IrArrayType(arrayType, -1 - result.size(),
-                    List.of(root.typeId()), root.dispatchEntries(),
-                    root.toStringReturnsOwnedFresh()));
+                    List.of(root.typeId()), root.dispatchEntries()));
         }
         return List.copyOf(result);
     }
@@ -952,7 +915,7 @@ public final class SemanticAnalyzer {
                     anonymous.ambientCallableTypeVariables());
         }
         return new FunctionAnalyzer(owner.source(), callable, hierarchy,
-                null, null, null, new ArrayList<>(), new LinkedHashMap<>())
+                null, null, new ArrayList<>(), new LinkedHashMap<>())
                 .anonymousParentPlanningContext();
     }
 
@@ -2159,15 +2122,7 @@ public final class SemanticAnalyzer {
     private record MissingImplementation(TypeSymbol type, CallableSymbol requirement) {
     }
 
-    /**
-     * Completes each reported missing implementation with a placeholder, the most
-     * permissive behavior a correction could have: it retains, allocates, and throws
-     * nothing, and its reference result counts as a fresh allocation the caller may
-     * free. Rejections and effect checks only grow with what a callee does, so those
-     * that remain hold for every correction. Missing-free findings shrink with it, so
-     * the placeholder may also reclaim its arguments and return null, which only
-     * suppresses such findings. The program already has an error and is never built.
-     */
+    /** Error recovery only: invalid programs are never emitted. */
     private void completeMissingImplementations() {
         Set<String> completed = new LinkedHashSet<>();
         for (MissingImplementation missing : missingImplementations) {
@@ -2232,7 +2187,7 @@ public final class SemanticAnalyzer {
     private void validateThrowableTraceLayout(Map<String, TypeSymbol> types, List<Diagnostic> diagnostics) {
         TypeSymbol throwable = types.get("ironwood.lang.Throwable");
         if (throwable == null) return;
-        if (!MemoryIntrinsic.trusted(throwable.source(), "8d2f0f0a3f8d14b2bc757c1eee7d5bc857bb999598037c7a8b16a90a6b9eda58")) {
+        if (!MemoryIntrinsic.trusted(throwable.source(), "328fce779ce8eff986d3b2bb755ad584b0da44e3232ad3716744dc7854e4586f")) {
             diagnostics.add(Diagnostic.error(throwable.source(), throwable.declaration().span(),
                     "unrecognized reserved Throwable representation; rebuild the bundled standard library"));
             return;
@@ -2240,7 +2195,7 @@ public final class SemanticAnalyzer {
         List<IrField> fields = throwable.layoutFields();
         if (throwable.declaredFields().values().stream().anyMatch(field -> field.accessModifier() != AccessModifier.PRIVATE)
                 || !fields.stream().map(IrField::name).toList().equals(List.of(
-                "message", "cause", "traceMetadata", "ownedMessage", "causeInitialized", "traceStatus"))
+                "message", "cause", "traceMetadata", "causeMessage", "causeInitialized", "traceStatus"))
                 || !fields.stream().map(IrField::type).toList().equals(List.of(
                         IrType.reference("ironwood.lang.String"), IrType.reference("ironwood.lang.Throwable"),
                         IrType.reference("ironwood.lang.Object"), IrType.reference("ironwood.lang.String"), IrType.I1, IrType.I32))) {
@@ -2298,8 +2253,7 @@ public final class SemanticAnalyzer {
     }
 
     private void buildIrTypes(Map<String, TypeSymbol> types, ClassHierarchy hierarchy,
-                              List<IrDispatchSlot> slots,
-                              EscapeSummaryAnalyzer escapeSummaries) {
+                              List<IrDispatchSlot> slots) {
         for (TypeSymbol type : types.values()) {
             List<Integer> membership = hierarchy.allSupertypesInclusive(type).stream()
                     .map(TypeSymbol::typeId).distinct().sorted().toList();
@@ -2316,37 +2270,8 @@ public final class SemanticAnalyzer {
                     type.superclass().map(TypeSymbol::name),
                     type.directInterfaces().stream().map(TypeSymbol::name).toList(),
                     type.layoutFields(), type.typeId(), membership, entries,
-                    type.destructor().map(CallableSymbol::linkageName),
-                    type.constructorRollback(),
-                    toStringReturnsOwnedFresh(entries, escapeSummaries),
-                    localizedMessageReturnsOwnedFresh(type, escapeSummaries),
                     type.declaration().span()));
         }
-    }
-
-    private static boolean toStringReturnsOwnedFresh(
-            List<IrDispatchEntry> entries, EscapeSummaryAnalyzer escapeSummaries) {
-        for (IrDispatchEntry entry : entries) {
-            IrDispatchSlot slot = entry.slot();
-            if (!slot.methodName().equals("toString") || !slot.parameterTypes().isEmpty()
-                    || !slot.returnType().equals(
-                    IrType.reference("ironwood.lang.String"))) {
-                continue;
-            }
-            EscapeSummaryAnalyzer.EscapeSummary summary =
-                    escapeSummaries.summary(entry.targetLinkageName());
-            return summary != null && summary.returnsOwnedFresh();
-        }
-        return false;
-    }
-
-    private static boolean localizedMessageReturnsOwnedFresh(TypeSymbol type,
-            EscapeSummaryAnalyzer escapeSummaries) {
-        if (!ThrowableSemantics.isThrowable(type)) {
-            return false;
-        }
-        CallableSymbol getter = ThrowableSemantics.messageGetter(type);
-        return getter != null && escapeSummaries.summary(getter).returnsOwnedFresh();
     }
 
     private CallableSymbol findAndValidateMain(Map<String, TypeSymbol> types,

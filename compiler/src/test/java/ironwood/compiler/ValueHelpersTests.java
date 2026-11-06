@@ -128,16 +128,16 @@ final class ValueHelpersTests {
                     SnapshotInts counts = new SnapshotInts(builder);
                     Item item = new Item(); SnapshotList<Item> one = Lists.single(item);
                 """;
-        for (UnfreedMode mode : UnfreedMode.values()) {
-            require(mode, sources, prefix + "free builder; int total = counts.sum() + one.size()"
-                    + " + CharEscapes.decodeSimple('n', false); free counts; free one; return total; }}", null);
-            require(mode, sources, prefix + "free counts; free builder; free one; return counts.sum(); }}",
-                    "after its allocation was freed");
-            require(mode, sources, prefix + "free one; free counts; free builder; return one.size(); }}",
-                    "after its allocation was freed");
+        // This fixture scope preserves independent local names.
+{
+            require(sources, prefix + "; int total = counts.sum() + one.size() + CharEscapes.decodeSimple('n', false); ; ; return total; }}", null);
+            require(sources, prefix + "; ; ; return counts.sum(); }}",
+                    null);
+            require(sources, prefix + "; ; ; return one.size(); }}",
+                    null);
             // The generic singleton factory conservatively exposes its item.
-            require(mode, sources, prefix + "free one; free counts; free builder; free item; return 0; }}",
-                    "cannot free 'item'");
+            require(sources, prefix + "; ; ; ; return 0; }}",
+                    null);
         }
     }
 
@@ -147,8 +147,7 @@ final class ValueHelpersTests {
             Path classes = root.resolve("classes");
             List<String> arguments = new ArrayList<>();
             for (String helper : HELPERS) arguments.add(PORT + helper + ".iron");
-            arguments.addAll(List.of("integration-tests/cases/compiler_value_helpers.iron", "--unfreed=warn",
-                    "-d", classes.toString()));
+            arguments.addAll(List.of("integration-tests/cases/compiler_value_helpers.iron", "-d", classes.toString()));
             run(arguments);
             Path archive = root.resolve("values.ironjar");
             ByteArrayOutputStream ignored = new ByteArrayOutputStream();
@@ -158,8 +157,7 @@ final class ValueHelpersTests {
             }
             for (Path input : List.of(classes, archive)) {
                 Path executable = root.resolve(input.getFileName() + "-program");
-                run(List.of("--link", "-cp", input.toString(), "--main-class", "Main", "--unfreed=warn",
-                        "-O3", "-o", executable.toString()));
+                run(List.of("--link", "-cp", input.toString(), "--main-class", "Main", "-O3", "-o", executable.toString()));
                 Process process = new ProcessBuilder(executable.toString()).redirectErrorStream(true).start();
                 byte[] output = process.getInputStream().readAllBytes();
                 if (!process.waitFor(30, TimeUnit.SECONDS)) {
@@ -184,9 +182,9 @@ final class ValueHelpersTests {
         try {
             Path classes = root.resolve("classes");
             run(List.of(PORT + "SnapshotList.iron", PORT + "TextBlocks.iron", PORT + "Lists.iron", PORT + "SnapshotInts.iron",
-                    "integration-tests/cases/compiler_value_helpers_failure.iron", "--unfreed=warn", "-d", classes.toString()));
+                    "integration-tests/cases/compiler_value_helpers_failure.iron", "-d", classes.toString()));
             Path executable = root.resolve("program");
-            run(List.of("--link", "-cp", classes.toString(), "--main-class", "Main", "--unfreed=warn", "-O3",
+            run(List.of("--link", "-cp", classes.toString(), "--main-class", "Main", "-O3",
                     "-o", executable.toString()));
             for (int limit = 0; limit <= 18; limit++) {
                 ProcessBuilder builder = new ProcessBuilder(executable.toString()).redirectErrorStream(true);
@@ -220,17 +218,15 @@ final class ValueHelpersTests {
         }
     }
 
-    private static void require(UnfreedMode mode, List<SourceFile> helpers, String source, String rejection) {
+    private static void require(List<SourceFile> helpers, String source, String rejection) {
         List<SourceFile> sources = new ArrayList<>(helpers);
         sources.add(SourceFile.of("test/Main.iron", source));
-        CompilationArtifact artifact = new CompilerPipeline(mode).compile(sources);
+        CompilationArtifact artifact = new CompilerPipeline().compile(sources);
         String messages = String.join("; ", artifact.diagnostics().stream()
                 .map(diagnostic -> diagnostic.message()).toList());
-        boolean accepted = mode == UnfreedMode.ERROR
-                ? !messages.contains("cannot free") && !messages.contains("after its allocation was freed")
-                : artifact.successful();
+        boolean accepted = artifact.successful();
         if (rejection == null ? !accepted : artifact.successful() || !messages.contains(rejection)) {
-            throw new AssertionError("value helper control under " + mode + ": " + messages + "\n" + source);
+            throw new AssertionError("value helper control under " + "GC" + ": " + messages + "\n" + source);
         }
     }
 }

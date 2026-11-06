@@ -24,7 +24,7 @@ final class ListCopyParityTests {
         Path root = Files.createTempDirectory("ironwood-list-copy-parity-");
         try {
             Path classes = root.resolve("classes");
-            run(List.of(FIXTURE, "--unfreed=warn", "-d", classes.toString()));
+            run(List.of(FIXTURE, "-d", classes.toString()));
             Path archive = root.resolve("parity.ironjar");
             ByteArrayOutputStream ignored = new ByteArrayOutputStream();
             if (IronJarMain.run(new String[]{"--create", "--file", archive.toString(), classes.toString()},
@@ -33,8 +33,7 @@ final class ListCopyParityTests {
             }
             for (Path input : List.of(classes, archive)) {
                 Path executable = root.resolve(input.getFileName() + "-program");
-                run(List.of("--link", "-cp", input.toString(), "--main-class", "Main", "--unfreed=warn",
-                        "-O3", "-o", executable.toString()));
+                run(List.of("--link", "-cp", input.toString(), "--main-class", "Main", "-O3", "-o", executable.toString()));
                 Process process = new ProcessBuilder(executable.toString()).redirectErrorStream(true).start();
                 byte[] output = process.getInputStream().readAllBytes();
                 if (!process.waitFor(60, TimeUnit.SECONDS)) {

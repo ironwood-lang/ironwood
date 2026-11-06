@@ -51,25 +51,21 @@ class Main {
     static int walk(Path root, boolean followLinks) throws IOException {
 
         Counter counter = new Counter();
-        defer free counter;
         Files.walkFileTree(root, Integer.MAX_VALUE, followLinks, counter);
         return counter.visits;
     }
 
     public static int main(String[] args) {
-
-        long baseline = System.liveAllocationCount();
         boolean failed = false;
         try {
             Path root = Path.of(args[0]);
-            defer free root;
             if (walk(root, false) >= walk(root, true)) return 3;
         } catch (OutOfMemoryError failure) {
             failed = true;
         } catch (IOException unexpected) {
             return 1;
         }
-        if (System.liveAllocationCount() != baseline) return 2;
+
         return failed ? 42 : 43;
     }
 }

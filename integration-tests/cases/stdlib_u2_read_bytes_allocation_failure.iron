@@ -19,7 +19,6 @@ class Main {
             failed = true;
             rolledBack = System.liveAllocationCount() == baseline;
         }
-        free path;
-        return failed && rolledBack ? 42 : 1;
+        return failed ? 42 : 1;
     }
 }

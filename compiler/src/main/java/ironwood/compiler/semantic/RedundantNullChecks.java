@@ -32,31 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Null checks that the finished graph of a function proves redundant through merges
- * (D288).
- *
- * <p>Lowering omits a null check only where one null test dominates it (D287), so a
- * value merged at a join or a loop header kept its checks although every value it
- * merges is non-null. This pass solves the references known non-null at each block
- * entry over the whole graph, as the greatest fixed point of a must analysis: a block
- * knows what every reached predecessor knows on the edge into it, an edge adds what its
- * null test, instanceof test or null check proves, and a phi is non-null when each of
- * its incoming values is non-null on its edge. Loop headers start from everything and
- * keep only what every back edge preserves, so a value reassigned in the loop is not
- * covered. Allocation results and the proven references of lowering are never null.
- *
- * <p>Facts name SSA values, which never change, their reference conversions, and final
- * fields of one object, whatever reference type reads them. A store to a final field
- * ends the facts of that field and, when the stored value is known non-null, starts
- * the fact for the stored object. The entry may also start with facts that hold before
- * the function runs, such as the fields a destructor's object keeps until it frees
- * them (D289).
- *
- * <p>A null check whose reference is known non-null becomes a jump to its valid path,
- * and the failure blocks that only it reached are removed with their phi entries. The
- * pass runs after lowering, so only typed-IR consumers see the shorter graph.
- */
+
 final class RedundantNullChecks {
     /** A final instance field of one object. */
     record FieldKey(IrOperand object, String owner, String name) {

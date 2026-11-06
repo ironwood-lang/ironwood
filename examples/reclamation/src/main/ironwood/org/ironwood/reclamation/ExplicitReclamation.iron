@@ -4,23 +4,29 @@ package org.ironwood.reclamation;
 
 public class ExplicitReclamation {
 
-    public static int main(String[] args) {
+    private static int workload() {
 
-        long liveBefore = System.liveAllocationCount();
         int next = 0;
         int observed = 0;
         while (next < 10000) {
             Cell cell = new Cell(next);
             observed = cell.value();
-            free cell;
             next = next + 1;
         }
-        if (observed == 9999
-                && Cell.destroyed() == 10000
-                && System.liveAllocationCount() == liveBefore) {
+        if (observed == 9999) {
 
             return 42;
         }
         return 1;
+    }
+    // Allocation never collects. Only the explicit phase boundary reclaims cells.
+    public static int main(String[] args) {
+
+        ironwood.lang.Memory.collect();
+        long baseline = System.liveAllocationCount();
+        int result = workload();
+        if (System.liveAllocationCount() <= baseline) return 2;
+        ironwood.lang.Memory.collect();
+        return result == 42 && System.liveAllocationCount() == baseline ? 42 : 3;
     }
 }

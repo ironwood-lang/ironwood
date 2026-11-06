@@ -125,18 +125,15 @@ public final class DocText {
         int start = asciiMatches(code, 0, "<code>") ? 6 : 0;
         // The leftmost "</code>" that ends the text or precedes its final terminator.
         int found = -1;
-        if (length - 9 >= start && code.charAt(length - 2) == '\r' && code.charAt(length - 1) == '\n'
-                && asciiMatches(code, length - 9, "</code>")) {
+        if (length - 9 >= start && code.charAt(length - 2) == '\r' && code.charAt(length - 1) == '\n' && asciiMatches(code, length - 9, "</code>")) {
             found = length - 9;
-        } else if (length - 8 >= start && finalTerminator(code.charAt(length - 1))
-                && asciiMatches(code, length - 8, "</code>")) {
+        } else if (length - 8 >= start && finalTerminator(code.charAt(length - 1)) && asciiMatches(code, length - 8, "</code>")) {
             found = length - 8;
         } else if (length - 7 >= start && asciiMatches(code, length - 7, "</code>")) {
             found = length - 7;
         }
         if (found < 0) return code.substring(start);
         StringBuilder result = new StringBuilder();
-        defer free result;
         result.append(code, start, found).append(code, found + 7, length);
         return result.toString();
     }
@@ -175,7 +172,6 @@ public final class DocText {
     public static String entities(String text) {
 
         StringBuilder result = new StringBuilder();
-        defer free result;
         int index = 0;
         while (index < text.length()) {
             char unit = text.charAt(index);
@@ -288,7 +284,6 @@ public final class DocText {
     public static String removeSpace(String value) {
 
         StringBuilder result = new StringBuilder();
-        defer free result;
         for (int index = 0; index < value.length(); index++) {
             char unit = value.charAt(index);
             if (!regexSpace(unit)) result.append(unit);
@@ -307,7 +302,6 @@ public final class DocText {
     public static String collapseLineBreaks(String text) {
 
         StringBuilder result = new StringBuilder();
-        defer free result;
         int index = 0;
         int length = text.length();
         while (index < length) {
@@ -416,15 +410,13 @@ public final class DocText {
     public static String anchor(String reference) {
 
         StringBuilder result = new StringBuilder();
-        defer free result;
         result.append("member-");
         int index = 0;
         while (index < reference.length()) {
             char unit = reference.charAt(index);
             int point = unit;
             index++;
-            if (unit >= 0xD800 && unit <= 0xDBFF && index < reference.length()
-                    && reference.charAt(index) >= 0xDC00 && reference.charAt(index) <= 0xDFFF) {
+            if (unit >= 0xD800 && unit <= 0xDBFF && index < reference.length() && reference.charAt(index) >= 0xDC00 && reference.charAt(index) <= 0xDFFF) {
                 point = 0x10000 + ((unit - 0xD800) << 10) + (reference.charAt(index) - 0xDC00);
                 index++;
             }
@@ -432,7 +424,6 @@ public final class DocText {
                 result.append((char) point);
             } else {
                 String hex = Integer.toHexString(point);
-                defer free hex;
                 result.append('-').append(hex).append('-');
             }
         }

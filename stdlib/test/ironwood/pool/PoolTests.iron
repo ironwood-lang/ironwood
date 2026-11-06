@@ -62,8 +62,6 @@ public final class PoolTests extends TestSuite {
         Assertions.assertNotNull(third);
         Assertions.assertNull(pool.getArrayElement(0));
         Assertions.assertNull(pool.getArrayElement(1));
-        free pool;
-        free builder;
     }
 
     @Test
@@ -80,8 +78,6 @@ public final class PoolTests extends TestSuite {
         pool.get();
         Assertions.assertEquals(8, pool.getArrayLength());
         Assertions.assertNotNull(pool.get());
-        free pool;
-        free builder;
     }
 
     @Test
@@ -99,8 +95,6 @@ public final class PoolTests extends TestSuite {
         Assertions.assertEquals(5, pool.get().id);
         Assertions.assertEquals(6, pool.get().id);
         Assertions.assertEquals(12, pool.getArrayLength());
-        free pool;
-        free builder;
     }
 
     @Test
@@ -116,8 +110,6 @@ public final class PoolTests extends TestSuite {
         Assertions.assertEquals(2, pool.getArrayLength());
         Assertions.assertNotNull(pool.get());
         Assertions.assertEquals(4, pool.getArrayLength());
-        free pool;
-        free builder;
     }
 
     @Test
@@ -133,8 +125,6 @@ public final class PoolTests extends TestSuite {
         for (int index = 0; index < 10; index++) {
             Assertions.assertNotNull(pool.get());
         }
-        free pool;
-        free builder;
     }
 
     @Test
@@ -150,8 +140,6 @@ public final class PoolTests extends TestSuite {
         pool.release(first);
         Assertions.assertSame(first, pool.get());
         Assertions.assertSame(second, pool.get());
-        free pool;
-        free builder;
     }
 
     @Test
@@ -166,8 +154,6 @@ public final class PoolTests extends TestSuite {
         Assertions.assertEquals(2, pool.get().id);
         Assertions.assertEquals(3, pool.get().id);
         Assertions.assertEquals(4, builder.created);
-        free pool;
-        free builder;
     }
 
     @Test
@@ -181,8 +167,6 @@ public final class PoolTests extends TestSuite {
         Assertions.assertEquals(8, pool.getArrayLength());
         for (int index = 0; index < 4; index++) pool.get();
         Assertions.assertEquals(16, pool.getArrayLength());
-        free pool;
-        free builder;
     }
 
     @Test
@@ -197,8 +181,6 @@ public final class PoolTests extends TestSuite {
             Assertions.assertEquals(index, value.id);
         }
         Assertions.assertNotNull(pool.get());
-        free pool;
-        free builder;
     }
 
     @Test
@@ -213,7 +195,6 @@ public final class PoolTests extends TestSuite {
         for (int index = 0; index < values.length; index++) {
             Assertions.assertTrue(contains(values, pool.get()), "released value is reused");
         }
-        free values;
         // The release/reuse loops leave pool ownership unproved; pool and builder stay process-lived.
     }
 
@@ -236,8 +217,6 @@ public final class PoolTests extends TestSuite {
         Assertions.assertNotNull(pool.get());
         Assertions.assertNotNull(pool.get());
         Assertions.assertEquals(4, pool.getArrayLength());
-        free pool;
-        free builder;
     }
 
     @Test
@@ -252,8 +231,6 @@ public final class PoolTests extends TestSuite {
         Assertions.assertEquals(5, builder.created);
         pool.get();
         Assertions.assertEquals(6, builder.created);
-        free pool;
-        free builder;
     }
 
     @Test
@@ -267,8 +244,6 @@ public final class PoolTests extends TestSuite {
         Assertions.assertEquals(4, pool.getArrayLength());
         for (int index = 0; index < 4; index++) pool.get();
         Assertions.assertEquals(8, pool.getArrayLength());
-        free pool;
-        free builder;
     }
 
     @Test
@@ -281,8 +256,6 @@ public final class PoolTests extends TestSuite {
         Assertions.assertNotNull(value);
         pool.release(value);
         Assertions.assertSame(value, pool.get());
-        free pool;
-        free builder;
     }
 
     @Test
@@ -293,11 +266,9 @@ public final class PoolTests extends TestSuite {
         try {
             MultiArrayObjectPool<PoolTestValue> unexpected =
                     new MultiArrayObjectPool<PoolTestValue>(5, 6, builder);
-            free unexpected; // Reclaim an unexpected successful construction before failing the test.
         } catch (IllegalArgumentException expected) {
             caught = true;
         }
-        free builder;
         if (!caught) Assertions.fail("expected IllegalArgumentException");
     }
 
@@ -309,11 +280,9 @@ public final class PoolTests extends TestSuite {
         try {
             MultiArrayObjectPool<PoolTestValue> unexpected =
                     new MultiArrayObjectPool<PoolTestValue>(0, 0, builder);
-            free unexpected;
         } catch (IllegalArgumentException expected) {
             caught = true;
         }
-        free builder;
         if (!caught) Assertions.fail("expected IllegalArgumentException");
     }
 
@@ -330,8 +299,6 @@ public final class PoolTests extends TestSuite {
             caught = true;
         }
         if (!caught) Assertions.fail("expected IllegalStateException");
-        free pool;
-        free builder;
     }
 
     @Test
@@ -347,8 +314,6 @@ public final class PoolTests extends TestSuite {
             caught = true;
         }
         if (!caught) Assertions.fail("expected IllegalStateException");
-        free pool;
-        free builder;
     }
 
     @Test
@@ -366,11 +331,9 @@ public final class PoolTests extends TestSuite {
         try {
             ArrayObjectPool<PoolTestValue> unexpected =
                     new ArrayObjectPool<PoolTestValue>(1, 0, builder, growthFactor);
-            free unexpected;
         } catch (IllegalArgumentException expected) {
             caught = true;
         }
-        free builder;
         if (!caught) Assertions.fail("expected IllegalArgumentException");
     }
 
@@ -408,8 +371,6 @@ public final class PoolTests extends TestSuite {
             firstCaught = true;
         }
         Assertions.assertTrue(firstCaught);
-        free first;
-        free firstBuilder;
 
         PoolTestBuilder secondBuilder = new PoolTestBuilder();
         MultiArrayObjectPool<PoolTestValue> second =
@@ -421,8 +382,6 @@ public final class PoolTests extends TestSuite {
             secondCaught = true;
         }
         Assertions.assertTrue(secondCaught);
-        free second;
-        free secondBuilder;
     }
 
     @Test
@@ -442,7 +401,5 @@ public final class PoolTests extends TestSuite {
         pool.release(first);
         long after = System.allocationCount();
         Assertions.assertEquals(before, after);
-        free pool;
-        free builder;
     }
 }

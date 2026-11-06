@@ -208,13 +208,11 @@ def main():
     subprocess.run([
         "ironwoodc", "-cp", str(PROJECT / "target/classes"),
         str(PROJECT / "src/test/ironwood/org/ironwood/simpletcpecho/ReplyProbe.iron"),
-        "-d", str(PROJECT / "target/classes"), "--unfreed=error",
-    ], cwd=PROJECT, check=True, timeout=120)
+        "-d", str(PROJECT / "target/classes"), ], cwd=PROJECT, check=True, timeout=120)
     subprocess.run([
         "ironwoodc", "--link", "-cp", str(PROJECT / "target/classes"),
         "--main-class", "org.ironwood.simpletcpecho.ReplyProbe",
-        "-o", str(probe), "-O3", "--unfreed=error",
-    ], cwd=PROJECT, check=True, timeout=120)
+        "-o", str(probe), "-O3", ], cwd=PROJECT, check=True, timeout=120)
     with server("allocations", len(reuse_messages), executable=probe) as (port, process):
         for message in reuse_messages:
             raw_exchange(port, message)

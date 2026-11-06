@@ -7,7 +7,7 @@ Canonical Memory.collect() is the only reclamation point. There is no source
 free, destructor, implicit temporary destruction or managed constructor rollback.
 General defer, initialization, native resource and pool protocols remain.
 Historical proof discussions and examples mentioning those removed forms are
-pre-GC5 records awaiting GC7 consumer migration, not alternate supported semantics.
+superseded by the completed GC7 consumer migration, not alternate supported semantics.
 Native bridge/shared-library output remains refused until GC6 qualification.
 
 This document explains Ironwood's native compiler optimizations: the LLVM
@@ -82,7 +82,7 @@ A second effect compounds the first. LLVM strongly prefers to inline an
 internal function that has a single call site, because inlining removes the
 function entirely. `ArrayList.grow()` is called only from `add`, so inlining
 it into `add` brings `Math.round`, an array allocation, a bulk
-copy and a `free` with it. That growth can keep `add` itself out of line.
+copy with it. That growth can keep `add` itself out of line.
 The same concern applies to pool growth and `StringBuilder.ensureCapacity`.
 
 Third, an interface callback can have multiple implementations in the closed
@@ -254,7 +254,7 @@ Three declarations now state what the language guarantees:
 - The receiver parameter of every instance callable is `nonnull noundef`. Every
   explicit receiver is null-checked before the call or dispatch, allocation
   never yields null, and the destroy and rollback helpers test for null before
-  reaching a destructor or rollback body, so `this` never carries null. LLVM
+  reaching an instance method body, so `this` never carries null. LLVM
   folds the redundant receiver checks that callees used to repeat.
 - `ironwood_allocate` and `ironwood_allocate_array` are `noalias nonnull`:
   they return fresh storage or raise the allocation failure. The null check on
@@ -482,8 +482,7 @@ establish results for a different application.
   output, and the benchmark validates completed work and full pool recovery.
 - `scripts/test-stdlib.sh`: 107 standard-library tests pass at `-O3`.
 - Focused compiler tests: the 15 stack-trace tests, and 32 further tests
-  covering dispatch and type tests, multi-catch, finally transfers, safe free,
-  destructors and rollback, catchable implicit failures, allocation-failure
+  covering dispatch and type tests, multi-catch, finally transfers, managed aliases, exact roots and partial construction, catchable implicit failures, allocation-failure
   boundaries, generics, strings, builders, concatenation and text blocks.
 - Two structural assertions were updated to the new lowering: the interface
   fixture now expects the guard fallback's table dispatch, and the string

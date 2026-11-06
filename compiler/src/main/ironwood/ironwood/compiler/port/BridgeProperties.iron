@@ -42,7 +42,6 @@ public final class BridgeProperties {
     public static byte[] serialize(TextMap properties) {
 
         StringBuilder text = new StringBuilder();
-        defer free text;
         text.append(HEADER);
         text.append('\n');
         for (int position = 0; position < properties.size(); position++) {
@@ -70,7 +69,6 @@ public final class BridgeProperties {
 
         if (offset < 0 || length < 0 || length > bytes.length - offset) throw new IndexOutOfBoundsException();
         byte[] expected = serialize(parsed);
-        defer free expected;
         if (expected.length != length) return false;
         for (int index = 0; index < length; index++) {
             if (expected[index] != bytes[offset + index]) return false;
@@ -93,7 +91,6 @@ public final class BridgeProperties {
 
         if (offset < 0 || length < 0 || length > bytes.length - offset) throw new IndexOutOfBoundsException();
         StringBuilder line = new StringBuilder();
-        defer free line;
         int position = offset;
         int end = offset + length;
         while (position >= 0) {
@@ -189,9 +186,7 @@ public final class BridgeProperties {
             valueStart++;
         }
         String key = unescape(line, 0, keyEnd);
-        defer free key;
         String value = unescape(line, valueStart, length);
-        defer free value;
         target.put(key, value);
     }
 
@@ -199,7 +194,6 @@ public final class BridgeProperties {
     private static String unescape(StringBuilder line, int start, int end) {
 
         StringBuilder out = new StringBuilder();
-        defer free out;
         int index = start;
         while (index < end) {
             char unit = line.charAt(index);

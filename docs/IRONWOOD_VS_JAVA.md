@@ -7,7 +7,7 @@ Canonical Memory.collect() is the only reclamation point. There is no source
 free, destructor, implicit temporary destruction or managed constructor rollback.
 General defer, initialization, native resource and pool protocols remain.
 Historical proof discussions and examples mentioning those removed forms are
-pre-GC5 records awaiting GC7 consumer migration, not alternate supported semantics.
+superseded by the completed GC7 consumer migration, not alternate supported semantics.
 [GC6 managed bridges](GC6_IMPLEMENTATION.md) qualify macOS arm64 and Linux
 x86-64 with explicit RootHandle/ListenerRegistration lifetimes, exact suspended
 roots and isolated native images. Linux arm64 and arm64e remain unqualified.
@@ -159,7 +159,7 @@ explanation.
 | [50](#feature-50). Raw generic types                                               | ❌ Raw types and their unchecked conversions are deliberately unsupported.                                                                                    |
 | [51](#feature-51). Primitive generic arguments through native specialization       | 💡 Unbounded parameters accept primitives through closed-world native value specialization with no boxing or hidden wrapper allocation.                        |
 | [52](#feature-52). Automatic boxing and unboxing                                   | ❌ Ironwood performs no automatic boxing or unboxing; explicit wrapper code is not autoboxing support.                                                        |
-| [53](#feature-53). One-dimensional invariant arrays                                | ✅ Primitive/reference arrays, checked indexing, `.length`, widening to `Object`, and explicit container `free` work now.                                     |
+| [53](#feature-53). One-dimensional invariant arrays                                | ✅ Primitive/reference arrays, checked indexing, `.length`, widening to `Object`, and exact managed references work now.                                     |
 | [54](#feature-54). Java array covariance                                           | ❌ Arrays are invariant; Ironwood does not support Java's covariant array conversions.                                                                         |
 | [55](#feature-55). Multidimensional arrays and exact array casts/tests             | 💡 Recursive array types and exact casts/tests retain Java-shaped syntax, while explicit separately owned children replace Java's rectangular allocator.     |
 | [56](#feature-56). Varargs                                                         | ❌ Varargs declarations and expanded calls are unsupported; passing an ordinary explicit array is not varargs.                                                |
@@ -178,7 +178,7 @@ explanation.
 | [69](#feature-69). Static initializer blocks and automatic class initialization    | ✅ Named classes have source-ordered static blocks and runtime field initializers with deterministic one-time active-use initialization.                       |
 | [70](#feature-70). Threads, object monitors, and `synchronized`                    | ❌ Excluded for the foreseeable future; maybe one day.                                                                                                        |
 | [71](#feature-71). Java serialization, cloning, and finalization                   | ❌ Java serialization, `Object.clone()`/`Cloneable` machinery, and GC-triggered finalization are unsupported; copying is an ordinary type-owned API.            |
-| [72](#feature-72). Try-with-resources                                              | 💡 Ordinary `finally`, deferred void calls, and local deferred free preserve explicit first-failure cleanup. Java resource headers remain rejected.              |
+| [72](#feature-72). Try-with-resources                                              | 💡 Ordinary `finally`, deferred void calls, preserve explicit first-failure cleanup. Java resource headers remain rejected.              |
 | [73](#feature-73). Uncaught exception stack traces                                 | ✅ Construction-time source traces, public printing/refresh, and automatic primary/secondary uncaught reports (D121).                        |
 | [74](#feature-74). Enum constant-specific class bodies                             | ✅ Per-constant bodies use immortal compiler-owned final subtypes with ordinary fields, initialization, methods, member types, and dispatch.                  |
 | [75](#feature-75). Double-quoted String literals and literal pooling               | ✅ Decoded-equal literals are immutable, immortal UTF-16 `String` singletons in the final linked program.                                                      |
@@ -195,7 +195,7 @@ explanation.
 | [86](#feature-86). Static imports                                                   | ✅ Single-member and on-demand imports resolve accessible static fields, methods, and member types with Java-shaped lookup and conflicts.                      |
 | [87](#feature-87). Module declarations and module imports                          | ❌ Ironwood has no Java Platform Module System source declarations, readability graph, exports/opens directives, or `import module` form.                      |
 | [88](#feature-88). Local inference and Java declarator conveniences                | ❌ `var`, unnamed `_` variables, optional local initializers, multiple field/local declarators, receiver parameters, and post-name array brackets are unsupported. |
-| [89](#feature-89). Array initializer syntax                                        | ✅ Declaration and `new T[]` initializers infer exact lengths, convert and evaluate elements in order, and track every nested child allocation for safe `free`. |
+| [89](#feature-89). Array initializer syntax                                        | ✅ Declaration and `new T[]` initializers infer exact lengths, convert and evaluate elements in order, and retain shared nested children through exact roots. |
 | [90](#feature-90). Remaining statement forms and labeled transfers                 | ✅ `do`/`while`, enhanced `for`, empty and labeled statements, labeled transfers, and cleanup-preserving transfers through `finally` work now.                 |
 | [91](#feature-91). Modern non-pattern `switch`                                     | ✅ Arrow rules, expressions, `yield`, comma labels, String/null selectors, and non-pattern exhaustiveness work now.                                            |
 | [92](#feature-92). Multi-catch and precise rethrow                                 | ✅ Disjoint union catches, implicitly-final bindings, and precise rethrow from final or effectively-final catch parameters work now.                           |
@@ -300,6 +300,9 @@ D082 implements Feature 91 and removes the final entry from the pending table.
 After GC5, the comparison contains 67 ✅, 9 💡, 32 ❌, and 0 ⏳ entries. Feature 104
 remains an open promotion decision with its current ❌ status, and no subsequent
 implementation target is selected.
+
+The following D083-D107 chronology records the former model, superseded by GC5
+and GC7. It is historical evidence, not current executable guidance.
 
 D083 adds deterministic class destructors, closed-world destructor and
 constructor-publication effects, fresh factory and owned-field proofs,
@@ -1095,7 +1098,7 @@ class Outer {
 }
 Outer outer = new Outer(40);
 Outer.Inner inner = outer.new Inner();
-// The hidden enclosing reference is a real alias for safe-free analysis.
+// The hidden enclosing reference keeps the outer object reachable.
 ```
 
 Runnable Ironwood example: [`InnerClasses.iron`](../examples/innerclasses/src/main/ironwood/org/ironwood/innerclasses/InnerClasses.iron).
@@ -1548,11 +1551,8 @@ arbitrary unrelated type. Each call's expected target independently determines
 
 The inference feature is implemented and tested. The current standard library
 has `ironwood.ds.ArrayList<E>` but no `ironwood.ds.List<E>` interface; the same
-pattern works today with an `ArrayList<T>` return or with application-defined
-`List<E>`/`ArrayList<E>` types like those above. Separately, an object allocated
-inside a called method is not currently eligible for caller-side `free` under
-the conservative same-function allocation-identity proof, so repeated factory
-allocation needs an ownership-aware API design rather than relying on inference.
+pattern works today with an ArrayList<T> return or application-defined types.
+Factory results and aliases have ordinary managed lifetime.
 
 Runnable Ironwood example: [`GenericInference.iron`](../examples/genericinference/src/main/ironwood/org/ironwood/genericinference/GenericInference.iron).
 
@@ -1718,7 +1718,7 @@ if (unknown instanceof Box<?>) {
         Text checked = (Text) item;
         Box<Text> validated = new Box<Text>(checked);
         consumeTextBox(validated);
-        free validated;
+
     }
 }
 
@@ -1861,8 +1861,8 @@ boxing. Ironwood gains allocation-free value storage and calls, at the cost of
 potentially emitting several closed-world native layouts and bodies. Format-1
 `.ironclass` files and `.ironjar` archives retain source and reconstruct the
 needed shapes at final link rather than promising a stable separately compiled
-specialization ABI. Safe `free` continues to track the generic container as an
-ordinary reference allocation; primitive contents create no aliases.
+specialization ABI. Exact layouts identify reference slots in each specialized
+container; primitive contents create no reference aliases.
 
 Runnable Ironwood example:
 [`PrimitiveGenerics.iron`](../examples/primitivegenerics/src/main/ironwood/org/ironwood/primitivegenerics/PrimitiveGenerics.iron).
@@ -1890,17 +1890,15 @@ final class IntValue {
 
 IntValue object = new IntValue(42); // Allocation and owner are visible.
 int copy = object.value();
-free object;
+
 ```
 
-Java automatically converts between primitives and wrapper references, and a
-conversion may allocate or obtain a wrapper behind otherwise ordinary-looking
-source. In a language without GC, a hidden wrapper created during assignment,
-argument passing, return conversion, overload resolution, or inference would
-have no reliable source-level owner or reclamation point. Ironwood therefore
-will not support automatic boxing or unboxing. Use the primitive directly,
-primitive-specialized APIs, or an explicitly constructed and explicitly freed
-wrapper when reference identity is genuinely required.
+Java automatically converts primitives and wrappers. Ironwood keeps allocation
+visible and supports primitive specialization instead of automatic boxing. Use
+primitives, specialized APIs or explicitly constructed managed wrappers when
+reference identity is required. This language choice remains separate from GC.
+
+
 
 ## Arrays, calls, and exceptions
 
@@ -1923,7 +1921,7 @@ Dog[] dogs = new Dog[2];
 Object object = dogs;
 Dog first = dogs[0];
 object = null; // End the ordinary alias before reclaiming its allocation.
-free dogs; // Frees the container, never the referenced Dog elements.
+ // Frees the container, never the referenced Dog elements.
 ```
 
 This base array slice supports one-dimensional primitive, class, interface,
@@ -1986,8 +1984,8 @@ if (value instanceof Dog[]) {
 }
 
 grid[0] = null;
-free firstRow;
-free grid;
+
+
 ```
 
 Ironwood implements multidimensional arrays as recursive invariant arrays:
@@ -2003,13 +2001,12 @@ such as `Box<String>[]`. `null` fails `instanceof` and succeeds as a cast, while
 a mismatched checked cast throws `ClassCastException`. No array covariance or
 runtime array-store check is introduced.
 
-The safe-`free` proof tracks a child stored in a known local array slot. The
-child cannot be freed while the slot still contains it, but a direct overwrite
-with `null` proves detachment. Dynamic indices, calls that can observe array
-elements, copies, and escaped containers remain conservative. Freeing an outer
-array never recursively frees a child. The runnable
-[`multidimensionalarrays`](../examples/multidimensionalarrays) example exercises
-the exact tests/cast and explicit child lifecycle.
+Array slots retain shared children and cycles through exact managed layouts.
+No child detachment or exclusivity proof is required. The runnable
+[multidimensionalarrays](../examples/multidimensionalarrays) example exercises
+exact tests/casts and separate visible child allocations.
+
+
 
 Feature 55 is 💡 rather than ✅ because the complete feature includes
 construction: its recursive array types and exact casts/tests use familiar Java
@@ -2037,18 +2034,15 @@ Ironwood (varargs not supported; an ordinary array shown):
 static int count(String[] values) { return values.length; }
 String[] values = new String[2];
 int result = count(values); // Allocation and lifetime are visible to the caller.
-free values;
+
 ```
 
-Java rewrites each expanded call into an implicit array construction. The
-problem for Ironwood is reclamation, not declaration syntax: the caller has no
-name for that fresh allocation, the callee may retain or return it, and the
-compiler cannot generally insert `free` after the call. A hot call site could
-therefore allocate indefinitely. Pooling adds alias, recursion, and reentrancy
-rules without solving escaping arrays. Ironwood excludes varargs. Fixed-arity
-overloads and ordinary explicit arrays may let an application be rewritten, but
-they are not varargs declarations or expanded varargs calls and do not make
-Feature 56 supported.
+Java rewrites expanded calls into argument-array allocations. Ironwood excludes
+varargs to keep such allocations explicit on hot paths. Fixed-arity overloads
+and ordinary arrays remain the supported convention. Managed collection does
+not change Feature 56's status or add variable-arity calls.
+
+
 
 <a id="feature-57"></a>
 
@@ -2168,12 +2162,10 @@ annotation metadata because they would create an open-ended metadata and code-
 generation subsystem. Use ordinary interfaces and language features for type
 contracts, explicit configuration for data, or build-time source generation
 when code generation is truly needed. Override intent, native test
-registration, and per-allocation missing-free suppression use the narrow built-in
-`@Override`, `@Test`, and `@SuppressUnfreed` directives. They
+registration use the narrow built-in @Override and @Test directives. They
 do not introduce a general annotation grammar or annotation semantics. See the
 next section for `@Override` and [Testing Ironwood code](TESTING.md) for
-`@Test`; [the memory model](MEMORY.md#per-allocation-suppression) specifies
-`@SuppressUnfreed`.
+@Test. The former suppression directive receives a migration diagnostic.
 
 <a id="feature-60"></a>
 
@@ -2372,7 +2364,7 @@ Action action = new Action() {
     @Override public int run() { return 42; }
 };
 int result = action.run();
-free action; // The generated object has an explicit source owner.
+ // The generated object has an explicit source owner.
 // Lambda, closure, and method-reference syntax is deliberately excluded.
 // Anonymous classes are the explicit object-oriented alternative.
 ```
@@ -2498,7 +2490,7 @@ evaluation, runtime registry, ownership transfer, or new C ABI. Reifiable
 nominal, `G<?>`, and recursively reifiable array targets are accepted; concrete
 or bounded parameterizations, type variables, primitives, unnamed `_`
 bindings, record patterns, primitive patterns, and pattern switch remain
-outside this feature. Safe-`free` tracks the matched alias as the same source
+outside this feature. Reference provenance tracks the matched alias as the same source
 allocation, including reclaiming a fresh `new` through the in-scope binding.
 Local and anonymous classes may capture a final or effectively-final matched
 binding under the existing capture rules. Format-1 `.ironclass` source payloads
@@ -2706,21 +2698,19 @@ These Java facilities have different meanings but share the same ❌ status:
   clone operation. A type may instead expose an ordinary copy constructor,
   `copy()`, or a domain-specific name such as `duplicate()`. That API must define
   whether referenced state is shared or copied, how external resources are
-  handled, and who owns and may `free` each resulting allocation.
+  handled, and which references are shared or independently copied.
 
   `clone` is not a reserved or privileged method name. A class may declare a
   normal method named `clone()`, but it has only the access, dispatch, override,
-  exception, allocation, and safe-`free` behavior written in ordinary Ironwood
+  exception, allocation and managed reference behavior written in ordinary Ironwood
   source. It does not inherit a field-copying implementation or acquire any
   relationship to `Object` or `Cloneable`. Future array or collection copying
   APIs may be added for concrete library needs, but they will be explicit
   ordinary APIs rather than a universal cloning protocol. Feature 71 therefore
   remains ❌: application-defined copying is not support for Java cloning.
 - Finalization lets a garbage collector invoke an object's finalizer after the
-  object becomes unreachable. Ironwood has no collector and therefore no
-  finalizer trigger or finalization mechanism. Ironwood's source destructor is
-  instead invoked only by a compiler-accepted explicit `free`; it is never
-  reachability-triggered and therefore does not implement Java finalization.
+  object becomes unreachable. Ironwood collection never invokes source cleanup
+  callbacks and therefore does not implement Java finalization.
   Calling a resource type's own `close()` method with `defer` or in `finally` can provide
   deterministic external-resource cleanup, but `close()` is not an `Object`
   member or a universal runtime hook and is distinct from both finalization and
@@ -2750,25 +2740,19 @@ Ironwood way, using an application-defined resource type:
 void useResource() throws Exception {
 
     Resource resource = new Resource(1, false);
-    defer free resource;
+
     defer resource.close();
     use(resource);
 }
 ```
 
-Ironwood deliberately excludes the complete `try (...)` resource construct,
-including Java's declaration form and the shorter existing-variable form. A
-resource is created by an ordinary declaration, used in an explicit block, and
-closed by an ordinary `finally` or an explicit deferred void call. Allocation,
-ownership, cleanup order, and the reclamation point therefore remain visible in normal statement order. The
-deferred cleanup above keeps the two operations distinct: `close()` performs the
-resource-specific cleanup, while compiler-proven `free` reclaims the wrapper
-even if `close()` throws. The same ownership-proven cleanup works when `break`,
-`continue`, or `yield` exits the protected region.
-The effect of a resource-specific `close()` method is defined by that type; it
-commonly releases an external resource, but never inherently implies `free`,
-recursive reclamation, or garbage collection. A checked exception declared by
-`close()` is caught or declared like any other checked call.
+Ironwood excludes Java resource headers. Ordinary declarations, finally and
+captured deferred void calls express resource closure. Close releases the
+resource, while Memory.collect() reclaims unreachable managed storage. Neither
+collection nor anchor release implicitly closes a source resource. Checked
+exceptions from close follow normal catch/declaration rules.
+
+
 
 Ironwood also changes the exception-versus-exception rule that made old-style
 Java cleanup unsafe. If the protected body throws `A` and the `finally` block
@@ -2800,26 +2784,18 @@ is lost. Each exception
 may still have its own genuine cause. This rule applies to exceptions from any
 statement in `finally`; it does not recognize `close()` specially. Separate
 deferred calls continue after an earlier cleanup failure. Ordinary cleanup statements use nested `try`/`finally` when later operations must run,
-because statements after a throwing statement are not executed. Safe-free
-analysis follows those same paths: compiler-generated copies of a cleanup body receive independent ownership state, and states are
-merged only where control flow truly rejoins. Conflicting escape or alias states
-remain a compile-time rejection rather than becoming a runtime double-free
-guard.
+because statements after a throwing statement are not executed. Deferred calls
+capture their receiver/arguments once and execute in LIFO order on every exit,
+including pending return, yield and exception paths. Exact roots protect those
+values if cleanup collects. D051 preserves the primary and secondary order.
 
-D168 Milestone 1 adds `defer resource.close();`, which captures the
-receiver at that statement and invokes it at the end of its explicit block.
-Multiple actions run in LIFO order on every supported exit and preserve the same
-first-failure rules. This narrows the source nesting needed for explicit cleanup
-without accepting Java's resource headers. `defer free resource;` binds an owned
-local and forbids its reassignment until cleanup. Declaring it before the close
-action ensures close runs before free, including on failure. Existing alias,
-escape, dependent-owner, and pending-result proofs still apply on every exit.
-Milestone 2's [performance stage](DEFER_PERFORMANCE_VERIFICATION.md) is accepted.
-Its [runnable example](../examples/deferredcleanup/README.md) demonstrates buffer
-reclamation, close/free failure order and pool release.
-[SimpleTcpEcho adoption](DEFER_PROJECT_VERIFICATION.md) and the
-[final audit](DEFER_FINAL_VERIFICATION.md) complete Milestone 2 locally,
-ready for final review and separately directed integration.
+The [deferred cleanup example](../examples/deferredcleanup/README.md) demonstrates
+explicit close, failure precedence and allocation-free pool release/reuse. The
+older defer milestone reports preserve historical evidence; their managed-free
+cells are superseded by GC5 and GC7.
+
+
+
 The [ordinary-finally resource example](../examples/resources/src/main/ironwood/org/ironwood/resources/DeterministicResources.iron)
 remains a focused demonstration of that supported construct.
 
@@ -2841,10 +2817,8 @@ nor the method name receives special compiler behavior. The application-defined
 [`DeterministicResources.iron`](../examples/resources/src/main/ironwood/org/ironwood/resources/DeterministicResources.iron).
 
 The U3 library also implements `ironwood.io.Closeable` and byte/character
-streams. Their `close()` releases external resources while a separate proven
-`free` reclaims the stream object and its owned buffers. Borrowed wrappers must
-be freed before their underlying objects; closing a wrapper alone does not
-release that dependency. The runnable
+streams. Their close methods release external resources. Managed references
+keep wrappers and buffers reachable independently of resource state. The runnable
 [`streaming`](../projects/streaming/README.md) project demonstrates nested
 cleanup for cat, wc, cp, and an interactive prompt. The standalone
 [`minitee`](../projects/minitee/README.md) project adds a custom `OutputStream`
@@ -3000,7 +2974,7 @@ finite hierarchy does not add source-level sealed classes.
 
 Typed IR records both the declared enum type and concrete storage type. LLVM
 emits the concrete immortal layout and descriptor, while lookup, traversal,
-identity, ordinal switch, virtual/interface dispatch, safe-`free`, tree shaking,
+identity, ordinal switch, virtual/interface dispatch, managed aliasing, tree shaking,
 and source/class/archive reconstruction retain their established contracts.
 
 Runnable Ironwood example:
@@ -3031,7 +3005,7 @@ and pools equal decoded values once across the final linked closed world,
 including source, `.ironclass`, and `.ironjar` inputs. Each retained value is one
 immutable, immortal UTF-16 `ironwood.lang.String` object in compiler-emitted
 storage. Repeated literals therefore have the same identity, do not affect
-`System.allocationCount()`, and cannot be passed to `free`. Content operations
+`System.allocationCount()`, and remain immortal. Content operations
 remain Java-shaped: `length()` and `charAt(int)` use UTF-16 code units,
 `equals(Object)` and `hashCode()` use content, and `==` remains reference
 identity. `byteLength()` is an Ironwood UTF-8 interop extension.
@@ -3072,10 +3046,9 @@ all Ironwood primitive types, including Java-matching float/double text for
 finite values, signed zero, infinities, and NaN. It does not introduce automatic
 boxing.
 
-String `+=` evaluates its target once and stores the newly allocated or folded
-String under the existing assignment rules. It does not implicitly reclaim the
-previous value; as with any overwritten reference, source code must perform any
-provable `free` before discarding an owned ordinary allocation.
+String += evaluates its target once and stores the new or folded String using
+ordinary assignment rules. An overwritten result remains alive while reachable
+and becomes eligible for explicit collection when unreachable.
 
 A concatenation that is a compile-time String constant expression is folded
 into Feature 75's final-program literal pool. A dynamic concatenation produces a
@@ -3084,9 +3057,8 @@ evaluate and convert the operands in order, compute the exact UTF-16 result
 length, and write one source-visible result object directly. A maximal
 uninterrupted concatenation chain shares that one result allocation; it does
 not lower through a hidden ordinary `StringBuilder` or hidden backing array.
-Compiler allocation provenance identifies the result, so a nonescaping local
-may satisfy safe-`free`; an escaping result remains allocated under the existing
-rules.
+Exact roots retain the result, including escaped aliases, until explicit collection
+can reclaim an unreachable graph.
 
 The compiler represents dynamic chains with a dedicated typed-IR instruction.
 LLVM lowers it to an ordered descriptor array and a native two-pass operation
@@ -3094,7 +3066,7 @@ that validates the total length, allocates the exact String object once, and
 writes its UTF-16 tail. Source, class-directory, individual-class, and archive
 inputs preserve the behavior; tree shaking does not retain `StringBuilder` just
 because concatenation is used. Native tests cover `-O0` through `-O3`, constant
-identity, conversions, ordering, allocation counts, and safe `free`. Java
+identity, conversions, ordering, allocation counts and managed roots. Java
 likewise distinguishes pooled constant expressions from newly created dynamic
 concatenation results; see
 [JLS 15.18.1](https://docs.oracle.com/javase/specs/jls/se26/html/jls-15.html#jls-15.18.1)
@@ -3615,20 +3587,14 @@ zero-length ordinary array. A nested brace creates exactly one ordinary child
 array at that source position; recursive braces therefore create one allocation
 per written brace level, not Java's rectangular multi-dimension allocation.
 
-Every nested child is entered in the same compiler-owned constant-slot
-provenance map as an explicitly allocated Feature 55 child. Loading it from a
-known slot preserves its allocation identity; overwriting that slot with
-`null`, or freeing the outer container, proves detachment so a source local may
-free the child. An attached slot blocks the free, an escaped outer container
-recursively escapes its tracked children, and freeing an outer container never
-recursively frees them. Initializer lowering uses the existing typed array
-allocate/store IR and native allocation boundary; it adds no hidden builder,
-runtime ownership table, or implicit reclamation.
+Initializer lowering uses ordinary typed array allocate/store operations. Every
+written brace level is a visible managed allocation. Aliases and array slots
+retain children across collection without detachment or exclusivity proofs.
+No hidden builder, runtime ownership table or implicit collection is introduced.
 
 The runnable [`arrayinitializers`](../examples/arrayinitializers) example covers
 both surface forms, empty and nested arrays, contextual reference conversion,
-left-to-right calls, exact allocation counts, and explicit child detachment and
-reclamation. Feature 89 is ✅. See
+left-to-right calls, exact allocation counts and shared child references. Feature 89 is ✅. See
 [JLS 10.6](https://docs.oracle.com/javase/specs/jls/se26/html/jls-10.html#jls-10.6).
 
 <a id="feature-90"></a>
@@ -3666,25 +3632,16 @@ Ironwood implements `do`/`while`, enhanced `for` over arrays and
 `break`/`continue`. An enhanced-for operand is evaluated once. Array traversal
 uses checked access in ascending index order; `Iterable` traversal calls
 `iterator()` once and then uses `hasNext()`/`next()`. The loop borrows that
-iterator and creates no hidden allocation or implicit `free`; an `Iterable`
-producer retains ownership, normally by resetting and returning a reusable
+iterator and creates no hidden allocation or implicit collection; an Iterable
+producer retains managed references, normally by resetting and returning a reusable
 iterator stored in the producer as the bundled collections do.
 
-Labeled and unlabeled `break`/`continue` execute every crossed `finally` from
-inner to outer before reaching their target. An abrupt cleanup supersedes the
-pending transfer, matching the existing return/exception cleanup model.
-Feature 11's explicit `free` is supported on those paths when ownership is
-proved safe. Destinations receive the post-cleanup state, including the `for`
-update or `do` condition reached by `continue`. Back-edge checks prevent a
-freed allocation from being reused on the next iteration; allocating and
-freeing a body-local object on every iteration is supported. See the runnable
-[`transfer reclamation` regression](../integration-tests/cases/finally_transfer_reclamation.iron)
-for labeled cleanup order, jump replacement, and allocation-balance checks.
-Iteration variables have ordinary block scope, support `final` and capture,
-and participate in the same type, definite-flow, and ownership analysis as
-other locals. Assertions remain separately excluded by Feature 102. See the
-runnable [`statements`](../examples/statements) example and
-[JLS 14](https://docs.oracle.com/javase/specs/jls/se26/html/jls-14.html).
+Labeled and unlabeled break/continue execute crossed finally/deferred actions
+from inner to outer before their destination. Abrupt cleanup replaces a pending
+transfer under the existing rules. Exact roots preserve captured and pending
+references when cleanup collects. Pool-origin/initialization facts follow the
+actual CFG. The [transfer regression](../integration-tests/cases/finally_transfer_reclamation.iron)
+preserves labeled cleanup order and jump replacement.
 
 <a id="feature-91"></a>
 
@@ -3735,11 +3692,9 @@ its exact closed-world enum selector. Result expressions and `yield` values use
 target typing when available, otherwise numeric promotion, null/reference
 merging, or the closed-world least upper reference type, then meet in a typed
 SSA phi. A `yield` executes each crossed `finally` before reaching that phi; an
-abrupt cleanup supersedes the pending result. Cleanup may free a separate
-owned temporary; the result join retains those ownership effects. A pending
-reference-valued result remains observable and cannot itself be freed by that
-cleanup. Selector evaluation and result aliases retain Ironwood's explicit
-ownership rules. The construct adds no hidden allocation, runtime dispatch
+abrupt cleanup supersedes the pending result. A pending reference-valued
+result remains an exact root throughout cleanup, including explicit collection.
+Selector and result aliases follow ordinary managed reachability. The construct adds no hidden allocation, runtime dispatch
 table, or native ABI. Format-1 source artifacts reconstruct the same semantics, and LLVM
 optimization remains enabled from `-O0` through `-O3`.
 
@@ -4238,9 +4193,8 @@ its bounded emergency trace and association state.
 Trace capture guarantees the exact failing allocation-site frame without
 allocating. Additional caller frames may use bounded emergency capacity and may
 be truncated explicitly; nonessential runtime metadata allocation continues to
-degrade rather than recursively throwing. A source catch may free allocations
-it already owns and retry, but neither recovery nor a successful retry is
-guaranteed.
+degrade rather than recursively throwing. A source catch may explicitly collect
+unreachable managed graphs and retry; success is not guaranteed.
 
 Ironwood retains its ownership-safe evaluation order: an object-construction
 receiver and constructor arguments are evaluated before the ordinary object
@@ -4248,8 +4202,7 @@ allocation is attempted, so an argument failure cannot strand hidden allocated
 storage. Array dimensions and dynamic String operands are likewise evaluated
 before their result allocation. This intentionally differs from Java's object-
 allocation failure timing. A failed allocation creates no ordinary Ironwood
-object, increments no allocation count, and creates nothing that source must
-free.
+object and increments no allocation count.
 
 Feature 105 is implemented and separate from Feature 100. Its immortal error,
 bounded emergency delivery, and ownership-safe evaluation timing make it an
@@ -4406,15 +4359,14 @@ The remaining icons make current support and design choices explicit:
 
 1. **Implemented Ironwood ways:** mandatory `@Override` turns Java's optional
    marker into a bidirectional compiler contract; native primitive-generic value
-   specialization avoids hidden boxes; compiler-checked `free`, derived-to-root
-   destructors, failed-construction rollback, and capture-aware alias analysis
-   provide deterministic reclamation without a collector;
+   specialization avoids hidden boxes; explicit synchronous collection preserves
+   shared graphs, captures and partially constructed objects;
    multidimensional arrays use explicit separately owned children; and ordinary
-   `try`/`finally` supports ownership-proven exactly-once `free`, including on
+   try/finally supports explicit resource cleanup, including on
    `break`/`continue`/`yield` exits, preserves the first failure, and retains later
    cleanup failures without Java's
    try-with-resources construct. D168 Milestone 1 also supports explicit
-   deferred void calls and local-bound deferred free; cooked text blocks gain
+   captured deferred void calls; cooked text blocks gain
    an escape-free, non-interpolating raw form; bounded immortal allocation-
    failure delivery works without relying on the exhausted allocator; and
    compile-time `.ironclass`/`.ironjar` reuse replaces Java's evolving binary-

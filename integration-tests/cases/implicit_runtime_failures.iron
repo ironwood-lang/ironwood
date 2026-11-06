@@ -78,7 +78,6 @@ class Main {
         catch (ArrayIndexOutOfBoundsException expected) { caught++; }
         try { values[1] = 1; }
         catch (ArrayIndexOutOfBoundsException expected) { caught++; }
-        free values;
         return caught == 2;
     }
 
@@ -116,8 +115,7 @@ class Main {
             }
         } catch (NullPointerException primary) {
 
-            return primary.getSecondaryExceptionCount() == 1
-                    && primary.getSecondaryException(0)
+            return primary.getSecondaryExceptionCount() == 1 && primary.getSecondaryException(0)
                     instanceof ArrayIndexOutOfBoundsException;
         }
         return false;
@@ -126,13 +124,6 @@ class Main {
     public static int main(String[] args) {
 
         effects = 0;
-        return catchesNullField()
-                && failuresUseOrdinaryAllocation()
-                && catchesNullMethodAfterArguments()
-                && catchesNullArrayUses()
-                && catchesArrayBounds()
-                && catchesNegativeLength()
-                && catchesNullThrows()
-                && preservesPrimaryAndSecondary() ? 42 : 1;
+        return catchesNullField() && failuresUseOrdinaryAllocation() && catchesNullMethodAfterArguments() && catchesNullArrayUses() && catchesArrayBounds() && catchesNegativeLength() && catchesNullThrows() && preservesPrimaryAndSecondary() ? 42 : 1;
     }
 }

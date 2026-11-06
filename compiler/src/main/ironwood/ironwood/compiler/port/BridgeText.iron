@@ -22,7 +22,6 @@ public final class BridgeText {
     public static String doubleHex(double value) {
 
         StringBuilder text = new StringBuilder();
-        defer free text;
         appendDoubleHex(text, Double.doubleToRawLongBits(value));
         return text.toString();
     }
@@ -35,7 +34,6 @@ public final class BridgeText {
         int exponent = (bits >>> 23) & 0xFF;
         int fraction = bits & 0x7FFFFF;
         StringBuilder text = new StringBuilder();
-        defer free text;
         if (exponent == 0 && fraction != 0) {
             // A subnormal float keeps its own exponent, -126.
             if (bits < 0) text.append('-');

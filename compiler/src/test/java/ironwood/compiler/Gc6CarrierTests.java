@@ -19,7 +19,7 @@ public final class Gc6CarrierTests {
     }
 
     private static void generate(Path output) throws Exception {
-        var pipeline = new CompilerPipeline(UnfreedMode.ERROR);
+        var pipeline = new CompilerPipeline();
         var input = SourceFile.of("CarrierProbe.iron", PROBE);
         var original = pipeline.analyzeForBridge(List.of(SourceFile.of("Discover.iron", "final class Discover {}")));
         check(original.valid(), original.diagnostics().toString());
@@ -54,10 +54,6 @@ public final class Gc6CarrierTests {
         String nativeCleanup = BridgeCallbackCarrierNativeSources.cleanup(artifact, entries, roots, cleanup);
         check(nativeCleanup.contains("next.value.reference") && nativeCleanup.contains(entries.takeReference().linkageName())
                 && !nativeCleanup.contains("destroy") && !nativeCleanup.contains("free("), "completion still reclaims managed memory");
-        for (var function : entries.program().functions()) for (var block : function.blocks()) {
-            check(GcEffects.operations(block).stream().noneMatch(i -> i instanceof IrFreeInstruction
-                    || i instanceof IrRawDeallocateInstruction || i instanceof IrRollbackInstruction), "carrier operation produces legacy cleanup");
-        }
         // User source reconstructs from class/archive inputs. Private support is
         // regenerated at its compiler-owned path rather than trusting a caller's
         // copy of a reserved internal declaration.

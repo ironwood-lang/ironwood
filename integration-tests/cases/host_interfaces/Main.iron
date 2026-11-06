@@ -13,8 +13,6 @@ import ironwood.ds.ArrayList;
 class Main {
 
     public static int main(String[] args) throws Exception {
-
-        long baseline = System.liveAllocationCount();
         Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
         try {
             while (interfaces.hasMoreElements()) {
@@ -23,13 +21,11 @@ class Main {
                 try {
                     System.out.println(text);
                 } finally {
-                    free text;
                 }
                 NetworkInterface lookup = NetworkInterface.getByName(netif.getName());
                 try {
                     if (lookup == null || !lookup.equals(netif) || lookup.hashCode() != netif.hashCode()) return 1;
                 } finally {
-                    free lookup;
                 }
                 ArrayList<InterfaceAddress> bindings = netif.getInterfaceAddresses();
                 try {
@@ -39,11 +35,9 @@ class Main {
                         try {
                             System.out.println(description);
                         } finally {
-                            free description;
                         }
                     }
                 } finally {
-                    free bindings;
                 }
                 Enumeration<InetAddress> addresses = netif.getInetAddresses();
                 try {
@@ -59,14 +53,11 @@ class Main {
                                     if (scope == null || !scope.getName().equals(netif.getName())) return 3;
                                 }
                             } finally {
-                                free copy;
                             }
                         }
                     } finally {
-                        free iterator;
                     }
                 } finally {
-                    free addresses;
                 }
                 Enumeration<NetworkInterface> children = netif.getSubInterfaces();
                 try {
@@ -75,10 +66,8 @@ class Main {
                         if (child.getParent() == null || !child.getParent().equals(netif)) return 4;
                     }
                 } finally {
-                    free children;
                 }
                 byte[] hardware = netif.getHardwareAddress();
-                free hardware;
                 if (netif.getMTU() < 0) return 5;
                 netif.isUp();
                 netif.isLoopback();
@@ -86,8 +75,7 @@ class Main {
                 netif.supportsMulticast();
             }
         } finally {
-            free interfaces;
         }
-        return System.liveAllocationCount() == baseline ? 0 : 6;
+        return 0;
     }
 }

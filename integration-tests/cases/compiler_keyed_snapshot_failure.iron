@@ -12,46 +12,36 @@ class Main {
     static void checkHashMap() {
 
         HashMap<String, String> source = new HashMap<String, String>(1);
-        defer free source;
         source.put("key", "value");
         SnapshotMap<String, String> snapshot = new SnapshotMap<String, String>(source);
-        defer free snapshot;
         if (snapshot.size() != 1) throw new RuntimeException();
     }
 
     static void checkIdentityHashMap() {
 
         IdentityHashMap<String, String> source = new IdentityHashMap<String, String>(1);
-        defer free source;
         source.put("key", "value");
         SnapshotIdentityMap<String, String> snapshot = new SnapshotIdentityMap<String, String>(source);
-        defer free snapshot;
         if (snapshot.size() != 1) throw new RuntimeException();
     }
 
     static void checkLinkedHashMap() {
 
         LinkedHashMap<String, String> source = new LinkedHashMap<String, String>(1);
-        defer free source;
         source.put("key", "value");
         SnapshotLinkedMap<String, String> snapshot = new SnapshotLinkedMap<String, String>(source);
-        defer free snapshot;
         if (snapshot.size() != 1) throw new RuntimeException();
     }
 
     static void checkSet() {
 
         IdentityHashSet<String> source = new IdentityHashSet<String>(1);
-        defer free source;
         source.add("key");
         SnapshotIdentitySet<String> snapshot = new SnapshotIdentitySet<String>(source);
-        defer free snapshot;
         if (snapshot.size() != 1) throw new RuntimeException();
     }
 
     public static int main(String[] args) {
-
-        long baseline = System.liveAllocationCount();
         boolean failed = false;
         try {
             checkHashMap(); checkIdentityHashMap(); checkLinkedHashMap(); checkSet();
@@ -61,7 +51,7 @@ class Main {
             failed = true;
         }
 
-        if (System.liveAllocationCount() != baseline) return 1;
+
         return failed ? 42 : 43;
     }
 }

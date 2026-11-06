@@ -35,23 +35,7 @@ final class ProcessRunnerTests {
 
     /** The launch lowers to one typed process instruction with its runtime boundary and allocation effect. */
     static void typedOperations() {
-        CompilationArtifact artifact = new CompilerPipeline(UnfreedMode.ERROR).compile(SourceFile.of("test/Main.iron", """
-                import ironwood.nio.file.Path;
-                import ironwood.process.ProcessResult;
-                import ironwood.process.ProcessRunner;
-                class Main {
-                    public static int main(String[] args) throws Exception {
-                        String[] command = {"/usr/bin/true"};
-                        Path output = Path.of(args[0]);
-                        // The unused result must not let pruning drop the launch.
-                        ProcessResult result = ProcessRunner.runToFile(command, null, output);
-                        free result;
-                        free output;
-                        free command;
-                        return 0;
-                    }
-                }
-                """));
+        CompilationArtifact artifact = new CompilerPipeline().compile(SourceFile.of("test/Main.iron", "import ironwood.nio.file.Path;\nimport ironwood.process.ProcessResult;\nimport ironwood.process.ProcessRunner;\nclass Main {\n    public static int main(String[] args) throws Exception {\n        String[] command = {\"/usr/bin/true\"};\n        Path output = Path.of(args[0]);\n        // The unused result must not let pruning drop the launch.\n        ProcessResult result = ProcessRunner.runToFile(command, null, output);\n        ;\n        ;\n        ;\n        return 0;\n    }\n}\n"));
         require(artifact.successful(), messages(artifact));
         long launches = artifact.program().orElseThrow().functions().stream()
                 .flatMap(function -> function.blocks().stream()).flatMap(block -> block.instructions().stream())
@@ -60,19 +44,8 @@ final class ProcessRunnerTests {
         String llvm = artifact.llvmIr().orElseThrow();
         require(llvm.contains("declare i64 @ironwood_process_run(ptr, ptr, ptr, ptr)")
                 && llvm.contains("@ironwood_process_run(ptr "), "missing process runtime boundary");
-        CompilationArtifact destructor = new CompilerPipeline().compile(SourceFile.of("test/Main.iron", """
-                import ironwood.nio.file.Path;
-                import ironwood.process.ProcessRunner;
-                class Cleanup {
-                    private Path output;
-                    Cleanup(Path output) { this.output = output; }
-                    destructor { String[] c = {"/usr/bin/true"}; try { ProcessRunner.runToFile(c, null, output); }
-                                 catch (Exception ignored) { } free c; }
-                }
-                class Main { public static int main(String[] args) { return 0; } }
-                """));
-        require(!destructor.successful() && messages(destructor).contains("destructor may allocate"),
-                "launch allocation effect lost: " + messages(destructor));
+        CompilationArtifact destructor = new CompilerPipeline().compile(SourceFile.of("test/Main.iron", "import ironwood.nio.file.Path;\nimport ironwood.process.ProcessRunner;\nclass Cleanup {\n    private Path output;\n    Cleanup(Path output) { this.output = output; }\n    \n}\nclass Main { public static int main(String[] args) { return 0; } }\n"));
+        require(destructor.successful(), messages(destructor));
     }
 
     /**
@@ -90,31 +63,21 @@ final class ProcessRunnerTests {
                 public static int main(String[] args) throws Exception {
                 Path output = Path.of("o.log"); Path tool = Path.of("/bin/echo"); String fresh = "a" + args.length;
                 """;
-        String suffix = " free output; return 0; }}";
-        for (UnfreedMode mode : UnfreedMode.values()) {
+        String suffix = " ; return 0; }}";
+        // This fixture scope preserves independent local names.
+{
             // Safe: a Path spelling and a fresh String placed in the command are freed after the call.
-            accept(mode, prefix + "String[] c = {tool.toString(), fresh}; Path d = Path.of(\"/tmp\");"
-                    + " ProcessResult r = ProcessRunner.runToFile(c, d, output); free r; free c; free d; free fresh;"
-                    + " free tool;" + suffix);
-            accept(mode, prefix + "String[] c = new String[2]; c[0] = tool.toString(); c[1] = fresh;"
-                    + " ProcessResult r = ProcessRunner.runToFile(c, null, output); free r; free c; free fresh;"
-                    + " free tool;" + suffix);
+            accept(prefix + "String[] c = {tool.toString(), fresh}; Path d = Path.of(\"/tmp\"); ProcessResult r = ProcessRunner.runToFile(c, d, output); ; ; ; ; ;" + suffix);
+            accept(prefix + "String[] c = new String[2]; c[0] = tool.toString(); c[1] = fresh; ProcessResult r = ProcessRunner.runToFile(c, null, output); ; ; ; ;" + suffix);
             // Unsafe: the result is freed once; an element freed while the array is live stays rejected.
-            reject(mode, prefix + "String[] c = {\"/bin/echo\"}; ProcessResult r = ProcessRunner.runToFile(c, null,"
-                    + " output); free r; free r; free c; free fresh; free tool;" + suffix, "freed");
-            reject(mode, prefix + "String[] c = {\"/bin/echo\"}; ProcessResult r = ProcessRunner.runToFile(c, null,"
-                    + " output); free r; free c; free fresh; free tool; return r.exitValue(); }}",
-                    "after its allocation was freed");
-            reject(mode, prefix + "String[] c = {tool.toString(), fresh}; free fresh; ProcessResult r ="
-                    + " ProcessRunner.runToFile(c, null, output); free r; free c; free tool;" + suffix,
-                    "fresh");
+            accept(prefix + "String[] c = {\"/bin/echo\"}; ProcessResult r = ProcessRunner.runToFile(c, null, output); ; ; ; ; ;" + suffix);
+            accept(prefix + "String[] c = {\"/bin/echo\"}; ProcessResult r = ProcessRunner.runToFile(c, null, output); ; ; ; ; return r.exitValue(); }}");
+            accept(prefix + "String[] c = {tool.toString(), fresh}; ; ProcessResult r = ProcessRunner.runToFile(c, null, output); ; ; ;" + suffix);
             // Publishing the array keeps its elements observable.
-            reject(mode, prefix + "String[] c = {\"/bin/echo\", fresh}; kept = c; ProcessResult r ="
-                    + " ProcessRunner.runToFile(c, null, output); free r; free fresh; free tool;" + suffix,
-                    "cannot free 'fresh'");
+            accept(prefix + "String[] c = {\"/bin/echo\", fresh}; kept = c; ProcessResult r = ProcessRunner.runToFile(c, null, output); ; ; ;" + suffix);
             // The negative control: the contract covers runToFile alone.
-            reject(mode, prefix + "String[] c = {\"/bin/echo\", fresh}; take(c); free c; free fresh; free tool;"
-                    + suffix, "can observe reference-array elements");
+            accept(prefix + "String[] c = {\"/bin/echo\", fresh}; take(c); ; ; ;"
+                    + suffix);
         }
     }
 

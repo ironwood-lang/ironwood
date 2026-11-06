@@ -56,8 +56,6 @@ class Main {
             invalidEnvironment = true;
         }
 
-        free units;
-        return nullCopy && negativeOffset && longRange && destinationRange
-                && invalidInteger && invalidByte && invalidEnvironment ? 42 : 2;
+        return nullCopy && negativeOffset && longRange && destinationRange && invalidInteger && invalidByte && invalidEnvironment ? 42 : 2;
     }
 }

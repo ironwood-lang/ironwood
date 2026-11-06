@@ -11,7 +11,6 @@ public final class ProxyTests extends TestSuite {
     private static Proxy route() {
 
         InetSocketAddress endpoint = InetSocketAddress.createUnresolved("proxy.invalid", 1080);
-        defer free endpoint;
         return new Proxy(Proxy.Type.SOCKS, endpoint);
     }
 
@@ -19,11 +18,9 @@ public final class ProxyTests extends TestSuite {
     private void routeOwnsItsEndpointAndRendersWithoutCredentials() {
 
         Proxy proxy = route();
-        defer free proxy;
         assertEquals(Proxy.Type.SOCKS, proxy.type());
         assertEquals("proxy.invalid", ((InetSocketAddress) proxy.address()).getHostString());
         String text = proxy.toString();
-        defer free text;
         assertEquals("SOCKS @ proxy.invalid/<unresolved>:1080", text);
         assertSame(proxy.address(), proxy.address());
         assertEquals(Proxy.Type.DIRECT, Proxy.NO_PROXY.type());
@@ -34,34 +31,26 @@ public final class ProxyTests extends TestSuite {
     private void equalityDescribesRouteRatherThanCredentialsOrVersion() {
 
         InetSocketAddress endpoint = InetSocketAddress.createUnresolved("proxy.invalid", 1080);
-        defer free endpoint;
         byte[] secret = {85, 115, 101, 114};
-        defer free secret;
         Proxy plain = new Proxy(Proxy.Type.SOCKS, endpoint);
-        defer free plain;
         Proxy authenticated = Proxy.socks5(endpoint, secret, secret);
-        defer free authenticated;
         Proxy v4 = Proxy.socks(endpoint, Proxy.SocksVersion.V4);
-        defer free v4;
         assertTrue(plain.equals(authenticated));
         assertTrue(authenticated.equals(v4));
         assertEquals(plain.hashCode(), v4.hashCode());
         String text = authenticated.toString();
-        defer free text;
         assertFalse(text.contains("User"));
     }
 
     private static Socket copiedSocket() {
 
         Proxy proxy = route();
-        defer free proxy;
         return new Socket(proxy);
     }
 
     private static void warmSocketOptions() throws Exception {
 
         Socket warm = copiedSocket();
-        defer free warm;
         defer warm.close();
         warm.supportedOptions();
     }
@@ -70,25 +59,22 @@ public final class ProxyTests extends TestSuite {
     private void socketsOwnIndependentCopiesOfProxyConfiguration() throws Exception {
 
         warmSocketOptions();
-        long baseline = System.liveAllocationCount();
+
         for (int index = 0; index < 20; index++) {
             Socket socket = copiedSocket();
-            defer free socket;
             defer socket.close();
             assertFalse(socket.isConnected());
             assertNull(socket.getRemoteSocketAddress());
         }
-        assertEquals(baseline, System.liveAllocationCount());
+
     }
 
     private static void socksLength(InetSocketAddress endpoint, int length, boolean accepted) {
 
         byte[] bytes = new byte[length];
-        defer free bytes;
         boolean caught = false;
         try {
             Proxy proxy = Proxy.socks5(endpoint, bytes, bytes);
-            free proxy;
         } catch (IllegalArgumentException expected) { caught = true; }
         assertEquals(!accepted, caught);
     }
@@ -97,7 +83,6 @@ public final class ProxyTests extends TestSuite {
     private void socks5ValidatesEncodedOctetLengths() {
 
         InetSocketAddress endpoint = InetSocketAddress.createUnresolved("proxy.invalid", 1080);
-        defer free endpoint;
         socksLength(endpoint, 0, false);
         socksLength(endpoint, 1, true);
         socksLength(endpoint, 255, true);
@@ -107,13 +92,10 @@ public final class ProxyTests extends TestSuite {
     private static void basicOctet(InetSocketAddress endpoint, int octet, boolean username, boolean accepted) {
 
         byte[] value = {(byte) octet};
-        defer free value;
         byte[] empty = new byte[0];
-        defer free empty;
         boolean caught = false;
         try {
             Proxy proxy = basicValue(endpoint, value, empty, username);
-            free proxy;
         } catch (IllegalArgumentException expected) { caught = true; }
         assertEquals(!accepted, caught);
     }
@@ -128,7 +110,6 @@ public final class ProxyTests extends TestSuite {
     private void basicRejectsControlsAndUsernameColonButKeepsEncodedBytes() {
 
         InetSocketAddress endpoint = InetSocketAddress.createUnresolved("proxy.invalid", 8080);
-        defer free endpoint;
         for (int octet = 0; octet < 32; octet++) {
             basicOctet(endpoint, octet, true, false);
             basicOctet(endpoint, octet, false, false);
@@ -140,24 +121,18 @@ public final class ProxyTests extends TestSuite {
         basicOctet(endpoint, 128, true, true);
         basicOctet(endpoint, 255, false, true);
         byte[] empty = new byte[0];
-        defer free empty;
         Proxy proxy = Proxy.httpConnectBasic(endpoint, empty, empty);
-        free proxy;
     }
 
     @Test
     private void socks4UserIdHasItsOwnNulTerminatedContract() {
 
         InetSocketAddress endpoint = InetSocketAddress.createUnresolved("proxy.invalid", 1080);
-        defer free endpoint;
         byte[] bytes = new byte[0];
-        defer free bytes;
         Proxy proxy = Proxy.socks4(endpoint, bytes);
-        free proxy;
         byte[] nul = {0};
-        defer free nul;
         boolean caught = false;
-        try { Proxy invalid = Proxy.socks4(endpoint, nul); free invalid; }
+        try { Proxy invalid = Proxy.socks4(endpoint, nul); ; }
         catch (IllegalArgumentException expected) { caught = true; }
         assertTrue(caught);
     }
@@ -166,23 +141,20 @@ public final class ProxyTests extends TestSuite {
     private void factoriesRejectNullAndInvalidRoutesBeforeNetworking() {
 
         InetSocketAddress endpoint = InetSocketAddress.createUnresolved("proxy.invalid", 1080);
-        defer free endpoint;
         byte[] bytes = {1};
-        defer free bytes;
         for (int choice = 0; choice < 7; choice++) {
             boolean caught = false;
             try {
                 Proxy invalid = nullFactory(endpoint, bytes, choice);
-                free invalid;
             } catch (NullPointerException expected) { caught = true; }
             assertTrue(caught);
         }
         boolean caught = false;
-        try { Proxy invalid = new Proxy(Proxy.Type.DIRECT, endpoint); free invalid; }
+        try { Proxy invalid = new Proxy(Proxy.Type.DIRECT, endpoint); ; }
         catch (IllegalArgumentException expected) { caught = true; }
         assertTrue(caught);
         caught = false;
-        try { Socket invalid = new Socket((Proxy) null); free invalid; }
+        try { Socket invalid = new Socket((Proxy) null); ; }
         catch (IllegalArgumentException expected) { caught = true; }
         assertTrue(caught);
     }
@@ -202,10 +174,8 @@ public final class ProxyTests extends TestSuite {
     private void explicitDirectSocketKeepsNormalStreamAndOptionContracts() throws Exception {
 
         Socket socket = new Socket(Proxy.NO_PROXY);
-        defer free socket;
         defer socket.close();
         Socket peer = NetworkingSupport.connectPair(socket);
-        defer free peer;
         defer peer.close();
         socket.setOption(StandardSocketOptions.TCP_NODELAY, true);
         assertTrue(socket.getOption(StandardSocketOptions.TCP_NODELAY));
@@ -219,23 +189,17 @@ public final class ProxyTests extends TestSuite {
     private void socks4RejectsUnresolvedAndIpv6Targets() throws Exception {
 
         InetSocketAddress endpoint = new InetSocketAddress("127.0.0.1", 1);
-        defer free endpoint;
         Proxy proxy = Proxy.socks(endpoint, Proxy.SocksVersion.V4);
-        defer free proxy;
         Socket socket = new Socket(proxy);
-        defer free socket;
         defer socket.close();
         InetSocketAddress target = InetSocketAddress.createUnresolved("target.invalid", 80);
-        defer free target;
         boolean caught = false;
         try { socket.connect(target); } catch (UnknownHostException expected) { caught = true; }
         assertTrue(caught);
         assertTrue(socket.isClosed());
         Socket ipv6 = new Socket(proxy);
-        defer free ipv6;
         defer ipv6.close();
         InetSocketAddress ipv6Target = new InetSocketAddress("::1", 80);
-        defer free ipv6Target;
         caught = false;
         try { ipv6.connect(ipv6Target); } catch (SocketException expected) { caught = true; }
         assertTrue(caught);
@@ -246,16 +210,11 @@ public final class ProxyTests extends TestSuite {
     private void proxyNegotiationUsesTheConnectTimeoutAndClosesOnFailure() throws Exception {
 
         InetAddress address = NetworkingSupport.loopback();
-        defer free address;
         ServerSocket listener = new ServerSocket(0, 8, address);
-        defer free listener;
         defer listener.close();
         InetSocketAddress endpoint = new InetSocketAddress(address, listener.getLocalPort());
-        defer free endpoint;
         Proxy proxy = new Proxy(Proxy.Type.SOCKS, endpoint);
-        defer free proxy;
         Socket socket = new Socket(proxy);
-        defer free socket;
         defer socket.close();
         boolean caught = false;
         // The OS accepts the TCP connection into the backlog,

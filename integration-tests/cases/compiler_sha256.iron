@@ -18,7 +18,6 @@ class Main {
 
         String hex = digest.hexDigest();
         System.out.println(name + " " + hex);
-        free hex;
     }
 
     static byte[] pattern(int length) {
@@ -44,7 +43,6 @@ class Main {
     static void lengths(Sha256 digest) {
 
         byte[] data = pattern(300);
-        defer free data;
         for (int length = 0; length <= 300; length++) {
             digest.update(data, 0, length);
             line("length " + length, digest);
@@ -66,7 +64,6 @@ class Main {
         for (int index = 0; index < spelled.length; index++) {
             String text = new String(spelled[index]);
             digest.updateUtf8(text);
-            free text;
             line("text " + index, digest);
         }
     }
@@ -74,7 +71,6 @@ class Main {
     static void streamed(Sha256 digest) {
 
         byte[] buffer = new byte[65536];
-        defer free buffer;
         for (int chunk = 0; chunk < 1024; chunk++) {
             for (int index = 0; index < buffer.length; index++) buffer[index] = (byte) (chunk + index);
             digest.update(buffer, 0, buffer.length);
@@ -94,11 +90,8 @@ class Main {
     static boolean contract(Sha256 digest) {
 
         byte[] data = pattern(200);
-        defer free data;
         byte[] whole = new byte[32];
-        defer free whole;
         byte[] parts = new byte[32];
-        defer free parts;
         digest.update(data, 0, 200);
         digest.digest(whole, 0);
         for (int split = 0; split <= 200; split++) {
@@ -110,7 +103,6 @@ class Main {
         digest.update(data, 13, 100);
         digest.digest(parts, 0);
         byte[] slice = new byte[100];
-        defer free slice;
         for (int index = 0; index < 100; index++) slice[index] = data[13 + index];
         digest.update(slice, 0, 100);
         digest.digest(whole, 0);
@@ -124,20 +116,17 @@ class Main {
         digest.update(data, 0, 200);
         digest.digest(parts, 0);
         if (System.allocationCount() != before) return false;
-        long live = System.liveAllocationCount();
+        long allocated = System.allocationCount();
         byte[] fresh = digest.digest();
-        boolean freshCounted = System.liveAllocationCount() == live + 1;
-        free fresh;
-        return freshCounted && System.liveAllocationCount() == live;
+        boolean freshCounted = System.allocationCount() == allocated + 1;
+        return freshCounted;
     }
 
     // Each rejected range leaves its caught exception allocated.
     static int rejections(Sha256 digest) {
 
         byte[] data = pattern(200);
-        defer free data;
         byte[] result = new byte[32];
-        defer free result;
         int rejected = 0;
         try {
             digest.update(data, -1, 1);
@@ -162,16 +151,13 @@ class Main {
 
         long before = System.allocationCount();
         Sha256 digest = new Sha256();
-        defer free digest;
         long construction = System.allocationCount() - before;
         vectors(digest);
         lengths(digest);
         texts(digest);
         streamed(digest);
         boolean valid = contract(digest) && construction == 4;
-        if (System.liveAllocationCount() != live + 4) return 1;
-        long beforeRejections = System.liveAllocationCount();
-        boolean rejected = rejections(digest) == 3 && System.liveAllocationCount() == beforeRejections + 3;
+        boolean rejected = rejections(digest) == 3;
         return valid && rejected ? 42 : 2;
     }
 
@@ -180,10 +166,9 @@ class Main {
         // The first digest runs the one-time, process-lived round-constant
         // initialization; take the baseline after it.
         Sha256 warm = new Sha256();
-        free warm;
         long live = System.liveAllocationCount();
         int status = run(live);
-        if (System.liveAllocationCount() != live + 3) return 1;
+
         return status;
     }
 }

@@ -154,7 +154,7 @@ final class LocalTypeCollector {
                 false, false, true, syntheticName, allocation.classNameSpan(), List.of(),
                 Optional.empty(), List.of(), body.fields(), body.instanceInitializations(),
                 body.staticInitializations(),
-                List.of(), body.destructor(), body.methods(), body.memberTypes(), body.span());
+                List.of(), body.methods(), body.memberTypes(), body.span());
     }
 
     private static ClassDeclaration enumConstantDeclaration(
@@ -165,7 +165,7 @@ final class LocalTypeCollector {
         return new ClassDeclaration(AccessModifier.PACKAGE_PRIVATE,
                 false, false, true, syntheticName, constant.nameSpan(), List.of(),
                 Optional.empty(), List.of(), body.fields(), body.instanceInitializations(),
-                body.staticInitializations(), List.of(), Optional.empty(), body.methods(),
+                body.staticInitializations(), List.of(), body.methods(),
                 body.memberTypes(),
                 body.span());
     }

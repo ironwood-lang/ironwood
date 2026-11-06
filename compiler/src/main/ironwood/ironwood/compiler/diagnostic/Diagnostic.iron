@@ -22,7 +22,7 @@ public final class Diagnostic {
         WARNING
     }
 
-    /** The shared empty note list; never freed. */
+    /** The shared empty note list retained by a static root. */
     public static final SnapshotList<DiagnosticNote> NO_NOTES = Lists.<DiagnosticNote>empty();
 
     private final String message;

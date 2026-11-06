@@ -23,7 +23,7 @@ class Main {
         String second = cursor.next();
         if (first == second || cursor.hasNext()) throw new IllegalStateException();
         if (copied.size() != 2) throw new IllegalStateException();
-        free copied; free source;
+        ; ;
         source = new HashSet<String>(4);
         source.add("Aa"); source.add("BB");
         copied = source.copy();
@@ -32,7 +32,7 @@ class Main {
         if (!source.contains("Aa") || copied.size() != 1) throw new IllegalStateException();
         source.clear();
         if (!copied.contains("BB")) throw new IllegalStateException();
-        free copied; free source;
+        ; ;
     }
 
     static void identity() {
@@ -45,18 +45,18 @@ class Main {
         String second = cursor.next();
         if (first == second || cursor.hasNext()) throw new IllegalStateException();
         if (copied.size() != 2) throw new IllegalStateException();
-        free copied; free source;
+        ; ;
         source = new IdentityHashSet<String>(4);
         source.add("Aa"); source.add("BB");
         copied = source.copy();
         source.clear();
         if (!copied.contains("Aa") || !copied.contains("BB")) throw new IllegalStateException();
-        free copied; free source;
+        ; ;
         IdentityHashSet<String> dynamic = new IdentityHashSet<String>(1);
         dynamic.add(key);
         IdentityHashSet<String> dynamicCopy = dynamic.copy();
         if (!dynamicCopy.contains(key) || dynamicCopy.contains(other)) throw new IllegalStateException();
-        free dynamicCopy; free dynamic;
+        ; ;
     }
 
     static void linked() {
@@ -68,7 +68,7 @@ class Main {
         LinkedHashSet<String> copied = source.copy();
         if (cursor.next() != "BB" || cursor.next() != "third" || cursor.hasNext()) throw new IllegalStateException();
         if (copied.size() != 3) throw new IllegalStateException();
-        free copied; free source;
+        ; ;
         source = new LinkedHashSet<String>(4);
         source.add("Aa"); source.add("BB"); source.add("third");
         copied = source.copy();
@@ -76,7 +76,7 @@ class Main {
         if (copyCursor.next() != "Aa" || copyCursor.next() != "BB" || copyCursor.next() != "third") throw new IllegalStateException();
         source.clear();
         if (copied.size() != 3 || !copied.contains("BB")) throw new IllegalStateException();
-        free copied; free source;
+        ; ;
     }
 
     public static int main(String[] args) {
@@ -84,9 +84,8 @@ class Main {
         key = new String("equal"); other = new String("equal");
         if (key == other || !key.equals(other)) return 2;
         if (HashSet.DEFAULT_INITIAL_CAPACITY <= 0 || LinkedHashSet.DEFAULT_INITIAL_CAPACITY <= 0) return 3;
-        long baseline = System.liveAllocationCount();
         hash(); identity(); linked();
-        if (System.liveAllocationCount() != baseline) return 1;
+
         return 42;
     }
 }

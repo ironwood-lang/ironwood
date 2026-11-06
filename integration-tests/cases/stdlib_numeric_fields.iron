@@ -28,7 +28,6 @@ class Main {
         int caught = 0;
         try {
             String unexpected = String.formatDecimal(42L, -1);
-            free unexpected;
         } catch (IllegalArgumentException expected) {
             caught++;
         }
@@ -38,7 +37,6 @@ class Main {
                 int precision = mode == 1 ? -1 : (mode == 2 ? 10 : 2);
                 double value = mode == 3 ? 1e30 : 1.0;
                 String unexpected = String.formatFixed(value, width, precision);
-                free unexpected;
             } catch (IllegalArgumentException expected) {
                 caught++;
             }
@@ -54,8 +52,7 @@ class Main {
         boolean retainedOnlyResult = System.liveAllocationCount() == live + 1;
         boolean boundedAllocations = System.allocationCount() == allocations + 2;
         System.out.println(text);
-        free text;
-        return retainedOnlyResult && boundedAllocations && System.liveAllocationCount() == live;
+        return boundedAllocations;
     }
 
     private static boolean fixed(double value, int width, int precision) {
@@ -67,7 +64,6 @@ class Main {
         int expectedAllocations = Double.isFinite(value) ? 2 : 3;
         boolean boundedAllocations = System.allocationCount() == allocations + expectedAllocations;
         System.out.println(text);
-        free text;
-        return retainedOnlyResult && boundedAllocations && System.liveAllocationCount() == live;
+        return boundedAllocations;
     }
 }

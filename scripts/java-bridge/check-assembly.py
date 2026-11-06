@@ -96,7 +96,7 @@ def main():
                                 ("linux-x86_64", args.linux_x86_image, "amd64")]:
         folder = directory / target; folder.mkdir(); jar = folder / args.artifact; hosts.append(jar)
         if image is None:
-            command = [java, "-cp", compiler, "ironwood.compiler.Main", "--java-bridge", *exports, "--unfreed=off", "-" + args.optimization, "-o", jar,
+            command = [java, "-cp", compiler, "ironwood.compiler.Main", "--java-bridge", *exports, "-" + args.optimization, "-o", jar,
                        *([source] if args.source else ["-cp", source])]
         else:
             run(folder, "image", [*docker, "image", "inspect", image])
@@ -106,7 +106,7 @@ def main():
             command = [*docker, "run", "--rm", "--platform", "linux/" + arch, "-v", str(ROOT) + ":/work", "-w", "/work",
                        "-e", "IRONWOOD_BRIDGE_SUPPORT_HOME=/work/workspace/java-bridge/support/" + target,
                        image, "java", "-cp", relative(compiler), "ironwood.compiler.Main", "--java-bridge", *exports,
-                       "--unfreed=off", "-" + args.optimization, "-o", relative(jar),
+                       "-" + args.optimization, "-o", relative(jar),
                        *([relative(source)] if args.source else ["-cp", relative(source)])]
         run(folder, "produce", command)
         records[target] = {"jar.sha256": digest(jar), "manifest": metadata(jar)}

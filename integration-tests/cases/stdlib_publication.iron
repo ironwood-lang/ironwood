@@ -22,11 +22,8 @@ class Main {
 
         for (int index = 0; index + 2 < args.length; index += 3) {
             Path source = Path.of(args[index + 1]);
-            defer free source;
             Path target = Path.of(args[index + 2]);
-            defer free target;
             StringBuilder line = new StringBuilder();
-            defer free line;
             line.append(args[index]).append(' ').append(args[index + 1]).append(' ').append(args[index + 2])
                     .append(" -> ");
             try {
@@ -36,7 +33,6 @@ class Main {
                 line.append('!').append(kind(failure));
             }
             String text = line.toString();
-            defer free text;
             System.out.println(text);
         }
         return 42;

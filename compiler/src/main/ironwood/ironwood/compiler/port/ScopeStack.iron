@@ -12,7 +12,7 @@ import ironwood.util.NoSuchElementException;
  * the head, and snapshots and restores use head-to-tail order. Storage is a
  * tail-backed array, so push and pop never shift membership. Items are
  * borrowed and must stay alive under their real owners while stacked; popping
- * removes only membership. Destruction reclaims only the array.
+ * removes only membership. The array follows ordinary managed reachability.
  */
 public final class ScopeStack<E extends Object> {
 
@@ -92,7 +92,7 @@ public final class ScopeStack<E extends Object> {
         return this.count;
     }
 
-    /** Removes all membership; stacked items are not freed. */
+    /** Removes all membership; stacked items retain ordinary managed lifetime. */
     public void clear() {
 
         this.count = 0;
@@ -101,14 +101,13 @@ public final class ScopeStack<E extends Object> {
     /**
      * Copies membership in head-to-tail order, innermost first, as Java's
      * {@code List.copyOf(deque)} does. The caller owns the result; items stay
-     * borrowed. The temporary builder is freed on every exit.
+     * shared managed references. The builder follows managed reachability.
      *
      * @return a fresh immutable copy of the membership
      */
     public SnapshotList<E> snapshot() {
 
         ArrayList<E> builder = new ArrayList<E>(this.count > 0 ? this.count : 1);
-        defer free builder;
         for (int depth = 0; depth < this.count; depth++) builder.add(this.slots[this.count - 1 - depth]);
         return new SnapshotList<E>(builder);
     }
@@ -144,11 +143,6 @@ public final class ScopeStack<E extends Object> {
         E[] previous = this.slots;
         this.slots = new E[capacity * 2];
         System.arraycopy(previous, 0, this.slots, 0, this.count);
-        free previous;
     }
 
-    destructor {
-
-        free this.slots;
-    }
 }

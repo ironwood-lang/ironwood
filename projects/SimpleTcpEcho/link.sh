@@ -6,7 +6,7 @@ cd "$PROJECT_DIR"
 for PROGRAM in Server Client; do
     COMMAND=(ironwoodc --link -cp target/classes
         --main-class "org.ironwood.simpletcpecho.$PROGRAM"
-        -o "target/$PROGRAM" -O3 --unfreed=error)
+        -o "target/$PROGRAM" -O3 )
     printf '+' >&2
     printf ' %q' "${COMMAND[@]}" >&2
     printf '\n' >&2

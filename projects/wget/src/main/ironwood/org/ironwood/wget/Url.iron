@@ -35,7 +35,6 @@ final class Url {
         int start = 0;
         if (scheme) {
             String name = reference.substring(0, colon);
-            defer free name;
             if (!name.equalsIgnoreCase("http") && !name.equalsIgnoreCase("https")) throw new IllegalArgumentException("Only absolute HTTP and HTTPS URLs are supported");
             this.secure = name.equalsIgnoreCase("https");
             start = colon + 1;
@@ -89,7 +88,6 @@ final class Url {
             }
         } else {
             String raw = reference.substring(start, pathEnd);
-            defer free raw;
             this.path = normalize(raw, !authorityPresent && !scheme ? base.path() : null);
             if (queryAt < 0) {
                 this.query = null;
@@ -216,7 +214,6 @@ final class Url {
         int size = prefix + path.length() + (root ? 1 : 0);
         if (size > 65536) throw new IllegalArgumentException("Resolved URL exceeds 64 KiB");
         char[] chars = new char[size + 1];
-        defer free chars;
         int filled = 0;
         if (root) chars[filled++] = '/';
         for (int index = 0; index < prefix; index++) chars[filled++] = base.charAt(index);
@@ -299,7 +296,6 @@ final class Url {
     String target() {
 
         StringBuilder text = new StringBuilder();
-        defer free text;
         text.append(this.path.length() == 0 ? "/" : this.path);
         if (this.query != null) text.append('?').append(this.query);
         return text.toString();
@@ -309,20 +305,10 @@ final class Url {
     public String toString() {
 
         StringBuilder text = new StringBuilder();
-        defer free text;
         text.append(this.secure ? "https://" : "http://").append(this.authority).append(this.path);
         if (this.query != null) text.append('?').append(this.query);
         if (this.fragment != null) text.append('#').append(this.fragment);
         return text.toString();
     }
 
-    destructor {
-
-        free this.fragment;
-        free this.query;
-        free this.path;
-        free this.numeric;
-        free this.host;
-        free this.authority;
-    }
 }

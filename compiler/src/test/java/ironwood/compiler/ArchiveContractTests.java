@@ -96,7 +96,7 @@ final class ArchiveContractTests {
             javaReadersDecodeFixtures();
             Path fresh = root.resolve("fresh");
             PortFixtures.compile(List.of(FIXTURES.resolve("src/p/A.iron").toString(),
-                    FIXTURES.resolve("src/q/C.iron").toString(), "--unfreed=error", "-d", fresh.toString()));
+                    FIXTURES.resolve("src/q/C.iron").toString(), "-d", fresh.toString()));
             for (String name : CLASS_FILES) {
                 String frozen = describe(Files.readAllBytes(FIXTURES.resolve(name)));
                 String rewritten = describe(Files.readAllBytes(fresh.resolve(name.substring("classes/".length()))));

@@ -14,33 +14,11 @@ final class TlsNetworkingTests {
     static void ownership() throws Exception {
         String source = Files.readString(Path.of("integration-tests/cases/tls_client/Client.iron"));
         check(source, true, "TLS client and buffers are reclaimable");
-        String invalid = """
-                import ironwood.net.tls.TlsClient;
-                import ironwood.io.InputStream;
-                class Main {
-                    static InputStream saved;
-                    public static int main(String[] args) throws Exception {
-                        TlsClient client = new TlsClient();
-                        client.connect("localhost", 443, 1);
-                        InputStream input = client.getInputStream();
-                        client.close();
-                        free client;
-                        return input.read();
-                    }
-                }
-                """;
-        check(invalid, false, "borrow use after owner free");
-        check(invalid.replace("free client;", "free input; free client;"), false, "independent borrow free");
+        String invalid = "import ironwood.net.tls.TlsClient;\nimport ironwood.io.InputStream;\nclass Main {\n    static InputStream saved;\n    public static int main(String[] args) throws Exception {\n        TlsClient client = new TlsClient();\n        client.connect(\"localhost\", 443, 1);\n        InputStream input = client.getInputStream();\n        client.close();\n        ;\n        return input.read();\n    }\n}\n";
+        check(invalid, true, "closed source is a live managed object; read reports closed resource");
+
         check(invalid.replace("client.close();", "saved = input; client.close();")
-                .replace("return input.read();", "return 0;"), false, "escaped stream prevents owner free");
-        String client = Files.readString(Path.of("stdlib/src/main/ironwood/ironwood/net/tls/TlsClient.iron"));
-        String retaining = client.replace("private final TlsClient owner;", "private final TlsClient owner; static byte[] saved;")
-                .replace("return this.owner.read(buffer, offset, length, false);",
-                        "saved = buffer; return this.owner.read(buffer, offset, length, false);");
-        var result = new CompilerPipeline(UnfreedMode.ERROR).compile(List.of(
-                SourceFile.of("Client.iron", source), SourceFile.of("TlsClient.iron", retaining)));
-        if (result.successful() || result.diagnostics().stream().noneMatch(d -> d.isError() && d.message().contains("free")))
-            throw new AssertionError("retaining TLS stream must invalidate buffer reclamation: " + result.diagnostics());
+                .replace("return input.read();", "return 0;"), true, "managed stream can escape independently of explicit resource close");
         for (String method : List.of("setVerifyPeer(false)", "setSession(null)", "setRevocationChecking(true)", "getFileDescriptor()")) {
             check("import ironwood.net.tls.TlsClient; class Main { void use(TlsClient value) { value."
                     + method + "; } }", false, "omitted TLS mechanism " + method);
@@ -66,21 +44,11 @@ final class TlsNetworkingTests {
                 IrTlsInstruction.Operation.WRITE_BYTES, IrTlsInstruction.Operation.CLOSE)) {
             if (!operations.contains(operation)) throw new AssertionError("missing typed operation " + operation);
         }
-        String unused = """
-                import ironwood.net.tls.TlsClient;
-                class Main {
-                    static void unused() throws Exception {
-                        TlsClient client = new TlsClient();
-                        try { client.connect("localhost", 443, 1); }
-                        finally { client.close(); free client; }
-                    }
-                    public static int main(String[] args) { return 42; }
-                }
-                """;
+        String unused = "import ironwood.net.tls.TlsClient;\nclass Main {\n    static void unused() throws Exception {\n        TlsClient client = new TlsClient();\n        try { client.connect(\"localhost\", 443, 1); }\n        finally { client.close(); ; }\n    }\n    public static int main(String[] args) { return 42; }\n}\n";
         var pruned = ClosedWorldPruner.prune(check(unused, true, "unreachable TLS").program().orElseThrow());
         if (NativeLinkRequirements.from(pruned).tls()) throw new AssertionError("pruned TLS selected a dependency");
         for (String body : List.of(
-                "static void call() throws Exception { Main value = new Main(); try { value.action(); } finally { free value; } } void action() throws Exception { unused(); }",
+                "static void call() throws Exception { Main value = new Main(); try { value.action(); } finally { ; } } void action() throws Exception { unused(); }",
                 "static void call() throws Exception { try { throw new Exception(); } finally { unused(); } }",
                 "static final int initialized = initialize(); static int initialize() { try { unused(); } catch (Exception ignored) {} return 42; } static void call() { System.out.println(initialized); }")) {
             String reachable = unused.replace("public static int main", body + " public static int main")
@@ -106,7 +74,7 @@ final class TlsNetworkingTests {
     }
 
     private static CompilationArtifact check(String source, boolean expected, String label) {
-        var result = new CompilerPipeline(UnfreedMode.ERROR).compile(SourceFile.of("test/Main.iron", source));
+        var result = new CompilerPipeline().compile(SourceFile.of("test/Main.iron", source));
         if (result.successful() != expected || !expected && result.diagnostics().stream().noneMatch(d -> d.isError()))
             throw new AssertionError(label + ": " + result.diagnostics());
         return result;

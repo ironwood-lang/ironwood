@@ -32,7 +32,6 @@ public class Exceptions {
             tracker.add(7);
         }
         int answer = result + tracker.value();
-        free tracker;
         return answer;
     }
 }

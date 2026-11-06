@@ -17,7 +17,7 @@ With `ironwoodc` on PATH and Python 3 available:
 
 The demonstration username/password are `demo`/`pass`. Proxy construction copies
 their already-encoded bytes; Socket(Proxy) copies them again, so the original
-arrays, endpoint and proxy are freed before connect. The proxy alone receives
+arrays, endpoint and proxy remain ordinary managed values during connect. The proxy alone receives
 the credentials. This plain TCP example does not encrypt proxy credentials or
 tunnel data. TLS requires separate selection in Milestone 5.
 

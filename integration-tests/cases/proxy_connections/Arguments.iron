@@ -24,10 +24,6 @@ class ChangedProxy extends Proxy {
         return this.alternate;
     }
 
-    destructor {
-
-        free this.alternate;
-    }
 }
 
 class InvalidDirectProxy extends Proxy {
@@ -51,7 +47,7 @@ class ProxyArguments {
     private static void text(Proxy proxy) {
 
         String value = proxy.toString();
-        try { System.out.println(value); } finally { free value; }
+        try { System.out.println(value); } finally { ; }
     }
 
     public static int main(String[] args) throws Exception {
@@ -69,8 +65,8 @@ class ProxyArguments {
                 try {
                     System.out.println(proxy.equals(other));
                     System.out.println(proxy.hashCode() == other.hashCode());
-                } finally { free other; }
-            } finally { free proxy; }
+                } finally { ; }
+            } finally { ; }
             ChangedProxy changed = new ChangedProxy(endpoint);
             try {
                 text(changed);
@@ -79,27 +75,27 @@ class ProxyArguments {
                     System.out.println(changed.equals(other));
                     System.out.println(other.equals(changed));
                     System.out.println(changed.hashCode() == other.hashCode());
-                } finally { free other; }
-            } finally { free changed; }
+                } finally { ; }
+            } finally { ; }
             Proxy nullType = new Proxy(null, endpoint);
             try {
                 System.out.println(nullType.type() == null);
-                try { Socket invalid = new Socket(nullType); free invalid; }
+                try { Socket invalid = new Socket(nullType); ; }
                 catch (IllegalArgumentException expected) { System.out.println("invalid type"); }
-            } finally { free nullType; }
+            } finally { ; }
             InvalidDirectProxy invalidDirect = new InvalidDirectProxy(endpoint);
             try {
-                try { Socket invalid = new Socket(invalidDirect); free invalid; }
+                try { Socket invalid = new Socket(invalidDirect); ; }
                 catch (IllegalArgumentException expected) { System.out.println("invalid direct"); }
-            } finally { free invalidDirect; }
-            try { Proxy invalid = new Proxy(Proxy.Type.DIRECT, endpoint); free invalid; }
+            } finally { ; }
+            try { Proxy invalid = new Proxy(Proxy.Type.DIRECT, endpoint); ; }
             catch (IllegalArgumentException expected) { System.out.println("direct constructor"); }
-        } finally { free endpoint; }
+        } finally { ; }
         text(Proxy.NO_PROXY);
         System.out.println(Proxy.NO_PROXY.address() == null);
-        try { Proxy invalid = new Proxy(Proxy.Type.SOCKS, null); free invalid; }
+        try { Proxy invalid = new Proxy(Proxy.Type.SOCKS, null); ; }
         catch (IllegalArgumentException expected) { System.out.println("null address"); }
-        try { Socket invalid = new Socket((Proxy) null); free invalid; }
+        try { Socket invalid = new Socket((Proxy) null); ; }
         catch (IllegalArgumentException expected) { System.out.println("null proxy"); }
         return 0;
     }

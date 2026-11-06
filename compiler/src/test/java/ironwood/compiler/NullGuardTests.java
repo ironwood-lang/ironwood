@@ -18,89 +18,10 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
-/**
- * A null check is omitted where a null test, an instanceof test or an earlier null
- * check of the same reference dominates it (D287): a local or SSA value, its reference
- * conversions, or a final field of one receiver that the function cannot store. A
- * destructor that tests a field before calling it therefore neither allocates nor lets
- * a NullPointerException escape, while every path that can reach null keeps its check.
- * A value merged at a join or loop header is covered when every value it merges is
- * non-null on its edge (D288), and a destructor trusts the final fields of its object
- * that every constructor sets to a non-null value until it frees them (D289).
- */
+/** Null-check elimination retains dominance, initialization and runtime failures. */
 final class NullGuardTests {
-    private static final Map<String, String> KINDS = Map.of(
-            "destructor may allocate; destructor cleanup must be allocation-free", "allocates",
-            "an exception may escape this destructor", "throws",
-            "destructor may publish or resurrect 'this'", "publishes");
 
-    private static final String PARTS = """
-            class Part { int n; void touch() { n++; } boolean ready() { return n < 3; } }
-            """;
-
-    /** Destructors whose calls are guarded are accepted; the others keep both reports. */
-    static void destructorsTrustTheirGuards() {
-        expect("guarded final field", """
-                class Holder { private final Part part; Holder(Part p) { part = p; } destructor { if (part != null) { part.touch(); } } }
-                """);
-        expect("guarded local of a mutable field", """
-                class Holder { private Part part; destructor { Part current = part; if (current != null) { current.touch(); current.touch(); } } }
-                """);
-        expect("right operand and negated guard", """
-                class Holder { private final Part part; int seen; Holder(Part p) { part = p; } destructor { if (part == null || !part.ready()) { seen = 0; } else { part.touch(); } } }
-                """);
-        expect("conditional expression and pattern binding", """
-                class Holder { private final Part part; private Object value; boolean seen; Holder(Part p) { part = p; } destructor { seen = part != null ? part.ready() : false; if (value instanceof Part p) { p.touch(); } } }
-                """);
-        expect("owned field guarded before its free", """
-                class Holder { private final Part part; Holder() { part = new Part(); } destructor { if (part != null) { part.touch(); } free part; } }
-                """);
-        expect("guard inside the loop that frees", """
-                class Holder { private final Part part; Holder() { part = new Part(); } destructor { int i = 0; while (i < 2) { if (part != null) { part.touch(); } free part; i++; } } }
-                """);
-        expect("unguarded final field", """
-                class Holder { private final Part part; Holder(Part p) { part = p; } destructor { part.touch(); } }
-                """, "allocates 2", "throws 2");
-        // Another call may store a mutable field between the test and the use.
-        expect("guarded mutable field", """
-                class Holder { private Part part; destructor { if (part != null) { part.touch(); } } }
-                """, "allocates 2", "throws 2");
-        expect("local reassigned after its guard", """
-                class Holder { private Part part; private Part spare; destructor { Part current = part; if (current != null) { current = spare; current.touch(); } } }
-                """, "allocates 2", "throws 2");
-        expect("use after the guarded branch", """
-                class Holder { private final Part part; int seen; Holder(Part p) { part = p; } destructor { if (part != null) { seen = 1; } part.touch(); } }
-                """, "allocates 2", "throws 2");
-        // Freeing an owned field stores null into it.
-        expect("owned field freed before the use", """
-                class Holder { private final Part part; Holder() { part = new Part(); } destructor { if (part != null) { free part; part.touch(); } } }
-                """, "allocates 2", "throws 2");
-        expect("owned field freed in a loop entered after the guard", """
-                class Holder { private final Part part; Holder() { part = new Part(); } destructor { if (part != null) { int i = 0; while (i < 2) { part.touch(); free part; i++; } } } }
-                """, "allocates 2", "throws 2");
-        expect("loop condition after the guard of a freed field", """
-                class Holder { private final Part part; Holder() { part = new Part(); } destructor { if (part != null) { while (part.ready()) { free part; } } } }
-                """, "allocates 2", "throws 2");
-    }
-
-    /** Guards reach through joins and loop headers when every merged value keeps them. */
-    static void destructorsTrustGuardsThroughMerges() {
-        expect("local guarded before a loop", """
-                class Holder { private Part part; destructor { Part current = part; if (current != null) { int i = 0; while (i < 2) { current.touch(); i++; } } } }
-                """);
-        expect("fallback merged from a guarded final field", """
-                class Holder { private Part first; private final Part spare; Holder(Part p) { spare = p; } destructor { if (spare != null) { Part current = first; if (current == null) { current = spare; } current.touch(); } } }
-                """);
-        expect("guarded local used after an inner loop", """
-                class Holder { private Part part; destructor { Part current = part; if (current != null) { int i = 0; while (i < 2) { i++; } current.touch(); } } }
-                """);
-        expect("local advanced inside the loop", """
-                class Holder { private Part part; private Part other; destructor { Part current = part; if (current != null) { int i = 0; while (i < 2) { current.touch(); current = other; i++; } } } }
-                """, "allocates 2", "throws 2");
-        expect("fallback merged from an unguarded field", """
-                class Holder { private Part first; private Part second; destructor { Part current = first; if (current == null) { current = second; } current.touch(); } }
-                """, "allocates 2", "throws 2");
-    }
+/** Guards reach through joins and loop headers when every merged value keeps them. */
 
     private static final String MERGES = """
             class Node {
@@ -166,72 +87,7 @@ final class NullGuardTests {
         }
     }
 
-    /** Fields every constructor sets to a non-null value stay non-null until the destructor frees them. */
-    static void destructorsTrustConstructedFields() {
-        expect("field initialized with an allocation", """
-                class Holder { private final Part part = new Part(); destructor { part.touch(); free part; } }
-                """);
-        expect("field assigned an allocation by the constructor", """
-                class Holder { private final Part part; Holder() { part = new Part(); } destructor { part.touch(); free part; } }
-                """);
-        expect("field assigned a guarded parameter", """
-                class Holder { private final Part part; Holder(Part p) { if (p == null) { throw new IllegalArgumentException(); } part = p; } destructor { part.touch(); } }
-                """);
-        expect("superclass field in a subclass destructor", """
-                class Base { protected final Part part = new Part(); }
-                class Holder extends Base { destructor { part.touch(); } }
-                """);
-        expect("field assigned an unchecked parameter", """
-                class Holder { private final Part part; Holder(Part p) { part = p; } destructor { part.touch(); } }
-                """, "allocates 2", "throws 2");
-        expect("field one constructor sets to null", """
-                class Holder { private final Part part; Holder() { part = new Part(); } Holder(int empty) { part = null; } destructor { part.touch(); } }
-                """, "allocates 2", "throws 2");
-        // Freeing an owned field stores null into it.
-        expect("field used after its free", """
-                class Holder { private final Part part = new Part(); destructor { free part; part.touch(); } }
-                """, "allocates 2", "throws 2");
-        expect("field freed inside a loop", """
-                class Holder { private final Part part = new Part(); destructor { int i = 0; while (i < 2) { part.touch(); free part; i++; } } }
-                """, "allocates 2", "throws 2");
-        // A subclass destructor runs first and may free its own fields, so the superclass
-        // destructor alone does not know them; destroying the subclass, whose destructor
-        // leaves the field in place, carries it to the superclass destructor (D290).
-        expect("subclass field in a superclass destructor", """
-                class Holder { destructor { if (this instanceof Leaf leaf) { leaf.part.touch(); } } }
-                class Leaf extends Holder { final Part part = new Part(); }
-                """, "allocates 2", "throws 2");
-    }
-
-    /** Calls on the destroyed object keep the fields still known where they are made (D290). */
-    static void destructorsTrustConstructedFieldsThroughCalls() {
-        expect("method called before the free", """
-                class Holder { private final Part part = new Part(); destructor { use(); free part; } void use() { part.touch(); } }
-                """);
-        expect("nested methods called before the free", """
-                class Holder { private final Part part = new Part(); destructor { outer(); free part; } void outer() { inner(); } void inner() { part.touch(); } }
-                """);
-        expect("static method given the object", """
-                class Holder { private final Part part = new Part(); destructor { visit(this); free part; } static void visit(Holder holder) { holder.part.touch(); } }
-                """);
-        expect("subclass method called before the subclass free", """
-                class Base { private final Part part = new Part(); destructor { hook(); free part; } void hook() { } }
-                class Holder extends Base { private final Part kept = new Part(); destructor { touchKept(); free kept; } void touchKept() { kept.touch(); } }
-                """);
-        expect("method called after the free", """
-                class Holder { private final Part part = new Part(); destructor { free part; use(); } void use() { part.touch(); } }
-                """, "allocates 2", "throws 2");
-        // The subclass destructor frees its field before the superclass destructor runs.
-        expect("override reached from the superclass destructor after the subclass free", """
-                class Base { private final Part part = new Part(); destructor { hook(); free part; } void hook() { } }
-                class Holder extends Base { private final Part extra = new Part(); destructor { free extra; } @Override void hook() { extra.touch(); } }
-                """, "allocates 3", "throws 3");
-        // Only the destroyed object's fields are known; another object's method keeps its check.
-        expect("method of another object", """
-                class Other { private final Part part = new Part(); destructor { free part; } void use() { part.touch(); } }
-                class Holder { private final Other other = new Other(); destructor { other.use(); free other; } }
-                """, "allocates 3", "throws 3");
-    }
+/** Calls on the destroyed object keep the fields still known where they are made (D290). */
 
     /** A `throw new` whose fresh object is no longer null-checked still calls the cold helper. */
     static void explicitThrowsStayOutlined() {
@@ -375,27 +231,22 @@ final class NullGuardTests {
 
     private static final String CONSTRUCTED = """
             class Part { static int touched; void touch() { touched++; } }
-            class Initialized { private final Part part = new Part(); destructor { part.touch(); free part; } }
-            class Guarded { private final Part part; Guarded(Part p) { if (p == null) { throw new IllegalArgumentException(); } part = p; } destructor { part.touch(); } }
+            class Initialized { private final Part part = new Part(); void use() { part.touch(); } }
+            class Guarded {
+                private final Part part;
+                Guarded(Part value) { if (value == null) throw new IllegalArgumentException(); part = value; }
+                void use() { part.touch(); }
+            }
             class Base { protected final Part shared = new Part(); }
-            class Derived extends Base { destructor { shared.touch(); } }
-            class Helped { private final Part part = new Part(); destructor { use(); free part; } void use() { part.touch(); } }
+            class Derived extends Base { void use() { shared.touch(); } }
+            class Helped { private final Part part = new Part(); void use() { part.touch(); } }
             class Main {
                 public static int main(String[] args) {
-                    Initialized initialized = new Initialized();
-                    free initialized;
-                    Guarded guarded = new Guarded(new Part());
-                    free guarded;
-                    try {
-                        Guarded rejected = new Guarded(null);
-                        free rejected;
-                    } catch (IllegalArgumentException e) {
-                        System.out.println("rejected null");
-                    }
-                    Derived derived = new Derived();
-                    free derived;
-                    Helped helped = new Helped();
-                    free helped;
+                    new Initialized().use();
+                    new Guarded(new Part()).use();
+                    try { new Guarded(null); } catch (IllegalArgumentException expected) { System.out.println("rejected null"); }
+                    new Derived().use();
+                    new Helped().use();
                     System.out.println("touched " + Part.touched);
                     return 0;
                 }
@@ -427,7 +278,7 @@ final class NullGuardTests {
     }
 
     private static CompilationArtifact compile(String program) {
-        CompilationArtifact artifact = new CompilerPipeline(UnfreedMode.OFF)
+        CompilationArtifact artifact = new CompilerPipeline()
                 .compile(SourceFile.of("Main.iron", program));
         require(artifact.successful(), artifact.diagnostics().toString());
         return artifact;
@@ -439,21 +290,6 @@ final class NullGuardTests {
                 .findFirst().orElseThrow(() -> new AssertionError("missing " + method));
         return function.blocks().stream().flatMap(block -> block.instructions().stream())
                 .filter(IrNullCheckInstruction.class::isInstance).count();
-    }
-
-    private static void expect(String name, String declarations, String... expected) {
-        SourceFile source = SourceFile.of("Main.iron", PARTS + declarations
-                + "class Main { public static int main(String[] args) { return 0; } }\n");
-        List<Diagnostic> diagnostics = new CompilerPipeline(UnfreedMode.OFF)
-                .analyze(List.of(source)).diagnostics();
-        List<String> reported = diagnostics.stream()
-                .map(d -> KINDS.containsKey(d.message()) && d.source() != null
-                        && d.source().path().equals(source.path())
-                        ? KINDS.get(d.message()) + " " + d.span().start().line()
-                        : d.message() + " @ " + (d.source() == null ? "program" : d.source().path()))
-                .sorted().toList();
-        List<String> wanted = java.util.Arrays.stream(expected).sorted().toList();
-        require(reported.equals(wanted), name + ": expected " + wanted + " but got " + reported);
     }
 
     private static void require(boolean condition, String message) {

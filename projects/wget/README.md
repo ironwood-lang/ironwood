@@ -21,7 +21,7 @@ projects/wget/run.sh http://127.0.0.1:8080/data > result.bin
 ```
 
 Compilation creates separate `.ironclass` files; linking creates `target/wget`
-with `-O3` and `--unfreed=error`. Build diagnostics go to stderr. `run.sh`
+with `-O3` and the managed model. Build diagnostics go to stderr. `run.sh`
 prints `wget` and its shell-escaped arguments to stderr before the download,
 and preserves the caller's working directory and stdout bytes. Output and credential
 file paths are relative to that directory, including paths containing spaces.

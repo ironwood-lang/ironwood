@@ -89,7 +89,6 @@ public final class BridgeJar {
                 int[] previous = this.contentOf;
                 this.contentOf = new int[previous.length * 2];
                 System.arraycopy(previous, 0, this.contentOf, 0, count);
-                free previous;
             }
             this.names.add(name);
             this.contentOf[count] = version;
@@ -121,16 +120,13 @@ public final class BridgeJar {
 
         // The callers' maps are sorted, so names are checked and written in String order.
         TextList sorted = new TextList();
-        defer free sorted;
         for (int index = 0; index < this.names.size(); index++) {
             String name = this.names.get(index);
-            defer free name;
             sorted.add(name);
         }
         sorted.sortStrings();
         for (int position = 0; position < sorted.size(); position++) {
             String name = sorted.get(position);
-            defer free name;
             if (!validName(name)) throw failure("invalid Java Bridge jar entry: ", name);
         }
         int manifest = this.names.indexOf(MANIFEST);
@@ -138,17 +134,13 @@ public final class BridgeJar {
             throw new IOException("Java Bridge jar requires a valid versioned Java manifest");
         }
         Path absolute = output.toAbsolutePath();
-        defer free absolute;
         Path destination = absolute.normalize();
-        defer free destination;
         if (Files.isSymbolicLink(destination) || Files.exists(destination) && !Files.isRegularFile(destination)) {
             throw failure("Java Bridge output is not a regular file: ", destination.toString());
         }
         Path parent = destination.getParent();
-        defer free parent;
         Files.createDirectories(parent);
         Path staged = Files.createTempFile(parent, ".ironwood-bridge-", ".jar");
-        defer free staged;
         try {
             this.stage(staged, sorted, manifest);
             this.verify(staged, sorted);
@@ -164,10 +156,8 @@ public final class BridgeJar {
 
         int version = this.contentOf[manifest];
         JarManifest parsed = new JarManifest(this.contents, this.extents[version * 2], this.extents[version * 2 + 1]);
-        defer free parsed;
         String value = parsed.getValue("Manifest-Version");
         if (value == null) return false;
-        defer free value;
         return value.equals("1.0");
     }
 
@@ -175,18 +165,15 @@ public final class BridgeJar {
     private void stage(Path staged, TextList sorted, int manifest) throws IOException {
 
         ZipWriter writer = new ZipWriter();
-        defer free writer;
         this.add(writer, MANIFEST, manifest);
         for (int position = 0; position < sorted.size(); position++) {
             int index = sorted.stored(position);
             if (index != manifest) {
                 String name = sorted.get(position);
-                defer free name;
                 this.add(writer, name, index);
             }
         }
         byte[] archive = writer.finish();
-        defer free archive;
         Files.write(staged, archive);
     }
 
@@ -200,16 +187,12 @@ public final class BridgeJar {
     private void verify(Path staged, TextList sorted) throws IOException {
 
         byte[] bytes = Files.readAllBytes(staged);
-        defer free bytes;
         String display = staged.toString();
         ZipArchive archive = new ZipArchive(bytes, display);
-        defer free archive;
         if (archive.size() != this.names.size()) throw new IOException("Java Bridge staged jar entry count differs");
         Inflate inflate = new Inflate();
-        defer free inflate;
         for (int position = 0; position < sorted.size(); position++) {
             String name = sorted.get(position);
-            defer free name;
             int stored = sorted.stored(position);
             int version = this.contentOf[stored];
             int start = this.extents[version * 2];
@@ -219,7 +202,6 @@ public final class BridgeJar {
                 throw failure("Java Bridge staged entry missing/truncated: ", name);
             }
             byte[] read = archive.read(bytes, entry, inflate, display);
-            defer free read;
             for (int index = 0; index < length; index++) {
                 if (read[index] != this.contents[start + index]) throw failure("Java Bridge staged entry digest differs: ", name);
             }
@@ -237,14 +219,12 @@ public final class BridgeJar {
             byte[] previous = this.contents;
             this.contents = new byte[(int) capacity];
             System.arraycopy(previous, 0, this.contents, 0, this.used);
-            free previous;
         }
         int slot = this.versions * 2;
         if (slot == this.extents.length) {
             int[] previous = this.extents;
             this.extents = new int[previous.length * 2];
             System.arraycopy(previous, 0, this.extents, 0, previous.length);
-            free previous;
         }
         System.arraycopy(bytes, offset, this.contents, this.used, length);
         this.extents[slot] = this.used;
@@ -264,8 +244,7 @@ public final class BridgeJar {
             int end = name.indexOf('/', start);
             if (end < 0) end = name.length();
             int length = end - start;
-            if (length == 0 || length == 1 && name.charAt(start) == '.'
-                    || length == 2 && name.charAt(start) == '.' && name.charAt(start + 1) == '.') {
+            if (length == 0 || length == 1 && name.charAt(start) == '.' || length == 2 && name.charAt(start) == '.' && name.charAt(start + 1) == '.') {
                 return false;
             }
             if (end == name.length()) return true;
@@ -277,18 +256,10 @@ public final class BridgeJar {
     private static IOException failure(String prefix, String text) {
 
         StringBuilder message = new StringBuilder();
-        defer free message;
         message.append(prefix);
         message.append(text);
         String full = message.toString();
         return new IOException(full);
     }
 
-    destructor {
-
-        free this.names;
-        free this.contents;
-        free this.extents;
-        free this.contentOf;
-    }
 }

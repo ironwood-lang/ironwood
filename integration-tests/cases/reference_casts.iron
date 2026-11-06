@@ -25,7 +25,6 @@ class Main {
         Child narrowed = (Child) widened;
         original = null;
         widened = null;
-        free narrowed;
         return 7;
     }
 

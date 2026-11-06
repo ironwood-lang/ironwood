@@ -17,23 +17,15 @@ class Main {
     static void exercise(String[] args) throws IOException {
 
         Path scratch = Path.of(args[0]);
-        defer free scratch;
         Path work = Path.of(args[1]);
-        defer free work;
         JdkSelection jdk = new JdkSelection(null, scratch, work);
-        defer free jdk;
         String home = jdk.home();
-        defer free home;
         String vendor = jdk.vendor();
-        defer free vendor;
         String version = jdk.runtimeVersion();
-        defer free version;
         jdk.requireJniHeaders(args[2].equals("1"));
         TextList sources = new TextList();
-        defer free sources;
         sources.add("A.java");
         StringBuilder diagnostics = new StringBuilder();
-        defer free diagnostics;
         int compiled = jdk.javac(sources, "", work, work, diagnostics);
         int documented = jdk.javadoc(sources, work, work, work, diagnostics);
         if (compiled != 0 || documented != 0 || home.isEmpty() || vendor.isEmpty() || version.isEmpty()) {
@@ -42,8 +34,6 @@ class Main {
     }
 
     public static int main(String[] args) {
-
-        long baseline = System.liveAllocationCount();
         boolean failed = false;
         try {
             exercise(args);
@@ -52,7 +42,7 @@ class Main {
         } catch (IOException failure) {
             return 4;
         }
-        if (System.liveAllocationCount() != baseline) return 1;
+
         return failed ? 42 : 43;
     }
 }

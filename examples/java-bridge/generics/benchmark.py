@@ -5,6 +5,8 @@ import argparse
 import csv
 import hashlib
 import io
+import importlib.util
+import sys
 import json
 import os
 import pathlib
@@ -26,6 +28,11 @@ def main():
     output = pathlib.Path(args.output).resolve()
     output.mkdir(parents=True, exist_ok=False)
     jdk = pathlib.Path(os.environ["JAVA_HOME"])
+    sys.dont_write_bytecode = True
+    spec = importlib.util.spec_from_file_location('gc_engine', root / 'scripts/test-gc-engine.py')
+    engine = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(engine)
+    raw_dir = output / 'raw'; raw_dir.mkdir()
     commands = []
 
     def run(name, command, pin=False):
@@ -34,23 +41,21 @@ def main():
             command = ["taskset", "-c", str(args.cpu)] + command
         commands.append({"name": name, "command": command})
         (output / "commands.json").write_text(json.dumps(commands, indent=2))
-        result = subprocess.run(command, cwd=str(root), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                universal_newlines=True, timeout=600)
-        (output / (name + ".log")).write_text(result.stdout)
-        if result.returncode:
-            raise RuntimeError(name + " failed; see " + str(output / (name + ".log")))
-        return result.stdout
+        engine.run(command, raw_dir, name)
+        text = (raw_dir / (name + '.stdout')).read_text() + (raw_dir / (name + '.stderr')).read_text()
+        (output / (name + ".log")).write_text(text)
+        return text
 
     run("java-version", [jdk / "bin/java", "-version"])
     jar = output / "generics.jar"
     if args.bridge_jar:
         shutil.copyfile(args.bridge_jar, jar)
     else:
-        run("bridge-build", [root / "bin/ironwoodc", "--java-bridge", "--export", "genericbench", "--unfreed=off", "-O3",
+        run("bridge-build", [root / "bin/ironwoodc", "--java-bridge", "--export", "genericbench", "-O3",
                              "--license", root / "LICENSE-MIT", "--license", root / "LICENSE-APACHE", "-o", jar]
                             + sorted(source.glob("*.iron")))
     run("java-compile", [jdk / "bin/javac", "--release", "21", "-Xlint:all", "-Werror", "-d", output / "java",
-                         "-cp", jar, source / "GenericBench.java", source / "Consumer.java"])
+                         "-cp", jar, root / "examples/java-bridge/support/BridgeLifetime.java", source / "GenericBench.java", source / "Consumer.java"])
     run("consumer", [jdk / "bin/java", "-Xcheck:jni", "-cp", str(output / "java") + os.pathsep + str(jar), "Consumer"])
     with zipfile.ZipFile(str(jar)) as archive:
         (output / "bridge.properties").write_bytes(archive.read("META-INF/ironwood/bridge.properties"))

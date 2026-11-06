@@ -20,15 +20,13 @@ import ironwood.util.NoSuchElementException;
  * {@code Parser} with the D258 conventions: {@code Optional} values are
  * nullable with explicit presence branches, the varargs
  * {@code contiguousKinds} is two fixed-arity overloads, and stream projections
- * are ordered loops. Every list is built in a parser-owned builder that is
- * freed on every exit; nodes receive frozen copies from {@link AstLists}.
- * Parser-private records are freed by the method that consumes them. AST nodes,
- * frozen lists, tokens and spans live for the invocation.
+ * are ordered loops. Nodes retain frozen lists from {@link AstLists}; tokens,
+ * spans, parser records and builders have ordinary managed lifetime.
  */
 public final class Parser {
 
     private static final String GENERAL_ANNOTATIONS = "general annotations are not supported; "
-            + "only the built-in @Override, @Test, and @SuppressUnfreed directives are recognized";
+            + "only built-in @Override and @Test directives are recognized";
 
     private final SourceFile source;
     private final SnapshotList<Token> tokens;
@@ -61,12 +59,10 @@ public final class Parser {
     private CompilationUnit parseCompilationUnit() {
 
         ArrayList<TypeDeclaration> declarations = new ArrayList<TypeDeclaration>();
-        defer free declarations;
         Token first = this.peek();
         PackageDeclaration packageDeclaration = null;
         if (this.match(TokenKind.PACKAGE)) packageDeclaration = this.parsePackageDeclaration(this.previous());
         ArrayList<ImportDeclaration> imports = new ArrayList<ImportDeclaration>();
-        defer free imports;
         while (this.match(TokenKind.IMPORT)) {
             ImportDeclaration declaration = this.parseImportDeclaration(this.previous());
             if (declaration != null) imports.add(declaration);
@@ -109,7 +105,6 @@ public final class Parser {
     private PackageDeclaration parsePackageDeclaration(Token keyword) {
 
         QualifiedName name = this.parseQualifiedName("expected package name after 'package'", false);
-        defer free name;
         Token semicolon = this.expect(TokenKind.SEMICOLON, "expected ';' after package declaration");
         if (name == null) {
             this.synchronizeTopLevel();
@@ -125,7 +120,6 @@ public final class Parser {
         QualifiedName name = this.parseQualifiedName(staticImport
                 ? "expected type name after 'import static'"
                 : "expected type or package name after 'import'", true);
-        defer free name;
         Token semicolon = this.expect(TokenKind.SEMICOLON, "expected ';' after import declaration");
         if (name == null) {
             this.synchronizeTopLevel();
@@ -144,7 +138,6 @@ public final class Parser {
 
         Token start = this.peek();
         Modifiers modifiers = this.parseModifiers();
-        defer free modifiers;
         if (modifiers.isStatic()) {
             this.diagnostics.add(this.error(modifiers.staticToken(), "top-level types cannot be static"));
         }
@@ -171,14 +164,12 @@ public final class Parser {
 
         Token className = this.expect(TokenKind.IDENTIFIER, "expected class name after 'class'");
         ArrayList<TypeParameter> typeParameters = new ArrayList<TypeParameter>(4);
-        defer free typeParameters;
         if (className != null) this.parseTypeParameters(typeParameters);
         TypeReference superclass = null;
         if (this.match(TokenKind.EXTENDS)) {
             superclass = this.parseTypeReference("expected superclass name after 'extends'");
         }
         ArrayList<TypeReference> interfaces = new ArrayList<TypeReference>(4);
-        defer free interfaces;
         if (this.match(TokenKind.IMPLEMENTS)) {
             this.parseTypeReferenceList("expected interface name after 'implements'", interfaces);
         }
@@ -189,7 +180,6 @@ public final class Parser {
         }
 
         MemberBuilders members = new MemberBuilders();
-        defer free members;
         while (!this.check(TokenKind.RIGHT_BRACE) && !this.check(TokenKind.EOF)) {
             int before = this.current;
             this.parseMember(className.lexeme(), members, false, false);
@@ -199,15 +189,13 @@ public final class Parser {
         Token rightBrace = this.expect(TokenKind.RIGHT_BRACE, "expected '}' to close class body");
         if (rightBrace == null) return null;
         AccessModifier access = enclosingInterface ? AccessModifier.PUBLIC : modifiers.accessModifier();
-        DestructorDeclaration destructorDeclaration = members.destructors().isEmpty() ? null
-                : members.destructors().get(0);
         return new ClassDeclaration(access, !topLevel && (modifiers.isStatic() || enclosingInterface),
                 modifiers.isAbstract(), modifiers.isFinal(), className.lexeme(), className.span(),
                 AstLists.typeParameters(typeParameters), superclass, AstLists.typeReferences(interfaces),
                 AstLists.fieldDeclarations(members.fields()),
                 AstLists.instanceInitializations(members.instanceInitializations()),
                 AstLists.staticInitializations(members.staticInitializations()),
-                AstLists.constructorDeclarations(members.constructors()), destructorDeclaration,
+                AstLists.constructorDeclarations(members.constructors()),
                 AstLists.methodDeclarations(members.methods()), AstLists.typeDeclarations(members.memberTypes()),
                 false, AstLists.NO_ENUM_CONSTANTS, new SourceSpan(start.span().start(), rightBrace.span().end()));
     }
@@ -227,7 +215,6 @@ public final class Parser {
         }
         Token enumName = this.expect(TokenKind.IDENTIFIER, "expected enum name after 'enum'");
         ArrayList<TypeParameter> typeParameters = new ArrayList<TypeParameter>(4);
-        defer free typeParameters;
         if (enumName != null) this.parseTypeParameters(typeParameters);
         if (!typeParameters.isEmpty()) {
             this.diagnostics.add(Diagnostic.error(this.source, typeParameters.get(0).span(),
@@ -239,7 +226,6 @@ public final class Parser {
             this.diagnostics.add(this.error(extendsToken, "enums cannot declare an explicit superclass"));
         }
         ArrayList<TypeReference> interfaces = new ArrayList<TypeReference>(4);
-        defer free interfaces;
         if (this.match(TokenKind.IMPLEMENTS)) {
             this.parseTypeReferenceList("expected interface name after 'implements'", interfaces);
         }
@@ -250,10 +236,8 @@ public final class Parser {
         }
 
         ArrayList<EnumConstant> constants = new ArrayList<EnumConstant>();
-        defer free constants;
         if (!this.check(TokenKind.RIGHT_BRACE) && !this.check(TokenKind.SEMICOLON)) {
-            while (!this.check(TokenKind.RIGHT_BRACE) && !this.check(TokenKind.SEMICOLON)
-                    && !this.check(TokenKind.EOF)) {
+            while (!this.check(TokenKind.RIGHT_BRACE) && !this.check(TokenKind.SEMICOLON) && !this.check(TokenKind.EOF)) {
                 Token constantName = this.expect(TokenKind.IDENTIFIER, "expected enum constant name");
                 if (constantName == null) {
                     this.synchronizeMember();
@@ -280,7 +264,6 @@ public final class Parser {
         }
 
         MemberBuilders members = new MemberBuilders();
-        defer free members;
         if (this.match(TokenKind.SEMICOLON)) {
             while (!this.check(TokenKind.RIGHT_BRACE) && !this.check(TokenKind.EOF)) {
                 int before = this.current;
@@ -300,7 +283,7 @@ public final class Parser {
                 AstLists.fieldDeclarations(members.fields()),
                 AstLists.instanceInitializations(members.instanceInitializations()),
                 AstLists.staticInitializations(members.staticInitializations()),
-                AstLists.constructorDeclarations(members.constructors()), null,
+                AstLists.constructorDeclarations(members.constructors()),
                 AstLists.methodDeclarations(members.methods()), AstLists.typeDeclarations(members.memberTypes()),
                 true, AstLists.enumConstants(constants),
                 new SourceSpan(start.span().start(), rightBrace.span().end()));
@@ -311,10 +294,8 @@ public final class Parser {
 
         Token interfaceName = this.expect(TokenKind.IDENTIFIER, "expected interface name after 'interface'");
         ArrayList<TypeParameter> typeParameters = new ArrayList<TypeParameter>(4);
-        defer free typeParameters;
         if (interfaceName != null) this.parseTypeParameters(typeParameters);
         ArrayList<TypeReference> extendedInterfaces = new ArrayList<TypeReference>(4);
-        defer free extendedInterfaces;
         if (this.match(TokenKind.EXTENDS)) {
             this.parseTypeReferenceList("expected interface name after 'extends'", extendedInterfaces);
         }
@@ -325,11 +306,8 @@ public final class Parser {
         }
 
         ArrayList<FieldDeclaration> fields = new ArrayList<FieldDeclaration>();
-        defer free fields;
         ArrayList<InterfaceMethodDeclaration> methods = new ArrayList<InterfaceMethodDeclaration>();
-        defer free methods;
         ArrayList<TypeDeclaration> memberTypes = new ArrayList<TypeDeclaration>(4);
-        defer free memberTypes;
         while (!this.check(TokenKind.RIGHT_BRACE) && !this.check(TokenKind.EOF)) {
             int before = this.current;
             this.parseInterfaceMember(fields, methods, memberTypes);
@@ -370,7 +348,6 @@ public final class Parser {
             if (parameter == null) break;
             ArrayList<TypeName> upperBounds = new ArrayList<TypeName>(4);
             // Loop-local builder: retires at the end of each iteration.
-            defer free upperBounds;
             if (this.match(TokenKind.EXTENDS)) {
                 do {
                     TypeName bound = this.parseType(false, "expected type after type-parameter bound");
@@ -387,7 +364,6 @@ public final class Parser {
 
         ParameterizedQualifiedName name = this.parseParameterizedQualifiedName(message);
         if (name == null) return null;
-        defer free name;
         return new TypeReference(name.text(), name.typeArguments(), name.typeArgumentSegmentCounts(), name.span());
     }
 
@@ -397,14 +373,7 @@ public final class Parser {
 
         Token start = this.peek();
         Modifiers modifiers = this.parseModifiers();
-        defer free modifiers;
-        if (this.match(TokenKind.DESTRUCTOR)) {
-            this.rejectOverrideDirective(modifiers);
-            Block body = this.parseBlock("expected '{' after 'destructor'", "expected '}' to close destructor body");
-            this.diagnostics.add(this.error(start, "interfaces cannot declare destructors"));
-            if (body == null) this.synchronizeMember();
-            return;
-        }
+        if (this.check(TokenKind.IDENTIFIER) && this.peek().lexeme().equals("destructor") && this.checkNext(TokenKind.LEFT_BRACE)) { Token keyword = this.advance(); this.diagnostics.add(this.error(keyword, "source destructors have been removed; use explicit resource close")); this.parseBlock("expected '{'", "expected '}'"); return; }
         if (this.check(TokenKind.LEFT_BRACE)) {
             this.rejectOverrideDirective(modifiers);
             Block block = this.parseBlock("expected '{' before interface initializer block",
@@ -416,8 +385,7 @@ public final class Parser {
         }
         if (this.check(TokenKind.CLASS) || this.check(TokenKind.ENUM) || this.check(TokenKind.INTERFACE)) {
             this.rejectOverrideDirective(modifiers);
-            if (modifiers.accessModifier() == AccessModifier.PRIVATE
-                    || modifiers.accessModifier() == AccessModifier.PROTECTED) {
+            if (modifiers.accessModifier() == AccessModifier.PRIVATE || modifiers.accessModifier() == AccessModifier.PROTECTED) {
                 this.diagnostics.add(this.error(modifiers.accessToken(),
                         "types declared in an interface must be public"));
             }
@@ -441,7 +409,6 @@ public final class Parser {
             return;
         }
         ArrayList<TypeParameter> typeParameters = new ArrayList<TypeParameter>(4);
-        defer free typeParameters;
         this.parseTypeParameters(typeParameters);
         TypeName type = this.parseType(true, "expected interface field type or method return type");
         Token name = this.expect(TokenKind.IDENTIFIER, "expected interface member name after type");
@@ -458,8 +425,7 @@ public final class Parser {
             if (type.kind() == TypeName.Kind.VOID) {
                 this.diagnostics.add(this.error(name, "interface fields cannot have type void"));
             }
-            if (modifiers.accessModifier() == AccessModifier.PRIVATE
-                    || modifiers.accessModifier() == AccessModifier.PROTECTED) {
+            if (modifiers.accessModifier() == AccessModifier.PRIVATE || modifiers.accessModifier() == AccessModifier.PROTECTED) {
                 this.diagnostics.add(this.error(modifiers.accessToken(),
                         "interface fields must be public static final"));
             }
@@ -546,8 +512,7 @@ public final class Parser {
             end = parsed == null ? name.span() : parsed.span();
             if (parsed == null) this.synchronizeMember();
         }
-        AccessModifier access = kind == InterfaceMethodKind.PRIVATE_INSTANCE
-                || kind == InterfaceMethodKind.PRIVATE_STATIC ? AccessModifier.PRIVATE : AccessModifier.PUBLIC;
+        AccessModifier access = kind == InterfaceMethodKind.PRIVATE_INSTANCE || kind == InterfaceMethodKind.PRIVATE_STATIC ? AccessModifier.PRIVATE : AccessModifier.PUBLIC;
         if (modifiers.hasTestDirective()) {
             this.diagnostics.add(this.error(modifiers.testToken(),
                     "the @Test directive may only be used on class methods"));
@@ -562,34 +527,8 @@ public final class Parser {
 
         Token start = this.peek();
         Modifiers modifiers = this.parseModifiers();
-        defer free modifiers;
 
-        if (this.match(TokenKind.DESTRUCTOR)) {
-            Token keyword = this.previous();
-            if (modifiers.accessToken() != null || modifiers.isStatic() || modifiers.isFinal()
-                    || modifiers.isAbstract() || modifiers.isDefault() || modifiers.hasOverrideDirective()) {
-                this.diagnostics.add(this.error(start, "destructors cannot have modifiers or @Override"));
-            }
-            if (modifiers.hasTestDirective()) {
-                this.diagnostics.add(this.error(modifiers.testToken(),
-                        "the @Test directive may only be used on methods"));
-            }
-            Block body = this.parseBlock("expected '{' after 'destructor'", "expected '}' to close destructor body");
-            if (enumConstantBody) {
-                this.diagnostics.add(this.error(keyword, anonymousClass
-                        ? "enum constant bodies cannot declare destructors"
-                        : "enums cannot declare destructors"));
-            } else if (body != null) {
-                if (!members.destructors().isEmpty()) {
-                    this.diagnostics.add(this.error(keyword, "class may declare at most one destructor"));
-                } else {
-                    members.destructors().add(new DestructorDeclaration(body, keyword.span(),
-                            new SourceSpan(start.span().start(), body.span().end())));
-                }
-            }
-            if (body == null) this.synchronizeMember();
-            return;
-        }
+        if (this.check(TokenKind.IDENTIFIER) && this.peek().lexeme().equals("destructor") && this.checkNext(TokenKind.LEFT_BRACE)) { Token keyword = this.advance(); this.diagnostics.add(this.error(keyword, "source destructors have been removed; use explicit resource close")); this.parseBlock("expected '{'", "expected '}'"); return; }
 
         if (modifiers.isDefault()) {
             this.diagnostics.add(this.error(modifiers.defaultToken(), "class members cannot be default"));
@@ -605,8 +544,7 @@ public final class Parser {
                         this.diagnostics.add(this.error(modifiers.staticToken(),
                                 (enumConstantBody ? "enum constant bodies" : "anonymous classes")
                                         + " cannot declare static initializer blocks"));
-                    } else if (modifiers.accessToken() != null || modifiers.isFinal()
-                            || modifiers.isAbstract() || modifiers.isDefault()) {
+                    } else if (modifiers.accessToken() != null || modifiers.isFinal() || modifiers.isAbstract() || modifiers.isDefault()) {
                         this.diagnostics.add(this.error(start,
                                 "static initializer blocks cannot have modifiers other than static"));
                     } else {
@@ -644,7 +582,6 @@ public final class Parser {
         }
 
         ArrayList<TypeParameter> typeParameters = new ArrayList<TypeParameter>(4);
-        defer free typeParameters;
         this.parseTypeParameters(typeParameters);
 
         if (anonymousClass && this.check(TokenKind.IDENTIFIER) && this.checkNext(TokenKind.LEFT_PAREN)) {
@@ -661,8 +598,7 @@ public final class Parser {
             return;
         }
 
-        if (!anonymousClass && this.check(TokenKind.IDENTIFIER) && this.peek().lexeme().equals(className)
-                && this.checkNext(TokenKind.LEFT_PAREN)) {
+        if (!anonymousClass && this.check(TokenKind.IDENTIFIER) && this.peek().lexeme().equals(className) && this.checkNext(TokenKind.LEFT_PAREN)) {
             Token name = this.advance();
             this.rejectOverrideDirective(modifiers);
             if (modifiers.isStatic()) {
@@ -681,18 +617,15 @@ public final class Parser {
             // Java parses a Block and then rebuilds it without a leading
             // explicit invocation; the statements are collected here once.
             ArrayList<Statement> bodyStatements = new ArrayList<Statement>();
-            defer free bodyStatements;
             SourceSpan bodySpan = this.parseBlockStatements(bodyStatements, "expected '{' before constructor body",
                     "expected '}' to close constructor body");
             if (bodySpan != null) {
                 SuperConstructorInvocation superInvocation = null;
                 ThisConstructorInvocation thisInvocation = null;
-                if (!bodyStatements.isEmpty()
-                        && bodyStatements.get(0) instanceof SuperConstructorInvocation invocation) {
+                if (!bodyStatements.isEmpty() && bodyStatements.get(0) instanceof SuperConstructorInvocation invocation) {
                     superInvocation = invocation;
                     bodyStatements.removeFirst();
-                } else if (!bodyStatements.isEmpty()
-                        && bodyStatements.get(0) instanceof ThisConstructorInvocation invocation) {
+                } else if (!bodyStatements.isEmpty() && bodyStatements.get(0) instanceof ThisConstructorInvocation invocation) {
                     thisInvocation = invocation;
                     bodyStatements.removeFirst();
                 }
@@ -779,7 +712,6 @@ public final class Parser {
 
         if (!this.match(TokenKind.THROWS)) return AstLists.NO_TYPE_NAMES;
         ArrayList<TypeName> thrownTypes = new ArrayList<TypeName>(4);
-        defer free thrownTypes;
         do {
             TypeName type = this.parseType(false, "expected exception type after 'throws'");
             if (type == null) break;
@@ -853,7 +785,7 @@ public final class Parser {
             } else if (this.match(TokenKind.AT)) {
                 Token at = this.previous();
                 Token name = this.expect(TokenKind.IDENTIFIER,
-                        "expected 'Override', 'Test', or 'SuppressUnfreed' after '@'");
+                        "expected 'Override' or 'Test' after '@'");
                 if (name != null) {
                     if (name.lexeme().equals("Override")) {
                         if (overrideToken != null) {
@@ -869,12 +801,11 @@ public final class Parser {
                         }
                     } else if (name.lexeme().equals("SuppressUnfreed")) {
                         this.diagnostics.add(this.error(at,
-                                "the @SuppressUnfreed directive may only be used on local variable declarations"));
+                                "the directive may only be used on local variable declarations"));
                     } else {
                         this.diagnostics.add(this.error(name, GENERAL_ANNOTATIONS));
                     }
-                    if ((name.lexeme().equals("Override") || name.lexeme().equals("Test")
-                            || name.lexeme().equals("SuppressUnfreed")) && this.check(TokenKind.LEFT_PAREN)) {
+                    if ((name.lexeme().equals("Override") || name.lexeme().equals("Test") || name.lexeme().equals("SuppressUnfreed")) && this.check(TokenKind.LEFT_PAREN)) {
                         this.diagnostics.add(this.error(this.peek(), "the @" + name.lexeme()
                                 + " directive does not accept arguments"));
                     }
@@ -900,7 +831,6 @@ public final class Parser {
     private SnapshotList<Parameter> parseParameters() {
 
         ArrayList<Parameter> parameters = new ArrayList<Parameter>(4);
-        defer free parameters;
         if (this.check(TokenKind.RIGHT_PAREN)) return AstLists.NO_PARAMETERS;
         do {
             Token start = this.peek();
@@ -926,28 +856,13 @@ public final class Parser {
     private VariableModifiers parseVariableModifiers(String role) {
 
         boolean isFinal = false;
-        boolean suppressUnfreed = false;
         while (isVariableModifier(this.peek().kind()) || this.check(TokenKind.AT)) {
             Token modifier = this.advance();
             if (modifier.kind() == TokenKind.AT) {
                 Token name = this.expect(TokenKind.IDENTIFIER,
-                        "expected 'SuppressUnfreed' after '@' on a local variable");
+                        "expected a directive name after '@'");
                 if (name == null) continue;
-                if (name.lexeme().equals("SuppressUnfreed")) {
-                    if (!role.equals("local variable")) {
-                        this.diagnostics.add(this.error(modifier,
-                                "the @SuppressUnfreed directive may only be used on local variable declarations"));
-                    }
-                    if (suppressUnfreed) {
-                        this.diagnostics.add(this.error(modifier, "duplicate '@SuppressUnfreed' directive"));
-                    }
-                    suppressUnfreed = true;
-                } else if (name.lexeme().equals("Override") || name.lexeme().equals("Test")) {
-                    this.diagnostics.add(this.error(modifier,
-                            "the @" + name.lexeme() + " directive may only be used on methods"));
-                } else {
-                    this.diagnostics.add(this.error(name, GENERAL_ANNOTATIONS));
-                }
+                if (name.lexeme().equals("SuppressUnfreed")) { this.diagnostics.add(this.error(name, "@SuppressUnfreed has been removed")); } else { this.diagnostics.add(this.error(name, "unsupported local directive")); }
                 if (this.check(TokenKind.LEFT_PAREN)) {
                     this.diagnostics.add(this.error(this.peek(), "the @" + name.lexeme()
                             + " directive does not accept arguments"));
@@ -960,7 +875,7 @@ public final class Parser {
                         + "' is not permitted on " + role));
             }
         }
-        return new VariableModifiers(isFinal, suppressUnfreed);
+        return new VariableModifiers(isFinal);
     }
 
     private boolean parseMisplacedVariableModifiers(String role, boolean isFinal) {
@@ -980,10 +895,7 @@ public final class Parser {
 
     private static boolean isVariableModifier(TokenKind kind) {
 
-        return kind == TokenKind.PUBLIC || kind == TokenKind.PROTECTED
-                || kind == TokenKind.PRIVATE || kind == TokenKind.STATIC
-                || kind == TokenKind.FINAL || kind == TokenKind.ABSTRACT
-                || kind == TokenKind.DEFAULT;
+        return kind == TokenKind.PUBLIC || kind == TokenKind.PROTECTED || kind == TokenKind.PRIVATE || kind == TokenKind.STATIC || kind == TokenKind.FINAL || kind == TokenKind.ABSTRACT || kind == TokenKind.DEFAULT;
     }
 
     private SourceSpan matchEllipsis() {
@@ -1012,7 +924,6 @@ public final class Parser {
             } else {
                 base = TypeName.reference(name.text(), name.typeArguments(), name.typeArgumentSegmentCounts(),
                         name.span());
-                free name;
             }
         } else {
             this.diagnostics.add(this.error(this.peek(), message));
@@ -1033,7 +944,6 @@ public final class Parser {
     private SnapshotList<TypeName> parseTypeArguments() {
 
         ParsedTypeArguments parsed = this.parseTypeArguments(false);
-        defer free parsed;
         return AstLists.typeNames(parsed.arguments());
     }
 
@@ -1044,7 +954,6 @@ public final class Parser {
         if (!this.match(TokenKind.LESS)) return ParsedTypeArguments.absent();
         Token opening = this.previous();
         ArrayList<TypeName> arguments = new ArrayList<TypeName>(4);
-        defer free arguments;
         if (this.match(TokenKind.GREATER)) {
             SourcePosition end = this.previous().span().end();
             if (!allowDiamond) {
@@ -1086,7 +995,6 @@ public final class Parser {
     private Block parseBlock(String openingMessage, String closingMessage) {
 
         ArrayList<Statement> statements = new ArrayList<Statement>();
-        defer free statements;
         SourceSpan span = this.parseBlockStatements(statements, openingMessage, closingMessage);
         if (span == null) return null;
         return new Block(AstLists.statements(statements), span);
@@ -1119,7 +1027,6 @@ public final class Parser {
         if (localType == TokenKind.INTERFACE) {
             Token start = this.peek();
             Modifiers modifiers = this.parseModifiers();
-            defer free modifiers;
             this.rejectOverrideDirective(modifiers);
             this.diagnostics.add(this.error(this.peek(), "interfaces cannot be declared in a block"));
             this.advance();
@@ -1129,7 +1036,6 @@ public final class Parser {
         if (localType == TokenKind.ENUM) {
             Token start = this.peek();
             Modifiers modifiers = this.parseModifiers();
-            defer free modifiers;
             this.rejectOverrideDirective(modifiers);
             this.diagnostics.add(this.error(this.peek(), "local enum declarations are not supported"));
             this.advance();
@@ -1143,7 +1049,6 @@ public final class Parser {
 
         Token start = this.peek();
         Modifiers modifiers = this.parseModifiers();
-        defer free modifiers;
         if (modifiers.accessToken() != null) {
             this.diagnostics.add(this.error(modifiers.accessToken(), "local classes cannot have an access modifier"));
         }
@@ -1157,7 +1062,6 @@ public final class Parser {
         this.rejectOverrideDirective(modifiers);
         Modifiers localModifiers = new Modifiers(AccessModifier.PACKAGE_PRIVATE, null, null,
                 modifiers.finalToken(), modifiers.abstractToken(), null, null, null);
-        defer free localModifiers;
         ClassDeclaration declaration = this.parseClass(start, localModifiers, false, false);
         return declaration == null ? null : new LocalClassDeclaration(declaration);
     }
@@ -1175,7 +1079,11 @@ public final class Parser {
         if (this.check(TokenKind.LEFT_BRACE)) return this.parseBlock("expected '{'", "expected '}' to close block");
         if (this.match(TokenKind.RETURN)) return this.parseReturn(this.previous());
         if (this.match(TokenKind.YIELD)) return this.parseYield(this.previous());
-        if (this.match(TokenKind.FREE)) return this.parseFree(this.previous());
+        if (this.legacyFree()) {
+            Token keyword = this.advance();
+            this.diagnostics.add(this.error(keyword, "source free has been removed; use Memory.collect()"));
+            return this.parseFree(keyword);
+        }
         if (this.match(TokenKind.THROW)) return this.parseThrow(this.previous());
         if (this.match(TokenKind.TRY)) return this.parseTry(this.previous());
         if (this.match(TokenKind.IF)) return this.parseIf(this.previous());
@@ -1250,20 +1158,7 @@ public final class Parser {
 
     private Statement parseDefer(Token keyword) {
 
-        if (this.match(TokenKind.FREE)) {
-            boolean startsWithName = this.check(TokenKind.IDENTIFIER);
-            // Java parses a FreeStatement only to read its value and end; the
-            // same expression, diagnostic and end are read here without it.
-            Expression value = this.parseExpression();
-            Token semicolon = this.expect(TokenKind.SEMICOLON, "expected ';' after free statement");
-            if (value == null) return null;
-            SourcePosition end = semicolon == null ? value.span().end() : semicolon.span().end();
-            if (!startsWithName || !(value instanceof NameExpression target)) {
-                this.diagnostics.add(this.error(keyword, "defer free requires a local variable name"));
-                return null;
-            }
-            return new DeferredFreeStatement(target, new SourceSpan(keyword.span().start(), end));
-        }
+        if (this.legacyFree()) { Token removed = this.advance(); this.diagnostics.add(this.error(removed, "defer free has been removed; use Memory.collect()")); return this.parseFree(removed); }
         Expression action = this.parseExpression();
         Token semicolon = this.expect(TokenKind.SEMICOLON, "expected ';' after defer statement");
         if (!(action instanceof CallExpression call)) {
@@ -1274,18 +1169,14 @@ public final class Parser {
                 semicolon == null ? call.span().end() : semicolon.span().end()));
     }
 
-    private FreeStatement parseFree(Token freeKeyword) {
+    private boolean legacyFree() {
 
-        Expression value = this.parseExpression();
-        Token semicolon = this.expect(TokenKind.SEMICOLON, "expected ';' after free statement");
-        SourceSpan end = null;
-        if (semicolon != null) {
-            end = semicolon.span();
-        } else {
-            end = value == null ? freeKeyword.span() : value.span();
-        }
-        return value == null ? null : new FreeStatement(value, new SourceSpan(freeKeyword.span().start(), end.end()));
+        return this.check(TokenKind.IDENTIFIER) && this.peek().lexeme().equals("free")
+                && (this.checkNext(TokenKind.IDENTIFIER) || this.checkNext(TokenKind.THIS)
+                || this.checkNext(TokenKind.NEW) || this.checkNext(TokenKind.NULL));
     }
+
+    private Statement parseFree(Token keyword) { Expression value = this.parseExpression(); Token end = this.expect(TokenKind.SEMICOLON, "expected ';' after removed free"); return new EmptyStatement(end == null ? keyword.span() : new SourceSpan(keyword.span().start(), end.span().end())); }
 
     private ThrowStatement parseThrow(Token throwKeyword) {
 
@@ -1311,7 +1202,6 @@ public final class Parser {
         }
         Block body = this.parseBlock("expected '{' after 'try'", "expected '}' to close try block");
         ArrayList<CatchClause> catches = new ArrayList<CatchClause>(4);
-        defer free catches;
         while (this.match(TokenKind.CATCH)) {
             Token catchKeyword = this.previous();
             this.expect(TokenKind.LEFT_PAREN, "expected '(' after 'catch'");
@@ -1319,7 +1209,6 @@ public final class Parser {
             TypeName type = this.parseType(false, "expected catch type");
             ArrayList<TypeName> types = new ArrayList<TypeName>(4);
             // Loop-local builder: retires at the end of each iteration.
-            defer free types;
             if (type != null) types.add(type);
             while (this.match(TokenKind.PIPE)) {
                 TypeName alternative = this.parseType(false, "expected catch type after '|'");
@@ -1437,7 +1326,6 @@ public final class Parser {
         this.expect(TokenKind.SEMICOLON, "expected ';' after for condition");
 
         ArrayList<Expression> updates = new ArrayList<Expression>(4);
-        defer free updates;
         if (!this.check(TokenKind.RIGHT_PAREN)) {
             do {
                 Expression update = this.parseExpression();
@@ -1481,7 +1369,6 @@ public final class Parser {
             return null;
         }
         ParsedSwitchBody body = this.parseSwitchBody(leftBrace);
-        defer free body;
         if (selector == null) return null;
         SourceSpan span = new SourceSpan(switchKeyword.span().start(), body.end().end());
         if (body.arrowRules()) return new ModernSwitchStatement(selector, body.rules(), span);
@@ -1496,7 +1383,6 @@ public final class Parser {
         Token leftBrace = this.expect(TokenKind.LEFT_BRACE, "expected '{' before switch body");
         if (leftBrace == null) return null;
         ParsedSwitchBody body = this.parseSwitchBody(leftBrace);
-        defer free body;
         if (selector == null) return null;
         return new SwitchExpression(selector, body.groups(), body.rules(), body.arrowRules(),
                 new SourceSpan(switchKeyword.span().start(), body.end().end()));
@@ -1518,14 +1404,12 @@ public final class Parser {
             return new ParsedSwitchBody(AstLists.NO_SWITCH_GROUPS, AstLists.NO_SWITCH_RULES, false,
                     rightBrace == null ? leftBrace.span() : rightBrace.span());
         }
-        defer free first;
         return first.arrowRules() ? this.parseSwitchRules(first, leftBrace) : this.parseSwitchGroups(first, leftBrace);
     }
 
     private ParsedSwitchBody parseSwitchRules(ParsedSwitchLabels first, Token leftBrace) {
 
         ArrayList<SwitchRule> rules = new ArrayList<SwitchRule>();
-        defer free rules;
         // Java carries the next labels into the following iteration; here
         // each iteration parses and owns its labels, and the caller owns the first.
         this.parseSwitchRule(rules, first);
@@ -1533,7 +1417,6 @@ public final class Parser {
             ParsedSwitchLabels labels = this.parseSwitchLabels();
             if (labels == null) break;
             // Loop-local labels: retire at the end of each iteration.
-            defer free labels;
             if (!labels.arrowRules()) {
                 this.diagnostics.add(Diagnostic.error(this.source, new SourceSpan(labels.start(), labels.end()),
                         "cannot mix ':' labels and '->' rules in one switch body"));
@@ -1591,7 +1474,6 @@ public final class Parser {
     private ParsedSwitchBody parseSwitchGroups(ParsedSwitchLabels first, Token leftBrace) {
 
         ArrayList<SwitchGroup> groups = new ArrayList<SwitchGroup>();
-        defer free groups;
         // Java carries the pending labels into the following iteration; here
         // each iteration parses and owns its labels, and the caller owns the first.
         this.parseSwitchGroup(groups, first);
@@ -1599,7 +1481,6 @@ public final class Parser {
             ParsedSwitchLabels pending = this.parseSwitchLabels();
             if (pending == null) break;
             // Loop-local labels: retire at the end of each iteration.
-            defer free pending;
             if (pending.arrowRules()) {
                 this.diagnostics.add(Diagnostic.error(this.source, new SourceSpan(pending.start(), pending.end()),
                         "cannot mix ':' labels and '->' rules in one switch body"));
@@ -1622,12 +1503,10 @@ public final class Parser {
     private void parseSwitchGroup(ArrayList<SwitchGroup> groups, ParsedSwitchLabels pending) {
 
         ArrayList<SwitchLabel> labels = pending.labels().copy();
-        defer free labels;
         while (this.check(TokenKind.CASE) || this.check(TokenKind.DEFAULT)) {
             ParsedSwitchLabels next = this.parseSwitchLabels();
             if (next == null) break;
             // Loop-local labels: retire at the end of each iteration.
-            defer free next;
             if (next.arrowRules()) {
                 this.diagnostics.add(Diagnostic.error(this.source, new SourceSpan(next.start(), next.end()),
                         "cannot mix ':' labels and '->' rules in one switch body"));
@@ -1638,9 +1517,7 @@ public final class Parser {
             for (int index = 0; index < added.size(); index++) labels.add(added.get(index));
         }
         ArrayList<Statement> statements = new ArrayList<Statement>();
-        defer free statements;
-        while (!this.check(TokenKind.CASE) && !this.check(TokenKind.DEFAULT)
-                && !this.check(TokenKind.RIGHT_BRACE) && !this.check(TokenKind.EOF)) {
+        while (!this.check(TokenKind.CASE) && !this.check(TokenKind.DEFAULT) && !this.check(TokenKind.RIGHT_BRACE) && !this.check(TokenKind.EOF)) {
             int before = this.current;
             Statement statement = this.parseBlockStatement();
             if (statement != null) statements.add(statement);
@@ -1660,14 +1537,12 @@ public final class Parser {
         }
         Token keyword = this.advance();
         ArrayList<SwitchLabel> labels = new ArrayList<SwitchLabel>(4);
-        defer free labels;
         if (keyword.kind() == TokenKind.DEFAULT) {
             labels.add(new SwitchLabel(null, keyword.span()));
         } else {
             while (true) {
                 if (this.match(TokenKind.DEFAULT)) {
-                    if (labels.size() != 1 || labels.get(0).value() == null
-                            || !(this.labelValue(labels.get(0)) instanceof NullLiteralExpression)) {
+                    if (labels.size() != 1 || labels.get(0).value() == null || !(this.labelValue(labels.get(0)) instanceof NullLiteralExpression)) {
                         this.diagnostics.add(this.error(this.previous(),
                                 "default may be combined only with case null"));
                     }
@@ -1806,7 +1681,6 @@ public final class Parser {
 
         Token start = this.peek();
         VariableModifiers modifiers = this.parseVariableModifiers("local variable");
-        defer free modifiers;
         boolean isFinal = modifiers.isFinal();
         TypeName type = this.parseType(false, "expected local variable type");
         isFinal = this.parseMisplacedVariableModifiers("local variable", isFinal);
@@ -1819,7 +1693,7 @@ public final class Parser {
             this.synchronizeStatement();
             return null;
         }
-        return new LocalVariableDeclaration(type, isFinal, modifiers.hasSuppressUnfreedDirective(), name.lexeme(),
+        return new LocalVariableDeclaration(type, isFinal, name.lexeme(),
                 name.span(), initializer, new SourceSpan(start.span().start(), end.end()));
     }
 
@@ -1856,7 +1730,6 @@ public final class Parser {
         Token leftBrace = this.expect(TokenKind.LEFT_BRACE, "expected '{' to begin array initializer");
         if (leftBrace == null) return null;
         ArrayList<Expression> elements = new ArrayList<Expression>();
-        defer free elements;
         if (!this.check(TokenKind.RIGHT_BRACE)) {
             while (true) {
                 Expression element = this.check(TokenKind.LEFT_BRACE)
@@ -1882,7 +1755,6 @@ public final class Parser {
         Expression target = this.parseConditional();
         ParsedAssignment operator = this.matchAssignmentOperator();
         if (operator == null) return target;
-        defer free operator;
         Expression value = this.parseAssignment();
         if (target == null || value == null) return null;
         return new AssignmentExpression(target, operator.operator(), operator.span(), value,
@@ -1988,14 +1860,10 @@ public final class Parser {
                 }
                 continue;
             }
-            if (this.contiguousKinds(TokenKind.LESS, TokenKind.LESS)
-                    || this.contiguousKinds(TokenKind.LESS, TokenKind.LESS_EQUAL)
-                    || this.contiguousKinds(TokenKind.GREATER, TokenKind.GREATER_EQUAL)
-                    || this.contiguousKinds(TokenKind.GREATER, TokenKind.GREATER, TokenKind.GREATER_EQUAL)) {
+            if (this.contiguousKinds(TokenKind.LESS, TokenKind.LESS) || this.contiguousKinds(TokenKind.LESS, TokenKind.LESS_EQUAL) || this.contiguousKinds(TokenKind.GREATER, TokenKind.GREATER_EQUAL) || this.contiguousKinds(TokenKind.GREATER, TokenKind.GREATER, TokenKind.GREATER_EQUAL)) {
                 break;
             }
-            if (!(this.match(TokenKind.LESS) || this.match(TokenKind.LESS_EQUAL)
-                    || this.match(TokenKind.GREATER) || this.match(TokenKind.GREATER_EQUAL))) {
+            if (!(this.match(TokenKind.LESS) || this.match(TokenKind.LESS_EQUAL) || this.match(TokenKind.GREATER) || this.match(TokenKind.GREATER_EQUAL))) {
                 break;
             }
             Token operator = this.previous();
@@ -2019,7 +1887,6 @@ public final class Parser {
             ParsedBinary operator = this.matchShiftOperator();
             if (operator == null) break;
             // Each matched operator retires once its fields are copied into the node.
-            defer free operator;
             Expression right = this.parseAdditive();
             if (expression == null || right == null) return null;
             expression = new BinaryExpression(expression, operator.operator(), right, operator.span(),
@@ -2068,8 +1935,7 @@ public final class Parser {
             return new UpdateExpression(operand, kind, true, operator.span(),
                     new SourceSpan(operator.span().start(), operand.span().end()));
         }
-        if (this.match(TokenKind.PLUS) || this.match(TokenKind.MINUS) || this.match(TokenKind.BANG)
-                || this.match(TokenKind.TILDE)) {
+        if (this.match(TokenKind.PLUS) || this.match(TokenKind.MINUS) || this.match(TokenKind.BANG) || this.match(TokenKind.TILDE)) {
             Token operator = this.previous();
             Expression operand = this.parseUnary();
             if (operand == null) return null;
@@ -2228,9 +2094,7 @@ public final class Parser {
             lookahead = this.parameterizedTypeEnd(lookahead);
             if (lookahead < 0) return false;
         }
-        while (lookahead + 1 < this.tokens.size()
-                && this.tokens.get(lookahead).kind() == TokenKind.LEFT_BRACKET
-                && this.tokens.get(lookahead + 1).kind() == TokenKind.RIGHT_BRACKET) {
+        while (lookahead + 1 < this.tokens.size() && this.tokens.get(lookahead).kind() == TokenKind.LEFT_BRACKET && this.tokens.get(lookahead + 1).kind() == TokenKind.RIGHT_BRACKET) {
             lookahead += 2;
         }
         if (lookahead >= this.tokens.size() || this.tokens.get(lookahead).kind() != TokenKind.RIGHT_PAREN) {
@@ -2294,8 +2158,7 @@ public final class Parser {
         // A trailing GREATER_EQUAL belongs to >>= or >>>= and must remain for
         // the assignment grammar. Plain nested generic closes are consumed
         // only by parseTypeArguments, never by this expression-only helper.
-        if (this.contiguousKinds(TokenKind.GREATER, TokenKind.GREATER, TokenKind.GREATER_EQUAL)
-                || this.contiguousKinds(TokenKind.GREATER, TokenKind.GREATER_EQUAL)) {
+        if (this.contiguousKinds(TokenKind.GREATER, TokenKind.GREATER, TokenKind.GREATER_EQUAL) || this.contiguousKinds(TokenKind.GREATER, TokenKind.GREATER_EQUAL)) {
             return null;
         }
         if (this.contiguousKinds(TokenKind.GREATER, TokenKind.GREATER, TokenKind.GREATER)) {
@@ -2325,15 +2188,13 @@ public final class Parser {
     private boolean contiguousKinds(TokenKind first, TokenKind second, TokenKind third) {
 
         if (this.current + 3 > this.tokens.size()) return false;
-        return this.tokens.get(this.current).kind() == first && this.contiguousAt(1, second)
-                && this.contiguousAt(2, third);
+        return this.tokens.get(this.current).kind() == first && this.contiguousAt(1, second) && this.contiguousAt(2, third);
     }
 
     private boolean contiguousAt(int index, TokenKind kind) {
 
         Token token = this.tokens.get(this.current + index);
-        return token.kind() == kind
-                && this.tokens.get(this.current + index - 1).span().end().offset() == token.span().start().offset();
+        return token.kind() == kind && this.tokens.get(this.current + index - 1).span().end().offset() == token.span().start().offset();
     }
 
     private Expression finishNew(Token newKeyword) {
@@ -2355,7 +2216,6 @@ public final class Parser {
             diamond = creationType.diamond();
             classType = TypeName.reference(className.text(), className.typeArguments(),
                     className.typeArgumentSegmentCounts(), className.span());
-            free creationType;
             elementType = classType;
         } else {
             this.diagnostics.add(this.error(this.peek(), "expected type name after 'new'"));
@@ -2438,13 +2298,11 @@ public final class Parser {
         Token className = this.expect(TokenKind.IDENTIFIER, "expected member class name after qualified 'new'");
         if (className == null) return enclosingInstance;
         ParsedTypeArguments parsedTypeArguments = this.parseTypeArguments(true);
-        defer free parsedTypeArguments;
         SnapshotList<TypeName> typeArguments = AstLists.typeNames(parsedTypeArguments.arguments());
         SourceSpan typeSpan = parsedTypeArguments.present()
                 ? new SourceSpan(className.span().start(), parsedTypeArguments.end())
                 : className.span();
         IntArrayList counts = new IntArrayList(1);
-        defer free counts;
         counts.add(typeArguments.size());
         TypeName classType = TypeName.reference(className.lexeme(), typeArguments, AstLists.counts(counts), typeSpan);
         this.expect(TokenKind.LEFT_PAREN, "expected '(' after member class name");
@@ -2465,7 +2323,6 @@ public final class Parser {
         Token leftBrace = this.expect(TokenKind.LEFT_BRACE, "expected '{' before anonymous class body");
         if (leftBrace == null) return null;
         MemberBuilders members = new MemberBuilders();
-        defer free members;
         while (!this.check(TokenKind.RIGHT_BRACE) && !this.check(TokenKind.EOF)) {
             int before = this.current;
             this.parseMember(null, members, true, enumConstantBody);
@@ -2473,11 +2330,9 @@ public final class Parser {
         }
         Token rightBrace = this.expect(TokenKind.RIGHT_BRACE, "expected '}' to close anonymous class body");
         if (rightBrace == null) return null;
-        DestructorDeclaration destructorDeclaration = members.destructors().isEmpty() ? null
-                : members.destructors().get(0);
         return new AnonymousClassBody(AstLists.fieldDeclarations(members.fields()),
                 AstLists.instanceInitializations(members.instanceInitializations()),
-                AstLists.staticInitializations(members.staticInitializations()), destructorDeclaration,
+                AstLists.staticInitializations(members.staticInitializations()),
                 AstLists.methodDeclarations(members.methods()), AstLists.typeDeclarations(members.memberTypes()),
                 new SourceSpan(leftBrace.span().start(), rightBrace.span().end()));
     }
@@ -2493,9 +2348,7 @@ public final class Parser {
         if (this.tokens.get(start).kind() != TokenKind.IDENTIFIER) return false;
         int lookahead = this.parameterizedTypeEnd(start);
         if (lookahead < 0) return false;
-        while (lookahead + 1 < this.tokens.size()
-                && this.tokens.get(lookahead).kind() == TokenKind.LEFT_BRACKET
-                && this.tokens.get(lookahead + 1).kind() == TokenKind.RIGHT_BRACKET) {
+        while (lookahead + 1 < this.tokens.size() && this.tokens.get(lookahead).kind() == TokenKind.LEFT_BRACKET && this.tokens.get(lookahead + 1).kind() == TokenKind.RIGHT_BRACKET) {
             lookahead += 2;
         }
         return lookahead < this.tokens.size() && this.tokens.get(lookahead).kind() == TokenKind.IDENTIFIER;
@@ -2507,9 +2360,7 @@ public final class Parser {
         while (lookahead < this.tokens.size()) {
             if (isVariableModifier(this.tokens.get(lookahead).kind())) {
                 lookahead++;
-            } else if (this.tokens.get(lookahead).kind() == TokenKind.AT
-                    && lookahead + 1 < this.tokens.size()
-                    && this.tokens.get(lookahead + 1).kind() == TokenKind.IDENTIFIER) {
+            } else if (this.tokens.get(lookahead).kind() == TokenKind.AT && lookahead + 1 < this.tokens.size() && this.tokens.get(lookahead + 1).kind() == TokenKind.IDENTIFIER) {
                 lookahead += 2;
             } else {
                 break;
@@ -2524,14 +2375,10 @@ public final class Parser {
         } else {
             return false;
         }
-        while (lookahead + 1 < this.tokens.size()
-                && this.tokens.get(lookahead).kind() == TokenKind.LEFT_BRACKET
-                && this.tokens.get(lookahead + 1).kind() == TokenKind.RIGHT_BRACKET) {
+        while (lookahead + 1 < this.tokens.size() && this.tokens.get(lookahead).kind() == TokenKind.LEFT_BRACKET && this.tokens.get(lookahead + 1).kind() == TokenKind.RIGHT_BRACKET) {
             lookahead += 2;
         }
-        return lookahead + 1 < this.tokens.size()
-                && this.tokens.get(lookahead).kind() == TokenKind.IDENTIFIER
-                && this.tokens.get(lookahead + 1).kind() == TokenKind.COLON;
+        return lookahead + 1 < this.tokens.size() && this.tokens.get(lookahead).kind() == TokenKind.IDENTIFIER && this.tokens.get(lookahead + 1).kind() == TokenKind.COLON;
     }
 
     private TokenKind localTypeDeclarationKind() {
@@ -2539,16 +2386,11 @@ public final class Parser {
         int lookahead = this.current;
         while (lookahead < this.tokens.size()) {
             TokenKind kind = this.tokens.get(lookahead).kind();
-            if (kind == TokenKind.AT
-                    && lookahead + 1 < this.tokens.size()
-                    && this.tokens.get(lookahead + 1).kind() == TokenKind.IDENTIFIER) {
+            if (kind == TokenKind.AT && lookahead + 1 < this.tokens.size() && this.tokens.get(lookahead + 1).kind() == TokenKind.IDENTIFIER) {
                 lookahead += 2;
                 continue;
             }
-            if (kind == TokenKind.PUBLIC || kind == TokenKind.PROTECTED
-                    || kind == TokenKind.PRIVATE || kind == TokenKind.STATIC
-                    || kind == TokenKind.FINAL || kind == TokenKind.ABSTRACT
-                    || kind == TokenKind.DEFAULT) {
+            if (kind == TokenKind.PUBLIC || kind == TokenKind.PROTECTED || kind == TokenKind.PRIVATE || kind == TokenKind.STATIC || kind == TokenKind.FINAL || kind == TokenKind.ABSTRACT || kind == TokenKind.DEFAULT) {
                 lookahead++;
                 continue;
             }
@@ -2576,9 +2418,7 @@ public final class Parser {
                 } while (lookahead < this.tokens.size() && depth > 0);
                 if (depth != 0) return -1;
             }
-            if (lookahead + 1 >= this.tokens.size()
-                    || this.tokens.get(lookahead).kind() != TokenKind.DOT
-                    || this.tokens.get(lookahead + 1).kind() != TokenKind.IDENTIFIER) {
+            if (lookahead + 1 >= this.tokens.size() || this.tokens.get(lookahead).kind() != TokenKind.DOT || this.tokens.get(lookahead + 1).kind() != TokenKind.IDENTIFIER) {
                 return lookahead;
             }
             lookahead++;
@@ -2617,7 +2457,6 @@ public final class Parser {
         Token first = this.expect(TokenKind.IDENTIFIER, message);
         if (first == null) return null;
         StringBuilder text = new StringBuilder();
-        defer free text;
         text.append(first.lexeme());
         SourceSpan end = first.span();
         boolean wildcard = false;
@@ -2641,12 +2480,9 @@ public final class Parser {
         Token first = this.expect(TokenKind.IDENTIFIER, message);
         if (first == null) return null;
         StringBuilder text = new StringBuilder();
-        defer free text;
         text.append(first.lexeme());
         ArrayList<TypeName> arguments = new ArrayList<TypeName>(4);
-        defer free arguments;
         IntArrayList segmentCounts = new IntArrayList(4);
-        defer free segmentCounts;
         // Java copies each segment's argument list into this builder; the
         // segment's own arguments are appended directly instead.
         int firstCount = this.appendTypeArguments(arguments);
@@ -2672,7 +2508,6 @@ public final class Parser {
     private int appendTypeArguments(ArrayList<TypeName> destination) {
 
         ParsedTypeArguments segment = this.parseTypeArguments(false);
-        defer free segment;
         ArrayList<TypeName> parsed = segment.arguments();
         for (int index = 0; index < parsed.size(); index++) destination.add(parsed.get(index));
         return parsed.size();
@@ -2683,19 +2518,15 @@ public final class Parser {
         Token first = this.expect(TokenKind.IDENTIFIER, message);
         if (first == null) return null;
         StringBuilder text = new StringBuilder();
-        defer free text;
         text.append(first.lexeme());
         ArrayList<TypeName> arguments = new ArrayList<TypeName>(4);
-        defer free arguments;
         IntArrayList segmentCounts = new IntArrayList(4);
-        defer free segmentCounts;
         ParsedTypeArguments segment = this.parseTypeArguments(true);
         this.appendSegment(arguments, segmentCounts, segment);
         boolean diamond = segment.diamond();
         SourcePosition diamondStart = segment.start();
         SourcePosition diamondEnd = segment.end();
         SourcePosition end = segment.present() ? segment.end() : first.span().end();
-        free segment;
         while (this.check(TokenKind.DOT) && this.checkNext(TokenKind.IDENTIFIER)) {
             this.advance();
             if (diamond) {
@@ -2708,7 +2539,6 @@ public final class Parser {
             text.append(part.lexeme());
             ParsedTypeArguments next = this.parseTypeArguments(true);
             // Loop-local segment: retires at the end of each iteration.
-            defer free next;
             this.appendSegment(arguments, segmentCounts, next);
             diamond = next.diamond();
             diamondStart = next.start();
@@ -2743,7 +2573,6 @@ public final class Parser {
     private SnapshotList<Expression> parseArguments() {
 
         ArrayList<Expression> arguments = new ArrayList<Expression>(4);
-        defer free arguments;
         if (!this.check(TokenKind.RIGHT_PAREN)) {
             do {
                 Expression argument = this.parseExpression();
@@ -2786,10 +2615,7 @@ public final class Parser {
     private void synchronizeTopLevel() {
 
         while (!this.check(TokenKind.EOF)) {
-            if (this.check(TokenKind.CLASS) || this.check(TokenKind.ENUM) || this.check(TokenKind.INTERFACE)
-                    || this.check(TokenKind.PUBLIC) || this.check(TokenKind.PROTECTED)
-                    || this.check(TokenKind.PRIVATE) || this.check(TokenKind.ABSTRACT)
-                    || this.check(TokenKind.DEFAULT) || this.check(TokenKind.FINAL) || this.check(TokenKind.STATIC)) {
+            if (this.check(TokenKind.CLASS) || this.check(TokenKind.ENUM) || this.check(TokenKind.INTERFACE) || this.check(TokenKind.PUBLIC) || this.check(TokenKind.PROTECTED) || this.check(TokenKind.PRIVATE) || this.check(TokenKind.ABSTRACT) || this.check(TokenKind.DEFAULT) || this.check(TokenKind.FINAL) || this.check(TokenKind.STATIC)) {
                 return;
             }
             this.advance();
@@ -2823,9 +2649,7 @@ public final class Parser {
     private boolean looksLikeSwitchPatternLabel() {
 
         TokenKind first = this.peek().kind();
-        if ((isNumericPrimitive(first) || first == TokenKind.BOOLEAN)
-                && this.current + 1 < this.tokens.size()
-                && this.tokens.get(this.current + 1).kind() == TokenKind.IDENTIFIER) {
+        if ((isNumericPrimitive(first) || first == TokenKind.BOOLEAN) && this.current + 1 < this.tokens.size() && this.tokens.get(this.current + 1).kind() == TokenKind.IDENTIFIER) {
             return true;
         }
         if (first != TokenKind.IDENTIFIER || this.current + 1 >= this.tokens.size()) return false;
@@ -2834,13 +2658,11 @@ public final class Parser {
         if (second != TokenKind.LEFT_PAREN || this.current + 2 >= this.tokens.size()) return false;
         TokenKind nested = this.tokens.get(this.current + 2).kind();
         if (isNumericPrimitive(nested) || nested == TokenKind.BOOLEAN) {
-            return this.current + 3 < this.tokens.size()
-                    && this.tokens.get(this.current + 3).kind() == TokenKind.IDENTIFIER;
+            return this.current + 3 < this.tokens.size() && this.tokens.get(this.current + 3).kind() == TokenKind.IDENTIFIER;
         }
         if (nested != TokenKind.IDENTIFIER) return false;
         String text = this.tokens.get(this.current + 2).lexeme();
-        return text.equals("_") || this.current + 3 < this.tokens.size()
-                && this.tokens.get(this.current + 3).kind() == TokenKind.IDENTIFIER;
+        return text.equals("_") || this.current + 3 < this.tokens.size() && this.tokens.get(this.current + 3).kind() == TokenKind.IDENTIFIER;
     }
 
     private Token advance() {
@@ -2874,12 +2696,6 @@ public final class Parser {
         return null;
     }
 
-    destructor {
-
-        free this.diagnostics;
-    }
-
-    // The ten parser-private Java records as final classes. Each is freed by
     // the method that consumes it; list components are frozen copies that
     // move into AST nodes, except where a holder owns a builder copy.
 
@@ -2981,12 +2797,11 @@ public final class Parser {
     private static final class VariableModifiers {
 
         private final boolean isFinal;
-        private final boolean hasSuppressUnfreedDirective;
 
-        VariableModifiers(boolean isFinal, boolean hasSuppressUnfreedDirective) {
+
+        VariableModifiers(boolean isFinal) {
 
             this.isFinal = isFinal;
-            this.hasSuppressUnfreedDirective = hasSuppressUnfreedDirective;
         }
 
         boolean isFinal() {
@@ -2994,10 +2809,7 @@ public final class Parser {
             return this.isFinal;
         }
 
-        boolean hasSuppressUnfreedDirective() {
 
-            return this.hasSuppressUnfreedDirective;
-        }
     }
 
     private static final class QualifiedName {
@@ -3091,7 +2903,6 @@ public final class Parser {
         static ParsedTypeArguments absent() {
 
             ArrayList<TypeName> none = new ArrayList<TypeName>(1);
-            defer free none;
             return new ParsedTypeArguments(false, false, none, null, null);
         }
 
@@ -3120,10 +2931,6 @@ public final class Parser {
             return this.end;
         }
 
-        destructor {
-
-            free this.arguments;
-        }
     }
 
     // Java wraps an already built name; the name is built here from its
@@ -3150,10 +2957,6 @@ public final class Parser {
             return this.diamond;
         }
 
-        destructor {
-
-            free this.name;
-        }
     }
 
     private static final class ParsedAssignment {
@@ -3240,10 +3043,6 @@ public final class Parser {
             return this.end;
         }
 
-        destructor {
-
-            free this.labels;
-        }
     }
 
     private static final class ParsedSwitchBody {
@@ -3284,7 +3083,6 @@ public final class Parser {
     }
 
     // Java passes a class body's seven member lists to parseMember separately;
-    // natively they travel together and are freed together.
     private static final class MemberBuilders {
 
         private final ArrayList<FieldDeclaration> fields = new ArrayList<FieldDeclaration>();
@@ -3292,7 +3090,6 @@ public final class Parser {
                 new ArrayList<InstanceInitialization>();
         private final ArrayList<StaticInitialization> staticInitializations = new ArrayList<StaticInitialization>(4);
         private final ArrayList<ConstructorDeclaration> constructors = new ArrayList<ConstructorDeclaration>(4);
-        private final ArrayList<DestructorDeclaration> destructors = new ArrayList<DestructorDeclaration>(1);
         private final ArrayList<MethodDeclaration> methods = new ArrayList<MethodDeclaration>();
         private final ArrayList<TypeDeclaration> memberTypes = new ArrayList<TypeDeclaration>(4);
 
@@ -3320,10 +3117,6 @@ public final class Parser {
             return this.constructors;
         }
 
-        ArrayList<DestructorDeclaration> destructors() {
-
-            return this.destructors;
-        }
 
         ArrayList<MethodDeclaration> methods() {
 
@@ -3335,15 +3128,5 @@ public final class Parser {
             return this.memberTypes;
         }
 
-        destructor {
-
-            free this.memberTypes;
-            free this.methods;
-            free this.destructors;
-            free this.constructors;
-            free this.staticInitializations;
-            free this.instanceInitializations;
-            free this.fields;
-        }
     }
 }

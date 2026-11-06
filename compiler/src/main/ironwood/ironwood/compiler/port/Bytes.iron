@@ -11,7 +11,7 @@ package ironwood.compiler.port;
  *
  * <p>The reads replace {@code ByteBuffer.wrap(bytes).order(LITTLE_ENDIAN)}
  * in SharedTraceOrder: a wrapping buffer retains its array, so the object
- * bytes could not be freed after it, while these reads only borrow them.
+ * these reads observe the caller's managed bytes without copying them.
  */
 public final class Bytes {
 

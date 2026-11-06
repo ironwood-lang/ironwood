@@ -55,7 +55,6 @@ int32_t ironwood_identity_hash_code(const void *object);
 int32_t ironwood_object_hash_code(const void *object);
 void *ironwood_object_to_string(const void *object, const void *string_type,
         void *allocation_failure);
-void ironwood_release_owned_to_string_result(const void *object, void *result);
 uint16_t ironwood_string_char_at(const void *string, int32_t index);
 _Bool ironwood_string_equals(const void *string, const void *other, const void *string_type);
 int32_t ironwood_string_hash_code(const void *string);
@@ -168,8 +167,6 @@ void *ironwood_path_parent(const void *path, const void *string_type,
         void *allocation_failure);
 void *ironwood_path_resolve(const void *base, const void *other,
         const void *string_type, void *allocation_failure);
-void ironwood_deallocate(void *object);
-_Noreturn void ironwood_destructor_failed(void);
 void ironwood_stdout_println(const void *string);
 void ironwood_print_stream_write(const void *stream, int32_t kind, uint64_t payload,
         _Bool newline);
@@ -184,7 +181,6 @@ void *ironwood_exception_secondary_at(const void *primary, int32_t index);
 void ironwood_trace_register(const struct ironwood_trace_site *sites, int32_t site_count,
         const struct ironwood_trace_function *functions, int32_t function_count);
 void ironwood_throwable_trace_capture(void *object);
-void ironwood_throwable_trace_release(void *object);
 int32_t ironwood_throwable_trace_common(const void *object, const void *parent);
 void ironwood_throwable_trace_print(const void *object, const void *stream, int32_t indentation, int32_t common);
 void ironwood_throwable_trace_emergency(const void *object, const void *stream);

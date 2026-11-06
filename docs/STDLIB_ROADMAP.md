@@ -106,7 +106,7 @@ to different runtime choices. The present support matrix is:
 | Anonymous classes | Yes | Class extension/interface implementation, enclosing instances, captures, and generic construction work. |
 | Generics | Yes, bounded reference model plus native primitive shapes | Bounds, wildcards/capture, generic methods/constructors, inference, diamond, exact owners, source-provable casts, and unbounded primitive arguments work. Raw, unchecked, and boxing forms are excluded. |
 | `final` object-oriented constraints | Yes | Final classes/methods and initialized or blank-final instance fields are enforced. |
-| Annotations | No, by design | General annotation syntax and processing are excluded. The built-in `@Override`, `@Test`, and `@SuppressUnfreed` directives are not annotation instances. |
+| Annotations | No, by design | General annotation syntax and processing are excluded. The built-in `@Override`, `@Test` directives are not annotation instances. |
 
 The complete rules, deliberate limits, runnable examples, and verification
 commands are recorded in `OBJECT_MODEL.md` and `GENERICS.md`. D047's fixed-arity
@@ -135,7 +135,7 @@ can write, test, package, and distribute native tools that can:
   helpers under `ironwood.ds`;
 - report I/O failures as typed Ironwood exceptions carrying actionable path and
   operating-system context;
-- close native resources deterministically and separately from `free`;
+- close native resources deterministically and separately from managed collection;
 - run without a JVM and without exposing raw pointers or file descriptors to
   ordinary source; and
 - include only reachable standard-library implementation in the final native
@@ -295,94 +295,26 @@ Native filesystem, clock, terminal, and process integration remains original
 Ironwood runtime/compiler work. OpenJDK's JVM bootstrap and native registration
 machinery should not be ported.
 
-### Explicit reclamation gate for library code
+### Managed lifetime and explicit resource gate
 
-OpenJDK implementation code assumes garbage collection. A translation is not
-correct merely because it returns the same values: it must be redesigned where
-necessary so every ordinary Ironwood allocation has a visible, testable
-lifetime. No standard-library slice may ship with an unbounded allocation that
-is unreachable but unreclaimed.
+Audit managed allocations, retained slots, pool reuse and native resources
+separately. Exact managed graphs permit aliases, cycles, result sharing and
+published partial construction. Library calls never collect implicitly. Keep
+hot paths allocation-free where the existing contract requires reuse; use named
+cold reference cleanup where stale slots should stop retaining user graphs.
+Observe reclamation only at deliberate application/test phase boundaries.
 
-Apply these rules to independent and translated code alike:
+Native acquisition and exceptional completion still close file/socket/TLS/JNI
+resources explicitly. Preserve D051 primary/secondary ordering and pool origin,
+at-most-once return and fresh-builder contracts. Unknown collection, retaining
+and native/foreign effects stay conservative. There is no managed-free proof,
+missing-free mode or destructor/rollback capability gate.
 
-- classify every object, array, String, iterator, node, buffer, cache entry, and
-  native wrapper as caller-owned, type-owned, borrowed/reused, or immortal;
-- make each ordinary allocation-producing result retain compiler-visible
-  allocation identity across the call so its caller can eventually use
-  `free`; if the current compiler cannot prove that reclamation, the method is
-  blocked rather than released with a permanent leak;
-- give a type that owns ordinary child allocations an explicit, source-visible
-  way to detach and reclaim them before its wrapper is freed, unless the
-  storage belongs to a documented immortal singleton or a strictly bounded
-  runtime-private process mechanism;
-- treat `close()` as release of an external resource, never as implicit
-  reclamation of the wrapper or its Ironwood fields; close and `free` remain
-  separate operations;
-- keep borrowed iterators and views allocation-free or owner-retained, and do
-  not manufacture fresh helper objects whose ownership disappears behind an
-  interface return;
-- redesign or omit finalizers, cleaners, weak/soft-reference behavior,
-  unbounded caches, GC-sensitive heuristics, and temporary-object patterns
-  whose only cleanup in OpenJDK is reachability;
-- reclaim partially built internal state on every normal and exceptional path
-  where ownership has not escaped, while preserving the primary exception and
-  ordered secondary cleanup failures; and
-- prove the contract with safe-`free` compile tests, bounded stress tests,
-  steady-state hidden-allocation checks where applicable, and native-resource
-  leak checks. `System.allocationCount()` detects cumulative allocations;
-  `System.liveAllocationCount()` is the current-live gauge for destruction and
-  failed-construction rollback.
-
-This gate applies especially to APIs such as `substring`, `toCharArray`,
-primitive formatting, `Files.readAllBytes`, `Files.readString`, path-producing
-operations, `BufferedReader.readLine`, and in-memory output streams. Their
-allocating results cannot be considered complete until the caller has a proven
-reclamation path. This is a standard-library/compiler readiness requirement,
-not new ownership syntax for application code. The existing proof and runtime
-rules in [`MEMORY.md`](MEMORY.md) remain authoritative.
-
-## Deterministic-destruction checkpoint (complete)
-
-The language/runtime foundation now supplies one allocation-free,
-non-escaping `destructor { ... }` per class, dynamic derived-to-root execution
-for an accepted object `free`, and compiler-generated rollback for failed
-construction. Rollback destroys completed proven-owned children in reverse
-layout order, does not run the incomplete receiver's source destructor, and
-preserves the original exception. Closed-world effects reject destructor
-allocation, outward throws, resurrection, and in-progress constructor
-publication.
-
-The existing standard library has been audited against that model.
-`StringBuilder`, owned `ByteBuffer` storage, array-backed collections and maps,
-and applicable object pools reclaim their proven-owned terminal containers.
-Borrowed buffers and collection user elements remain non-owned. Reusable
-iterators belong to their containers. Under D104 pools own builder-created values, including
-checked-out values, and active high-water storage. `get()` borrows; `release()`
-returns a checkout. External objects are unsupported and not destroyed.
-`takeRetained()` is removed.
-Collection rendering reclaims its temporary builder on both successful and
-exceptional exits through ownership-proven `finally` cleanup.
-Object append/output consumers conditionally reclaim a rendered String only
-when closed-world analysis proves the concrete `toString()` override always
-returns fresh, unescaped text; alias-returning overrides remain borrowed.
-
-The second allocation-audit repair stage removes numeric/character conversion
-arrays and the full-builder intermediate snapshot in `StringBuilder.subSequence`.
-Each successful operation now allocates only its required immutable String;
-range errors are checked before copying and allocation failure strands no
-helper storage. The later numeric-field helpers retain bounded integer and
-floating rendering under the explicit `formatDecimal` and `formatFixed` names
-(D113). Java `String.format` and broad `Formatter` compatibility remain deferred.
-
-The third and final stage of this audit repairs filesystem/path scratch use:
-built-in path transformations allocate only their owned result, whole-file
-reads fill their result directly, and immutable String writes avoid snapshots.
-Native path buffers use bounded stack storage with a long-path fallback.
-Arbitrary `CharSequence` writes retain one exception-safe snapshot to preserve
-single-observation and validation-before-truncation behavior. This completes
-the three repair stages without claiming that all library operations allocate
-nothing or that floating wrapper-class `toString` methods are implemented. U3
-was delivered separately after this audit.
+The former deterministic-destruction checkpoint is superseded by GC5-GC7.
+Historical design and verification reports retain their original provenance.
+Current text conversion, array/buffer and collection implementations preserve
+value behavior and allocation expectations using managed layouts and roots.
+Source [MEMORY](MEMORY.md) is authoritative; this migration selects no next API.
 
 ## Current baseline and important gaps
 
@@ -404,7 +336,7 @@ The main usability gaps are:
 - U2 provides lexical paths and focused whole-file I/O, while directory
   traversal/mutation, encoders, readers, writers, and streams remain absent;
 - explicit deterministic cleanup through ordinary `finally`, deferred void
-  calls and local-bound deferred free is available. `AutoCloseable` remains an
+  calls and captured deferred void calls is available. `AutoCloseable` remains an
   ordinary interface, while `free` deliberately does not close operating-system
   resources;
 - `ironwood.ds` is the selected collection surface and may need focused
@@ -434,7 +366,7 @@ subset most command-line tools need:
 
 - `String(String original)` as an explicit copy constructor that rejects null,
   creates one distinct ordinary heap object with equal UTF-16 content, and
-  participates in compiler-checked `free` through its visible `new` allocation;
+  participates in exact managed roots through its visible `new` allocation;
 - constructors from `char[]` and a checked `char[]` range;
 - `isEmpty()`;
 - `contains(CharSequence)`;
@@ -686,17 +618,11 @@ The implemented prerequisites are:
    implemented `ironwood.io.Closeable` refinement;
 3. the implemented D051 rule that source-written `finally` cleanup preserves
    the first exception and records later cleanup failures in occurrence order;
-4. the implemented compiler safe-free distinction between closing a resource
-   and freeing the Ironwood object that represents it.
+4. the separation of explicit resource closure from synchronous managed collection.
 
-Do not model `free` as `close`. Closing releases an external resource; freeing
-reclaims an allocation after alias proof. Applications may need to close an
-object and later free it as two separate operations.
-
-The implemented [D168 defer contract](LANGUAGE.md#explicit-deferred-cleanup-milestone-1)
-also schedules those operations explicitly at block exit. Deferred calls and
-local-bound deferred frees retain the same first-failure rules and mandatory
-reclamation proofs; no automatic `AutoCloseable` behavior is added.
+Deferred void calls capture operands once and preserve the same first-failure
+rules as finally. They add no automatic AutoCloseable behavior. Collection never
+closes a resource; native acquisition/failure cleanup remains explicit.
 
 ### Byte streams
 
@@ -777,8 +703,8 @@ functionality:
   creating a parallel Java collection hierarchy solely to make a port compile.
 
 Any expansion still requires explicit null, ownership, iterator, mutation, and
-safe-`free` semantics. Removing an element or freeing a container must not
-silently free user-owned elements.
+managed reachability. Removing elements changes logical membership; storage is reclaimed only by
+explicit collection after actual references are unreachable.
 
 D128 adds direct value containment to every public list and map variant that
 lacked it. The scan implementations add no allocation and do not reset reusable
@@ -919,7 +845,7 @@ A class is not complete merely because its source compiles. Each slice must:
 3. use independently written behavioral tests unless copied/translated tests
    receive their own licensing review;
 4. cover success, boundary, malformed-input, exception, resource, alias, and
-   safe-free behavior;
+   managed lifetime behavior;
 5. prove a reclamation path for every ordinary allocation, including returned
    results, owned children, temporary storage, and partial construction on
    exceptional paths;

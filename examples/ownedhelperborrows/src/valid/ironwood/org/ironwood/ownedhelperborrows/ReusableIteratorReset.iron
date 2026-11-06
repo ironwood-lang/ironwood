@@ -22,7 +22,6 @@ public class ReusableIteratorReset {
         if (beforeReset != "first") correct = false;
         if (afterReset != "first") correct = false;
         if (following != "second") correct = false;
-        free list; // Valid: neither alias is used afterward.
         return correct ? 42 : 1;
     }
 }

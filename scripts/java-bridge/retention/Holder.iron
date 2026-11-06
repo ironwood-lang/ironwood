@@ -1,0 +1,38 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Alternating shared-field retention workload; anchors and collection replace destruction.
+package mixedlife;
+public final class Holder {
+    private Item item;
+    private Catalog catalog;
+    private Side side;
+    private final String label;
+    public Holder(Item item, Catalog catalog, Side side, String text) {
+        this.item = item; this.catalog = catalog; this.side = side; label = new String(text);
+    }
+    public Catalog catalog() { return catalog; }
+    public Side side() { return side; }
+    public String text() { return label; }
+    public void change(Item item, Catalog catalog, Side side) {
+        store(this, item, catalog, side);
+    }
+    public void fail(Item item, Catalog catalog, Side side) {
+        store(this, item, catalog, side); throw null;
+    }
+    private static void store(Holder holder, Item item, Catalog catalog, Side side) {
+        holder.item = item; holder.catalog = catalog; holder.side = side;
+    }
+    public static long allocations() { return System.allocationCount(); }
+    public static void collect() { ironwood.lang.Memory.collect(); }
+    public void clear() { item = null; catalog = null; side = null; }
+    public enum Side { SELL, BUY; public int code() { return ordinal() + 11; } }
+    public static final class Item { public Item() {} public int number() { return 17; } }
+    public static final class Catalog {
+        private static Catalog saved;
+        private Catalog next;
+        private final String title = new String("catalog");
+        public Catalog() {}
+        public Catalog remember() { saved = this; return saved; }
+        public void connect(Catalog value) { next = value; }
+        public String text() { return title; }
+    }
+}

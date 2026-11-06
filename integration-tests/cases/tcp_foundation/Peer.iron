@@ -16,7 +16,6 @@ class Peer {
         try {
             return InetAddress.getByAddress(raw);
         } finally {
-            free raw;
         }
     }
 
@@ -67,8 +66,6 @@ class Peer {
         System.out.print(' ');
         System.out.println(added);
         if (added != 0L) failure = 3;
-        free received;
-        free sent;
         return failure;
     }
 
@@ -88,35 +85,28 @@ class Peer {
             } else {
                 InetSocketAddress local = new InetSocketAddress(address, 0);
                 listener.bind(local);
-                free local;
             }
-            free address;
             System.out.print("PORT ");
             System.out.println(listener.getLocalPort());
             System.out.flush();
             Socket socket = listener.accept();
             listener.close();
-            free listener;
             try {
                 return exchange(socket, true, rounds, timeout, fragment, args[5].equals("trace"));
             } finally {
                 socket.close();
-                free socket;
             }
         }
         InetSocketAddress endpoint = new InetSocketAddress(address, port);
-        free address;
         Socket socket = new Socket();
         try {
             socket.connect(endpoint, 1000);
         } finally {
-            free endpoint;
         }
         try {
             return exchange(socket, false, rounds, timeout, fragment, args[5].equals("trace"));
         } finally {
             socket.close();
-            free socket;
         }
     }
 }

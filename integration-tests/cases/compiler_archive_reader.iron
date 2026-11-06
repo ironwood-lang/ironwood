@@ -10,7 +10,6 @@
 //   --jar <file>                an archive's entries, then each indexed type's
 //       payload source path and digest.
 // Errors print as `error <message>`. Digests are SHA-256 prefixes of the
-// source's UTF-8 bytes. Every artifact, payload, name and digest is freed
 // after it is printed. Exit 42.
 import ironwood.compiler.port.IronClassArtifact;
 import ironwood.compiler.port.IronJarArchive;
@@ -27,7 +26,6 @@ class Main {
 
         digest.updateUtf8(text);
         String hex = digest.hexDigest();
-        defer free hex;
         return hex.substring(0, 16);
     }
 
@@ -35,10 +33,8 @@ class Main {
     static void describe(Sha256 digest, IronClassArtifact artifact, StringBuilder line) {
 
         TextList types = new TextList();
-        defer free types;
         for (int index = 0; index < artifact.typeCount(); index++) {
             String type = artifact.type(index);
-            defer free type;
             types.add(type);
         }
         types.sortStrings();
@@ -49,26 +45,19 @@ class Main {
         }
         line.append(" entry=").append(artifact.entryPoint() == null ? "-" : artifact.entryPoint());
         String path = artifact.sourcePath();
-        defer free path;
         String source = prefix(digest, artifact.source());
-        defer free source;
         line.append(" path=").append(path).append(" source=").append(source);
     }
 
     static void classVariant(Inflate inflate, Sha256 digest, String label, String file) {
 
         StringBuilder line = new StringBuilder();
-        defer free line;
         line.append(label).append(' ');
         try {
             Path path = Path.of(file);
-            defer free path;
             byte[] bytes = Files.readAllBytes(path);
-            defer free bytes;
             String display = "corpus/" + label.substring(6) + ".ironclass";
-            defer free display;
             IronClassArtifact artifact = new IronClassArtifact(bytes, display, inflate);
-            defer free artifact;
             describe(digest, artifact, line);
         } catch (IOException failure) {
             line.append("error ").append(failure.getMessage());
@@ -80,15 +69,11 @@ class Main {
 
         for (int type = 0; type < archive.typeCount(); type++) {
             String name = archive.type(type);
-            defer free name;
             line.append("\n  source ").append(name).append(' ');
             try {
                 IronClassArtifact payload = archive.payload(name, inflate);
-                defer free payload;
                 String path = payload.sourcePath();
-                defer free path;
                 String source = prefix(digest, payload.source());
-                defer free source;
                 line.append("ok path=").append(path).append(" source=").append(source);
             } catch (IOException failure) {
                 line.append("error ").append(failure.getMessage());
@@ -103,20 +88,16 @@ class Main {
         if (count > 20) {
             for (int index = 0; index < count; index++) {
                 String name = archive.entryName(index);
-                defer free name;
                 if (index > 0) digest.update('\n');
                 digest.updateUtf8(name);
             }
             String hex = digest.hexDigest();
-            defer free hex;
             String names = hex.substring(0, 16);
-            defer free names;
             line.append(count).append(" names=").append(names);
             return;
         }
         for (int index = 0; index < count; index++) {
             String name = archive.entryName(index);
-            defer free name;
             if (index > 0) line.append(',');
             line.append(name);
         }
@@ -125,13 +106,10 @@ class Main {
     static void jarVariant(Inflate inflate, Sha256 digest, String label, String file) {
 
         StringBuilder line = new StringBuilder();
-        defer free line;
         line.append(label).append(' ');
         try {
             Path path = Path.of(file);
-            defer free path;
             IronJarArchive archive = new IronJarArchive(path, inflate);
-            defer free archive;
             entries(digest, archive, line);
             sources(inflate, digest, archive, line);
         } catch (IOException failure) {
@@ -143,13 +121,10 @@ class Main {
     static void classFile(Inflate inflate, Sha256 digest, String file) {
 
         StringBuilder line = new StringBuilder();
-        defer free line;
         line.append(file).append(' ');
         try {
             Path path = Path.of(file);
-            defer free path;
             IronClassArtifact artifact = IronClassArtifact.read(path, inflate);
-            defer free artifact;
             describe(digest, artifact, line);
         } catch (IOException failure) {
             line.append("error ").append(failure.getMessage());
@@ -160,9 +135,7 @@ class Main {
     public static int main(String[] args) {
 
         Inflate inflate = new Inflate();
-        defer free inflate;
         Sha256 digest = new Sha256();
-        defer free digest;
         if (args[0].equals("--corpus")) {
             for (int index = 1; index + 1 < args.length; index = index + 2) {
                 if (args[index].startsWith("class.")) {

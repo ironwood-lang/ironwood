@@ -43,7 +43,6 @@ public class FinalBindings {
 
         // Assigning stored, parameter, local, or failure again is invalid.
         int result = captured(-1) != 0 ? 1 : value.stored + captured(2);
-        free value;
         return result;
     }
 }

@@ -1,0 +1,3551 @@
+{
+  "format": 1,
+  "license": "SPDX-License-Identifier: MIT OR Apache-2.0",
+  "milestone": "GC7",
+  "status": "complete",
+  "entry_revision": "e8ea963d9395e0e7871fc244cdc2bc303a1bec4a",
+  "branch": "codex/bdwgc-integration-plan",
+  "origin_fetch_and_push": "https://github.com/ironwood-lang/ironwood.git",
+  "local_only": true,
+  "guard_kib": 16777216,
+  "per_child_timeout_seconds": 60,
+  "rss_measurement": "sampled process-group RSS, not a capacity acceptance result",
+  "toolchains": {
+    "machost": "macOS arm64, Java 21.0.1 bootstrap, Temurin 23.0.2+7 critical-call consumers, LLVM 23.1.0",
+    "linux_control": "local linux-x86_64 container through Rosetta; LLVM 23.1.0/JDK 21; no new physical-host qualification",
+    "collector": "BDWGC 8.2.12, USE_MARK_BYTES=1"
+  },
+  "sdk_configurations": {
+    "macos-arm64": "728c45bd8ecedf7d4fc5bb64ffd25edc85bb37115f768cad38a81eb118e0f86b",
+    "linux-x86_64": "27c2bc0d5de40df986063ea05fed548dc6450160b803eaf3dc1b4b344c5b446d"
+  },
+  "final_source_corpora": {
+    "compiler/src/main/java": {
+      "files": 429,
+      "path_sha256_pairs.sha256": "63da7b70618a0837ece4158d44ab20872ec7d88d615e15bd4b41287bb1d9a252"
+    },
+    "compiler/src/main/ironwood": {
+      "files": 185,
+      "path_sha256_pairs.sha256": "78add51d85f9fde796483f6db94f74b7427bf66efbf1b64a052e121c85427682"
+    },
+    "runtime": {
+      "files": 18,
+      "path_sha256_pairs.sha256": "20380cd94278fe0df9be3d168a619c52203265945c71643933babb2267bbc83c"
+    },
+    "stdlib/src/main/ironwood": {
+      "files": 255,
+      "path_sha256_pairs.sha256": "6c2c65c395f3c9d8a1124f3879306f01e4e35222a104a7fb74fb96f2ca5c3b69"
+    }
+  },
+  "verification": [
+    {
+      "evidence": "workspace/gc7/completion-raw/final-option-check.json",
+      "sha256": "be9b84e07f305556ea68b67b4aa62492bd91f7b8ed056dac9dc701997bc42b3a",
+      "child_checks": 1,
+      "sampled_peak_rss_kib": 1215664,
+      "results": [
+        {
+          "case": "final-option-check",
+          "exit": 0,
+          "sampled_peak_rss_kib": 1215664,
+          "stdout.sha256": "beaa60251ee5113b9c44996df892e9c19f59098cb84be132727374cde499bb13",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        }
+      ],
+      "command": [
+        "bash",
+        "scripts/test.sh",
+        "--test",
+        "GC7 removed forms retain migration errors and ordinary identifiers",
+        "--test",
+        "GC7 bounded compiler check has no managed free proof machinery"
+      ]
+    },
+    {
+      "evidence": "workspace/gc7/completion-raw/compiler-gc-final3.json",
+      "sha256": "cbd29272fe0b1659aaf8c69a722bc74600a7fc016f4fa5c8430d2b148f342c87",
+      "child_checks": 1,
+      "sampled_peak_rss_kib": 1230816,
+      "results": [
+        {
+          "case": "compiler-gc-final3",
+          "exit": 0,
+          "sampled_peak_rss_kib": 1230816,
+          "stdout.sha256": "f273d85b1be361e4613f50a8fe821b816c15254abd0a7b65e175cc3ea9f04ce3",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        }
+      ],
+      "command": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-ea",
+        "-cp",
+        "compiler/build/classes:compiler/build/test-classes",
+        "ironwood.compiler.CompilerTests",
+        "--test",
+        "GC7 removed forms retain migration errors and ordinary identifiers",
+        "--test",
+        "GC7 shared graph and result origin families use managed admission",
+        "--test",
+        "GC7 partial publication retains initialization checks",
+        "--test",
+        "GC7 copied inputs and borrowed descriptors retain confinement",
+        "--test",
+        "GC7 snapshot getters root String results and confine foreign receivers",
+        "--test",
+        "GC7 shared consumers preserve source class and archive parity",
+        "--test",
+        "GC7 bounded compiler check has no managed free proof machinery",
+        "--test",
+        "GC5 final link rejects every reachable legacy managed deallocation family",
+        "--test",
+        "IR model inventory matches the Java model"
+      ]
+    },
+    {
+      "evidence": "workspace/gc7/completion-raw/mixed-documentation-consumers.json",
+      "sha256": "b657df9c636fdff1f3a12addc9f454518e7871a631b3b52bac74157564f2fc3e",
+      "child_checks": 1,
+      "sampled_peak_rss_kib": 1772544,
+      "results": [
+        {
+          "case": "mixed-documentation-consumers",
+          "exit": 0,
+          "sampled_peak_rss_kib": 1772544,
+          "stdout.sha256": "fdaffe3f55b2dab6997bc004fffe91ec8790d1b898f95232c992d40c686fd49a",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        }
+      ],
+      "command": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-ea",
+        "-cp",
+        "compiler/build/classes:compiler/build/test-classes",
+        "ironwood.compiler.CompilerTests",
+        "--test",
+        "IronDocs pool example runs natively",
+        "--test",
+        "Object-pooling guide example runs natively",
+        "--test",
+        "benchmark documentation examples run natively",
+        "--test",
+        "deferred standard-library collection rendering preserves text and phase collection",
+        "--test",
+        "copied-key map pool cleanup survives allocation failures"
+      ]
+    },
+    {
+      "evidence": "workspace/gc7/completion-raw/ide-accepted.json",
+      "sha256": "6ac8d6f90868abdad5de864c8b2356bf749c7491c38e432da3ecfb49c23ec1fe",
+      "child_checks": 1,
+      "sampled_peak_rss_kib": 610304,
+      "results": [
+        {
+          "case": "ide-accepted",
+          "exit": 0,
+          "sampled_peak_rss_kib": 610304,
+          "stdout.sha256": "e3d93e2abd2cd1ebc2b480fa780d4bf073fae19bf8e492577a64ca3e6c361707",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        }
+      ],
+      "command": [
+        "bash",
+        "ide/eclipse/build.sh"
+      ]
+    },
+    {
+      "evidence": "workspace/gc7/completion-raw/lsp-accepted.json",
+      "sha256": "65ad6c098178155f3800c838c3af09a20c7225b0cac1fafd093493076f29761c",
+      "child_checks": 1,
+      "sampled_peak_rss_kib": 537280,
+      "results": [
+        {
+          "case": "lsp-accepted",
+          "exit": 0,
+          "sampled_peak_rss_kib": 537280,
+          "stdout.sha256": "4235bde8d96f1292d999452d0fe387e9310eb0774f21383314c4760f2fd840d8",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        }
+      ],
+      "command": [
+        "python3",
+        "ide/langserver/test-langserver.py"
+      ]
+    },
+    {
+      "evidence": "workspace/gc7/completion-raw/ir-catalog-generation.json",
+      "sha256": "088c4bfa086e8df808e02d9c2a031164b7b640efae219d64c347af8d8bdff571",
+      "child_checks": 1,
+      "sampled_peak_rss_kib": 6096,
+      "results": [
+        {
+          "case": "ir-catalog-generation",
+          "exit": 0,
+          "sampled_peak_rss_kib": 6096,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        }
+      ],
+      "command": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-cp",
+        "compiler/build/classes:compiler/build/test-classes",
+        "ironwood.compiler.IrModelInventory"
+      ]
+    },
+    {
+      "evidence": "workspace/gc7/completion-raw/maintained-consumer-syntax2.json",
+      "sha256": "8e982fd62648aacb9f80a6de272384afebc21578d43c8276c9ae07b4af6d330e",
+      "child_checks": 1,
+      "sampled_peak_rss_kib": 185648,
+      "results": [
+        {
+          "case": "maintained-consumer-syntax2",
+          "exit": 0,
+          "sampled_peak_rss_kib": 185648,
+          "stdout.sha256": "43a76a9936885d923b8bd9db418487dd98e1f04c9aed0391d49f88f3f5652566",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        }
+      ],
+      "command": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-cp",
+        "compiler/build/classes:workspace/gc7",
+        "ironwood.compiler.ConsumerSyntax",
+        "workspace/gc7/changed-iron.txt"
+      ]
+    },
+    {
+      "evidence": "workspace/gc7/completion-raw/lifecycle-primary.json",
+      "sha256": "4210f7db031dadd910cc8fbe80560fafad222edaabddef70ef13b37255a4af01",
+      "child_checks": 1,
+      "sampled_peak_rss_kib": 881408,
+      "results": [
+        {
+          "case": "lifecycle-primary",
+          "exit": 0,
+          "sampled_peak_rss_kib": 881408,
+          "stdout.sha256": "c094d3116f048d295dade8df923b9fb4246d55313661b9027fd1c45b12671fb6",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        }
+      ],
+      "command": [
+        "env",
+        "PATH=/opt/homebrew/opt/llvm/bin:bin:/usr/bin:/bin",
+        "bash",
+        "projects/HelloEclipse/test.sh"
+      ]
+    },
+    {
+      "evidence": "workspace/gc7/completion-raw/current-memory-examples.json",
+      "sha256": "47654067d6b8ccfaae499e41b8dc69f1fe4fbd9f7056915204a1a923a9f20a3d",
+      "child_checks": 1,
+      "sampled_peak_rss_kib": 479184,
+      "results": [
+        {
+          "case": "current-memory-examples",
+          "exit": 0,
+          "sampled_peak_rss_kib": 479184,
+          "stdout.sha256": "36f6727f83361c3bfbd7b919851b97657d1e5ad49bef710647680ae0a3dbbe2e",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        }
+      ],
+      "command": [
+        "env",
+        "PATH=/opt/homebrew/opt/llvm/bin:bin:/usr/bin:/bin",
+        "bash",
+        "examples/memorymanagement/compile.sh"
+      ]
+    },
+    {
+      "evidence": "workspace/gc7/completion-raw/generic-getter-smoke2.json",
+      "sha256": "1fac1d084fe8ec75ea026af0f4a0011e886b05d35fa478701765520e2dcffbbe",
+      "child_checks": 1,
+      "sampled_peak_rss_kib": 31424,
+      "results": [
+        {
+          "case": "generic-getter-smoke2",
+          "exit": 0,
+          "sampled_peak_rss_kib": 31424,
+          "stdout.sha256": "c1c4df0cc4db48bd975a349e30db6f0e1526457cc6349ee9fcf8d5fc72e78c4d",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        }
+      ],
+      "command": [
+        "env",
+        "PATH=/opt/homebrew/opt/llvm/bin:bin:/usr/bin:/bin",
+        "python3",
+        "examples/java-bridge/generics/benchmark.py",
+        "--output",
+        "workspace/gc7/generic-getter-accepted2",
+        "--quick"
+      ]
+    },
+    {
+      "evidence": "workspace/gc7/completion-raw/bounded-generics-smoke.json",
+      "sha256": "e8bd4233b25b04294a1a2390999bb2d238b7939f3ab9a88c807fdaca97f746ba",
+      "child_checks": 1,
+      "sampled_peak_rss_kib": 29840,
+      "results": [
+        {
+          "case": "bounded-generics-smoke",
+          "exit": 0,
+          "sampled_peak_rss_kib": 29840,
+          "stdout.sha256": "23204dd6995773beb800d383a3e4a0be849057c8dedb63ff15457cb16e0c6ec0",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        }
+      ],
+      "command": [
+        "env",
+        "PATH=/opt/homebrew/opt/llvm/bin:bin:/usr/bin:/bin",
+        "python3",
+        "examples/java-bridge/bounded-generics/benchmark.py",
+        "--output",
+        "workspace/gc7/bounded-generic-accepted",
+        "--quick"
+      ]
+    },
+    {
+      "evidence": "workspace/gc7/completion-raw/restore-local-vm.json",
+      "sha256": "582dadaeb4caabe9bfddfb1442b5d6a38ba74b5583b255f9d237e0e5097e1cd2",
+      "child_checks": 1,
+      "sampled_peak_rss_kib": 74192,
+      "results": [
+        {
+          "case": "restore-local-vm",
+          "exit": 0,
+          "sampled_peak_rss_kib": 74192,
+          "stdout.sha256": "9825e74c1953bfbb4eb8d40ff3266754facdfd74bd721774d22694f2aec3f072",
+          "stderr.sha256": "8f5a19c5b3dffbf8cf03766491b7f87da98bdb857dbf6a0c4e72a354e226aa2e",
+          "data": []
+        }
+      ],
+      "command": [
+        "colima",
+        "stop",
+        "--profile",
+        "ironwood-tests"
+      ]
+    },
+    {
+      "evidence": "workspace/gc7/completion-raw/final-generated-check.json",
+      "sha256": "599062b679e8da26bd71a9a3453d1f7d93ef413903ec78edfeecdf02cfedf602",
+      "child_checks": 1,
+      "sampled_peak_rss_kib": 1336896,
+      "results": [
+        {
+          "case": "final-generated-check",
+          "exit": 0,
+          "sampled_peak_rss_kib": 1336896,
+          "stdout.sha256": "10c5f880983b5278049e0281d9e324b72fbdf9d902a710ac9f29cc2f316f11ff",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        }
+      ],
+      "command": [
+        "bash",
+        "scripts/test.sh",
+        "--test",
+        "IR model inventory matches the Java model",
+        "--test",
+        "GC7 managed construction preserves shared field graphs"
+      ]
+    },
+    {
+      "evidence": "workspace/gc7/completion-raw/final-retention-build.json",
+      "sha256": "d932febf862963b07975ce49d55f810b6e052484f30235cd3cf51406a659b4c6",
+      "child_checks": 1,
+      "sampled_peak_rss_kib": 1377616,
+      "results": [
+        {
+          "case": "final-retention-build",
+          "exit": 0,
+          "sampled_peak_rss_kib": 1377616,
+          "stdout.sha256": "1213d0b354dc2619a0755bae8ebe8fe324fb1ed465e209ba10a5406dff87cb9c",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        }
+      ],
+      "command": [
+        "bash",
+        "scripts/build.sh"
+      ]
+    },
+    {
+      "evidence": "workspace/gc7/completion-raw/final-licenses.json",
+      "sha256": "adf23d00b5c590757cd536e90042c7bdee5a3b3d6405d2a296d74ee640cedb2e",
+      "child_checks": 1,
+      "sampled_peak_rss_kib": 10576,
+      "results": [
+        {
+          "case": "final-licenses",
+          "exit": 0,
+          "sampled_peak_rss_kib": 10576,
+          "stdout.sha256": "baf5804aeb26498337c9c5223c199afeba5c3e2fc36ae219b9bf420e3775f673",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        }
+      ],
+      "command": [
+        "bash",
+        "scripts/check-licenses.sh"
+      ]
+    },
+    {
+      "evidence": "workspace/gc7/completion-raw/final-diff-check.json",
+      "sha256": "2f09dc422f4d610f65426debab02eb6e32f7b3340e11d03134bbc575e95021c9",
+      "child_checks": 1,
+      "sampled_peak_rss_kib": 25280,
+      "results": [
+        {
+          "case": "final-diff-check",
+          "exit": 0,
+          "sampled_peak_rss_kib": 25280,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        }
+      ],
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ]
+    },
+    {
+      "evidence": "workspace/gc7/completion-raw/final-tracked-files.json",
+      "sha256": "58f01b3d3b898ae171f33d0dfd613de982da561bcefb978f261ab753afd260eb",
+      "child_checks": 1,
+      "sampled_peak_rss_kib": 14880,
+      "results": [
+        {
+          "case": "final-tracked-files",
+          "exit": 0,
+          "sampled_peak_rss_kib": 14880,
+          "stdout.sha256": "ec5174a5dde9ac5e52c02170db5f60315391c28249636dcc1211972bf7673e17",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        }
+      ],
+      "command": [
+        "bash",
+        "scripts/check-tracked-files.sh"
+      ]
+    },
+    {
+      "evidence": "workspace/gc7/objects-final-accepted/results.json",
+      "sha256": "f87cbf007a3deae9420b734f996016aeabcf88d10d24e691fa4845bea754d485",
+      "child_checks": 4,
+      "sampled_peak_rss_kib": 1041760,
+      "results": [
+        {
+          "case": "consumer-javac",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 117376,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "O3-generated-build",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 1041760,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "O3-consumer",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 55056,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "df1d150a967ca126d874e26269fbdd14f6973a736e9ce772a7973ef9bf1da946"
+        },
+        {
+          "case": "O3-jni-fallback",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 53072,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "df1d150a967ca126d874e26269fbdd14f6973a736e9ce772a7973ef9bf1da946"
+        }
+      ],
+      "command": [
+        "python3",
+        "scripts/test-gc6-objects.py",
+        "--sdk",
+        "workspace/gc7-sdk-final",
+        "--llvm-home",
+        "/opt/homebrew/opt/llvm",
+        "--java-home",
+        "workspace/java-bridge/jdks/temurin-23-macos-arm64/jdk-23.0.2+7/Contents/Home",
+        "--output",
+        "workspace/gc7/objects-final-accepted",
+        "--level",
+        "O3",
+        "--critical"
+      ],
+      "sdk_configuration": "728c45bd8ecedf7d4fc5bb64ffd25edc85bb37115f768cad38a81eb118e0f86b",
+      "target": "macos-arm64"
+    },
+    {
+      "evidence": "workspace/gc7/callbacks-final-reviewed/results.json",
+      "sha256": "8fb90d0668bd16c344f5b1c4dc6826a55db7cb0e4ae6fd9c689c3878e92daadf",
+      "child_checks": 4,
+      "sampled_peak_rss_kib": 998656,
+      "results": [
+        {
+          "case": "consumer-javac",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 163808,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "O3-generated-build",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 998656,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "O3-consumer",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 87456,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "a3152043d963d8cda552a55c274048a29ed82def64247c2e7b8cf6b2cb2ced41"
+        },
+        {
+          "case": "O3-batch-fallback",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 62176,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "a3152043d963d8cda552a55c274048a29ed82def64247c2e7b8cf6b2cb2ced41"
+        }
+      ],
+      "command": [
+        "python3",
+        "scripts/test-gc6-callbacks.py",
+        "--sdk",
+        "workspace/gc7-sdk-final",
+        "--llvm-home",
+        "/opt/homebrew/opt/llvm",
+        "--java-home",
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home",
+        "--output",
+        "workspace/gc7/callbacks-final-reviewed",
+        "--level",
+        "O3",
+        "--batch-fallback"
+      ],
+      "sdk_configuration": "728c45bd8ecedf7d4fc5bb64ffd25edc85bb37115f768cad38a81eb118e0f86b",
+      "target": "macos-arm64"
+    },
+    {
+      "evidence": "workspace/gc7/carriers-accepted/results.json",
+      "sha256": "85877919c0cfc7d033db9873aa8f085f9b9a5046432d3227e165fad41ca3e28d",
+      "child_checks": 14,
+      "sampled_peak_rss_kib": 864640,
+      "results": [
+        {
+          "case": "generate",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 618384,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "jvm-consumer",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 123152,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "source",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 487552,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "476c30ae7a10770075ffed7b43c86b8f347c6e9ed4a8cf6b2ff4533293be6ece"
+        },
+        {
+          "case": "O3-normal-link",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 864640,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "26b87efec0eba1ae28f1dd991e19eff6c981a2c133dc71b3adf034291401b03d"
+        },
+        {
+          "case": "O3-normal-run",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 32,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "5fc12da7a95639183609a0ba132a383c8bfc0a4a31d474697401b714a80e5a11"
+        },
+        {
+          "case": "O3-jni-link-A",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 78672,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "O3-exports-A",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 2864,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "1bae90db3d82148fa456a0df443d18d1301444c649e6e2600e7d149e35cbda34"
+        },
+        {
+          "case": "O3-definitions-A",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 2416,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "d8306ae5e02d284f3294d802264fa0dabbba6a937bde99c847b5cfa77bd5614d"
+        },
+        {
+          "case": "O3-imports-A",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 3440,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "64c203646e79d862020cd2f91048e74bc5d5939a8401b9f03bc021e20bc1eb90"
+        },
+        {
+          "case": "O3-jni-link-B",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 32704,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "O3-exports-B",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 2640,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "64e60b7909adc46ec00acc373a7bd971306469b7e8670b7811cee9055257eb42"
+        },
+        {
+          "case": "O3-definitions-B",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 1120,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "14b82b819661becd947c14802d4045fce870cbc20508aa90327555e477420233"
+        },
+        {
+          "case": "O3-imports-B",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 3296,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "64c203646e79d862020cd2f91048e74bc5d5939a8401b9f03bc021e20bc1eb90"
+        },
+        {
+          "case": "O3-jni-run",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 40448,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "94a6677be60ac72db8151e6ebc66087bf2e178f8bb50eaefaaa30aead5c568d6"
+        }
+      ],
+      "command": [
+        "python3",
+        "scripts/test-gc6-carriers.py",
+        "--sdk",
+        "workspace/gc7-sdk-final",
+        "--llvm-home",
+        "/opt/homebrew/opt/llvm",
+        "--java-home",
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home",
+        "--output",
+        "workspace/gc7/carriers-accepted",
+        "--level",
+        "O3"
+      ],
+      "sdk_configuration": "728c45bd8ecedf7d4fc5bb64ffd25edc85bb37115f768cad38a81eb118e0f86b",
+      "target": "macos-arm64"
+    },
+    {
+      "evidence": "workspace/gc7/segments-accepted/results.json",
+      "sha256": "0a03d60b48987b5e0c6706dbfa7fd21ce49c56501c6bf0003deb933623da7217",
+      "child_checks": 13,
+      "sampled_peak_rss_kib": 455152,
+      "results": [
+        {
+          "case": "typed-pipeline",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 455152,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "jvm-consumer",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 128496,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "ironwood_gc_roots",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 68832,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "ironwood_gc_lifetimes",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 2432,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "O3-contract",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 2560,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "O3-link-A",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 101776,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "O3-link-B",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 98928,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "O3-reentry",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 65088,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "9d61b964d6eac9c9b62ef5a7c7b5cdd1e982b7e1ed8281af0039053464dce399"
+        },
+        {
+          "case": "O3-refusal-2",
+          "data": [],
+          "exit": 86,
+          "sampled_peak_rss_kib": 5456,
+          "stderr.sha256": "a4195a804ccfd59001bca380e8ad9f304ffb61ec0c53287a5d75caa4e61b22ba",
+          "stdout.sha256": "fe02732de45efc355634ce7515b93c187bf06f1e0f200e615c37c372e9be73f6"
+        },
+        {
+          "case": "O3-refusal-3",
+          "data": [],
+          "exit": 86,
+          "sampled_peak_rss_kib": 6928,
+          "stderr.sha256": "54519fc1fd2e7caa74ff9843ca85688a12b437e1e18876d6dab2245d1de3bd7a",
+          "stdout.sha256": "dbd7a787af2efd80ea695785ed33685d194be8e8533b8884186a18aa0a6c2a19"
+        },
+        {
+          "case": "O3-refusal-4",
+          "data": [],
+          "exit": 86,
+          "sampled_peak_rss_kib": 5632,
+          "stderr.sha256": "a4195a804ccfd59001bca380e8ad9f304ffb61ec0c53287a5d75caa4e61b22ba",
+          "stdout.sha256": "7ce3a2f836894b379187afc09f35682d270f9f584c49acfc7e80686a5dc0377d"
+        },
+        {
+          "case": "O3-transition-performance",
+          "data": [
+            {
+              "calls": 20000,
+              "scalar_ns": 3029750,
+              "transition_ns": 98242166
+            }
+          ],
+          "exit": 0,
+          "sampled_peak_rss_kib": 67136,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "2655dbf2473d73dd21003fd28a091d549ac256b097d78afd136f2b1c3db66427"
+        },
+        {
+          "case": "O3-disassembly",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 2384,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "695b312a744af2f7d3a15686d77939336175ce90beeb1ec34f572e8bd1c3602b"
+        }
+      ],
+      "command": [
+        "python3",
+        "scripts/test-gc6-segments.py",
+        "--sdk",
+        "workspace/gc7-sdk-final",
+        "--llvm-home",
+        "/opt/homebrew/opt/llvm",
+        "--java-home",
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home",
+        "--output",
+        "workspace/gc7/segments-accepted",
+        "--level",
+        "O3"
+      ],
+      "sdk_configuration": "728c45bd8ecedf7d4fc5bb64ffd25edc85bb37115f768cad38a81eb118e0f86b",
+      "target": "macos-arm64"
+    },
+    {
+      "evidence": "workspace/gc7/images-final-reviewed/results.json",
+      "sha256": "bca1daf2d0254f334b29ffcce2f1a1d20546ec5d29c6cc729c825b714ced8cab",
+      "child_checks": 4,
+      "sampled_peak_rss_kib": 1005296,
+      "results": [
+        {
+          "case": "build-A",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 1005296,
+          "stderr.sha256": "62c1f21379b2774832c6e45b60ae3ac3482d1916b5a4164e7ec3a2f533ca866d",
+          "stdout.sha256": "f368afd057996a92ca7d7c61001859050a88ec99693d4d76a7f0c88616c2e042"
+        },
+        {
+          "case": "build-B",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 972736,
+          "stderr.sha256": "f16313ced57565b15600b739849e084610e8089e78ae44ef3cd74bbc45422ba3",
+          "stdout.sha256": "f368afd057996a92ca7d7c61001859050a88ec99693d4d76a7f0c88616c2e042"
+        },
+        {
+          "case": "javac",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 136496,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "consumer",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 90112,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "ddedfe41046d20b2b8db6c1fa49d9702409f0cfd601f23d728324ea6ae979742"
+        }
+      ],
+      "command": [
+        "python3",
+        "scripts/test-gc6-images.py",
+        "--sdk",
+        "workspace/gc7-sdk-final",
+        "--llvm-home",
+        "/opt/homebrew/opt/llvm",
+        "--java-home",
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home",
+        "--output",
+        "workspace/gc7/images-final-reviewed"
+      ],
+      "sdk_configuration": "728c45bd8ecedf7d4fc5bb64ffd25edc85bb37115f768cad38a81eb118e0f86b",
+      "target": "macos-arm64"
+    },
+    {
+      "evidence": "workspace/gc7/metadata-final-reviewed/results.json",
+      "sha256": "a45352fd05b51391c99f73d1cfa5715d253d13e29bafdc42bdae3c84dc8ea3b1",
+      "child_checks": 32,
+      "sampled_peak_rss_kib": 52608,
+      "results": [
+        {
+          "case": "original",
+          "data": [],
+          "exit": 0,
+          "jar.bytes": 1656725,
+          "jar.sha256": "0aa2eb033a0b473f030fa7c601c49e59d701c769d407a8c725f69a3d9b28d9cd",
+          "sampled_peak_rss_kib": 52608,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "22ec4d0426fe8abb797c845a7d057f3867943cf661899a7f63170f03bbca813b"
+        },
+        {
+          "case": "missing-schema",
+          "data": [],
+          "exit": 0,
+          "jar.bytes": 2731605,
+          "jar.sha256": "84b5f80a7dce0711d2562159deb3f86b495aa116e77ad2571f82064c399a2314",
+          "sampled_peak_rss_kib": 6688,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "ebbeb3f1f32d9c5ce44baa2ef8e672504b6b02cd3e5113a20038cde6ae33b601"
+        },
+        {
+          "case": "stale-schema",
+          "data": [],
+          "exit": 0,
+          "jar.bytes": 2731618,
+          "jar.sha256": "1db9bb8b11186c6edb0e291f33f6b6ff04e25f807b60fab919eea6ecc92dd6c8",
+          "sampled_peak_rss_kib": 6656,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "ebbeb3f1f32d9c5ce44baa2ef8e672504b6b02cd3e5113a20038cde6ae33b601"
+        },
+        {
+          "case": "missing-projection",
+          "data": [],
+          "exit": 0,
+          "jar.bytes": 2731589,
+          "jar.sha256": "900d8f91901dff87dbbf50778d6c040f195ed6e48e1756f5a819691cff554d80",
+          "sampled_peak_rss_kib": 6896,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "ebbeb3f1f32d9c5ce44baa2ef8e672504b6b02cd3e5113a20038cde6ae33b601"
+        },
+        {
+          "case": "stale-projection",
+          "data": [],
+          "exit": 0,
+          "jar.bytes": 2731606,
+          "jar.sha256": "facc0662a34bc806e34caf67576f8851dc7b6752ee1a1b7f3e83c8c3b1780020",
+          "sampled_peak_rss_kib": 6432,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "ebbeb3f1f32d9c5ce44baa2ef8e672504b6b02cd3e5113a20038cde6ae33b601"
+        },
+        {
+          "case": "missing-memory.abi",
+          "data": [],
+          "exit": 0,
+          "jar.bytes": 2731582,
+          "jar.sha256": "b22d6e9d912a3603d9b13211a136e5ac9df8744e87a487b98cc99dabc1f13f4d",
+          "sampled_peak_rss_kib": 6096,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "ebbeb3f1f32d9c5ce44baa2ef8e672504b6b02cd3e5113a20038cde6ae33b601"
+        },
+        {
+          "case": "stale-memory.abi",
+          "data": [],
+          "exit": 0,
+          "jar.bytes": 2731599,
+          "jar.sha256": "ebe5ce1e46fcf5b8771e1b2a9e303e34eb4eead614c07113a4c2edcb01046651",
+          "sampled_peak_rss_kib": 5968,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "ebbeb3f1f32d9c5ce44baa2ef8e672504b6b02cd3e5113a20038cde6ae33b601"
+        },
+        {
+          "case": "missing-layout.version",
+          "data": [],
+          "exit": 0,
+          "jar.bytes": 2731597,
+          "jar.sha256": "2c1f55bf8effb5f0412872b4f659caf1259058d1ccbbcec641e0ad362716e531",
+          "sampled_peak_rss_kib": 6624,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "ebbeb3f1f32d9c5ce44baa2ef8e672504b6b02cd3e5113a20038cde6ae33b601"
+        },
+        {
+          "case": "stale-layout.version",
+          "data": [],
+          "exit": 0,
+          "jar.bytes": 2731618,
+          "jar.sha256": "760ba702c75574efa7a0fdf0b276ceb51dba34e0c5ca8e7218c0286f467a2530",
+          "sampled_peak_rss_kib": 5552,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "ebbeb3f1f32d9c5ce44baa2ef8e672504b6b02cd3e5113a20038cde6ae33b601"
+        },
+        {
+          "case": "missing-roots.version",
+          "data": [],
+          "exit": 0,
+          "jar.bytes": 2731598,
+          "jar.sha256": "542854d1f2d630608748f7b0e2d58cde87c8de8f8114f61b644baf21713d4f66",
+          "sampled_peak_rss_kib": 5456,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "ebbeb3f1f32d9c5ce44baa2ef8e672504b6b02cd3e5113a20038cde6ae33b601"
+        },
+        {
+          "case": "stale-roots.version",
+          "data": [],
+          "exit": 0,
+          "jar.bytes": 2731618,
+          "jar.sha256": "3bfa37aa7c1beeaaf868d35ced49508f55699a0aeffa5a44ea5501637aba98fe",
+          "sampled_peak_rss_kib": 6960,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "ebbeb3f1f32d9c5ce44baa2ef8e672504b6b02cd3e5113a20038cde6ae33b601"
+        },
+        {
+          "case": "missing-runtime.owner.version",
+          "data": [],
+          "exit": 0,
+          "jar.bytes": 2731590,
+          "jar.sha256": "d9d611a72a1165895c6d8645935c26516bc13add45ec7706b3b04a6850e67492",
+          "sampled_peak_rss_kib": 6720,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "ebbeb3f1f32d9c5ce44baa2ef8e672504b6b02cd3e5113a20038cde6ae33b601"
+        },
+        {
+          "case": "stale-runtime.owner.version",
+          "data": [],
+          "exit": 0,
+          "jar.bytes": 2731618,
+          "jar.sha256": "4200b11bc3cf0d623a3e343f9adc0819da912c8f3fe2f765ff7b8a811880b45d",
+          "sampled_peak_rss_kib": 6864,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "ebbeb3f1f32d9c5ce44baa2ef8e672504b6b02cd3e5113a20038cde6ae33b601"
+        },
+        {
+          "case": "missing-foreign.segments.version",
+          "data": [],
+          "exit": 0,
+          "jar.bytes": 2731587,
+          "jar.sha256": "0ecbbf47ef9bef84abed589ef638ceeecfc68b2d6746290c5d3ea51f4af1a07a",
+          "sampled_peak_rss_kib": 6656,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "ebbeb3f1f32d9c5ce44baa2ef8e672504b6b02cd3e5113a20038cde6ae33b601"
+        },
+        {
+          "case": "stale-foreign.segments.version",
+          "data": [],
+          "exit": 0,
+          "jar.bytes": 2731618,
+          "jar.sha256": "474a0bc2220e975088de40999b44a48f2178930bb9b07dc964002a3f9242a0d3",
+          "sampled_peak_rss_kib": 6896,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "ebbeb3f1f32d9c5ce44baa2ef8e672504b6b02cd3e5113a20038cde6ae33b601"
+        },
+        {
+          "case": "missing-gc.config.sha256",
+          "data": [],
+          "exit": 0,
+          "jar.bytes": 2731532,
+          "jar.sha256": "af201757530f9daa751e34e7e5659b0cb9827fd4663690510a9452e68019bd10",
+          "sampled_peak_rss_kib": 6912,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "ebbeb3f1f32d9c5ce44baa2ef8e672504b6b02cd3e5113a20038cde6ae33b601"
+        },
+        {
+          "case": "stale-gc.config.sha256",
+          "data": [],
+          "exit": 0,
+          "jar.bytes": 2731555,
+          "jar.sha256": "70eae0b7114bd3f39b6a5f193a1aa1b14b715d0bc52f7ee167eea6e4c60eb22f",
+          "sampled_peak_rss_kib": 6912,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "ebbeb3f1f32d9c5ce44baa2ef8e672504b6b02cd3e5113a20038cde6ae33b601"
+        },
+        {
+          "case": "missing-native.input.gc.config.sha256",
+          "data": [],
+          "exit": 0,
+          "jar.bytes": 2731519,
+          "jar.sha256": "57b7d4de486a1a09cda9c1e43c69ca314f08fcbc7d17a8d375f45492b0bd8cd2",
+          "sampled_peak_rss_kib": 16048,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "ebbeb3f1f32d9c5ce44baa2ef8e672504b6b02cd3e5113a20038cde6ae33b601"
+        },
+        {
+          "case": "stale-native.input.gc.config.sha256",
+          "data": [],
+          "exit": 0,
+          "jar.bytes": 2731555,
+          "jar.sha256": "17327f4969505c8fd92288afa6f181569d84eb32fc26fc1affc4dc1a6ac9706c",
+          "sampled_peak_rss_kib": 6432,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "ebbeb3f1f32d9c5ce44baa2ef8e672504b6b02cd3e5113a20038cde6ae33b601"
+        },
+        {
+          "case": "missing-native.input.gc.archive.sha256",
+          "data": [],
+          "exit": 0,
+          "jar.bytes": 2731518,
+          "jar.sha256": "619b172f1ea7045f05596296f18530c2fd156f14bfb1a0520038b33ab7342685",
+          "sampled_peak_rss_kib": 4592,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "ebbeb3f1f32d9c5ce44baa2ef8e672504b6b02cd3e5113a20038cde6ae33b601"
+        },
+        {
+          "case": "stale-native.input.gc.archive.sha256",
+          "data": [],
+          "exit": 0,
+          "jar.bytes": 2731555,
+          "jar.sha256": "b54f20defdc7685c461355374a3951b9ddaaa0dca3708442ac8533b921996a49",
+          "sampled_peak_rss_kib": 6880,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "ebbeb3f1f32d9c5ce44baa2ef8e672504b6b02cd3e5113a20038cde6ae33b601"
+        },
+        {
+          "case": "missing-native.input.gc.adapter.sha256",
+          "data": [],
+          "exit": 0,
+          "jar.bytes": 2731518,
+          "jar.sha256": "ef77e9ebbfde37ae0a44476a63662316f709a9aa454402cb7e889a74049cd665",
+          "sampled_peak_rss_kib": 5424,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "ebbeb3f1f32d9c5ce44baa2ef8e672504b6b02cd3e5113a20038cde6ae33b601"
+        },
+        {
+          "case": "stale-native.input.gc.adapter.sha256",
+          "data": [],
+          "exit": 0,
+          "jar.bytes": 2731555,
+          "jar.sha256": "096147e670d27070d5f4db998cc90b414d33636d6637e338eb9a305318003300",
+          "sampled_peak_rss_kib": 6992,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "ebbeb3f1f32d9c5ce44baa2ef8e672504b6b02cd3e5113a20038cde6ae33b601"
+        },
+        {
+          "case": "missing-native.input.gc.root-reader.sha256",
+          "data": [],
+          "exit": 0,
+          "jar.bytes": 2731514,
+          "jar.sha256": "5a3b13a5e0d8c41b827909dbc47a9c3a6c3c623f69e72195e11d7769e9ee45fc",
+          "sampled_peak_rss_kib": 6880,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "ebbeb3f1f32d9c5ce44baa2ef8e672504b6b02cd3e5113a20038cde6ae33b601"
+        },
+        {
+          "case": "stale-native.input.gc.root-reader.sha256",
+          "data": [],
+          "exit": 0,
+          "jar.bytes": 2731555,
+          "jar.sha256": "d6d07d807bfa8a6271de968820c170443a77d4ade33e460a469d0df2d48dda5f",
+          "sampled_peak_rss_kib": 7952,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "ebbeb3f1f32d9c5ce44baa2ef8e672504b6b02cd3e5113a20038cde6ae33b601"
+        },
+        {
+          "case": "missing-native.input.gc.sdk.manifest.sha256",
+          "data": [],
+          "exit": 0,
+          "jar.bytes": 2731513,
+          "jar.sha256": "68bf69af19b41cde856ce8d5b52cd3352fb2957326eb162d8d7d434d8ee2a7c4",
+          "sampled_peak_rss_kib": 47104,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "ebbeb3f1f32d9c5ce44baa2ef8e672504b6b02cd3e5113a20038cde6ae33b601"
+        },
+        {
+          "case": "stale-native.input.gc.sdk.manifest.sha256",
+          "data": [],
+          "exit": 0,
+          "jar.bytes": 2731555,
+          "jar.sha256": "e16ffba25609077f003a77cf34651975b4332b2aeb2c267b25d96b5630764350",
+          "sampled_peak_rss_kib": 5264,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "ebbeb3f1f32d9c5ce44baa2ef8e672504b6b02cd3e5113a20038cde6ae33b601"
+        },
+        {
+          "case": "missing-native.input.llvm.stackmap.version",
+          "data": [],
+          "exit": 0,
+          "jar.bytes": 2731577,
+          "jar.sha256": "eddd5cece11f59ec5164105abc4ba629625808a0053cdac97b24a924217a41da",
+          "sampled_peak_rss_kib": 10400,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "ebbeb3f1f32d9c5ce44baa2ef8e672504b6b02cd3e5113a20038cde6ae33b601"
+        },
+        {
+          "case": "stale-native.input.llvm.stackmap.version",
+          "data": [],
+          "exit": 0,
+          "jar.bytes": 2731618,
+          "jar.sha256": "98a2547fd6dcc57bb0db392047a857b9082c63f8c6ba513e493335b616055cd9",
+          "sampled_peak_rss_kib": 16224,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "ebbeb3f1f32d9c5ce44baa2ef8e672504b6b02cd3e5113a20038cde6ae33b601"
+        },
+        {
+          "case": "missing-native.input.gc.isolation",
+          "data": [],
+          "exit": 0,
+          "jar.bytes": 2731570,
+          "jar.sha256": "1f44fca92a3fe13ce01a1e628685a998381e93f54adf95135bde2b60e897aa09",
+          "sampled_peak_rss_kib": 6752,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "ebbeb3f1f32d9c5ce44baa2ef8e672504b6b02cd3e5113a20038cde6ae33b601"
+        },
+        {
+          "case": "stale-native.input.gc.isolation",
+          "data": [],
+          "exit": 0,
+          "jar.bytes": 2731602,
+          "jar.sha256": "d782ca8b0f445e7947eedf0445b1b4f907ba0bcd32688ead37e22e7affd8decb",
+          "sampled_peak_rss_kib": 7792,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "ebbeb3f1f32d9c5ce44baa2ef8e672504b6b02cd3e5113a20038cde6ae33b601"
+        },
+        {
+          "case": "missing-manifest",
+          "data": [],
+          "exit": 0,
+          "jar.bytes": 2707074,
+          "jar.sha256": "ccd6568d8c6eb32495b5341129ade29e1e8466e76cd82d95fc0faf0fcb6ff609",
+          "sampled_peak_rss_kib": 8944,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "ebbeb3f1f32d9c5ce44baa2ef8e672504b6b02cd3e5113a20038cde6ae33b601"
+        }
+      ],
+      "command": [
+        "python3",
+        "scripts/test-gc6-metadata.py",
+        "--jar",
+        "workspace/gc7/reviewed-packaging/source/scalar.jar",
+        "--java-home",
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home",
+        "--output",
+        "workspace/gc7/metadata-final-reviewed",
+        "--type",
+        "gc6cli.Scalar"
+      ]
+    },
+    {
+      "evidence": "workspace/gc7/micro-accepted/results.json",
+      "sha256": "623765de2df7d9739fef4a88f2f4e5c5195ad02983ca748f979cc001e66a0762",
+      "child_checks": 8,
+      "sampled_peak_rss_kib": 832480,
+      "results": [
+        {
+          "case": "produce",
+          "exit": 0,
+          "sampled_peak_rss_kib": 832480,
+          "stdout.sha256": "860eb9e009d09b2543e98e65794a4ebe9b523f3b81b9f7b068fb7ea4a212130f",
+          "stderr.sha256": "b233c4e392adc2c5e1d85870fb731416e804ecd3e61f10722d55c4f1af7b5269",
+          "data": []
+        },
+        {
+          "case": "javac",
+          "exit": 0,
+          "sampled_peak_rss_kib": 153824,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "scalar",
+          "exit": 0,
+          "sampled_peak_rss_kib": 53680,
+          "stdout.sha256": "02772ef7cf48f2afcf97622aa88d49a4ea7b5fb5f435086df5a19b8e57514bae",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "instance",
+          "exit": 0,
+          "sampled_peak_rss_kib": 48144,
+          "stdout.sha256": "9a100e84ada35d4875e53ef6725b13d7271b905b7e7a5f5463b5a30b5849402c",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "object",
+          "exit": 0,
+          "sampled_peak_rss_kib": 56880,
+          "stdout.sha256": "20b6d1296e358b478ddad4e4ef838852a57f094d6b21eda70958a1a92b846b0e",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "batch",
+          "exit": 0,
+          "sampled_peak_rss_kib": 49520,
+          "stdout.sha256": "b2ea8f588a4f4dcadba0eebed8cfb211a0d1439cfe25b5601c15aec48c2842b7",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "string",
+          "exit": 0,
+          "sampled_peak_rss_kib": 49248,
+          "stdout.sha256": "c358d23a8c8f76e485c2b9ecda14ed68f835aec050ad921bf0b7c4c5538e971a",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "exception",
+          "exit": 0,
+          "sampled_peak_rss_kib": 84304,
+          "stdout.sha256": "f2ae72f8af8aaaa76e3460bd0fad4906e52847adae01354d9ca8f667fd455cdd",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        }
+      ],
+      "command": [
+        "python3",
+        "scripts/java-bridge/measure-managed.py",
+        "--sdk",
+        "workspace/gc7-sdk-final",
+        "--llvm-home",
+        "/opt/homebrew/opt/llvm",
+        "--java-home",
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home",
+        "--output",
+        "workspace/gc7/micro-accepted",
+        "--case",
+        "micro",
+        "--quick"
+      ],
+      "sdk_configuration": "728c45bd8ecedf7d4fc5bb64ffd25edc85bb37115f768cad38a81eb118e0f86b"
+    },
+    {
+      "evidence": "workspace/gc7/retention-accepted/results.json",
+      "sha256": "86254175321d986bc8e57ce7166c89d57184d5a95c1a6acdcbe75e80e2bd06f7",
+      "child_checks": 3,
+      "sampled_peak_rss_kib": 869520,
+      "results": [
+        {
+          "case": "produce",
+          "exit": 0,
+          "sampled_peak_rss_kib": 869520,
+          "stdout.sha256": "a9167bbaf0e4a3339a014c2cd3f2938f13380d431922e731f076890fd841cca4",
+          "stderr.sha256": "b0432146b25f9346e75987d0a795c83af6a3bd6468608bedd03ea99474cee22e",
+          "data": []
+        },
+        {
+          "case": "javac",
+          "exit": 0,
+          "sampled_peak_rss_kib": 135712,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "retention",
+          "exit": 0,
+          "sampled_peak_rss_kib": 53424,
+          "stdout.sha256": "14e4bd343533d809b84aa5e6aae2a312713fbfb82ff01991427dcd39a99ca792",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        }
+      ],
+      "command": [
+        "python3",
+        "scripts/java-bridge/measure-managed.py",
+        "--sdk",
+        "workspace/gc7-sdk-final",
+        "--llvm-home",
+        "/opt/homebrew/opt/llvm",
+        "--java-home",
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home",
+        "--output",
+        "workspace/gc7/retention-accepted",
+        "--case",
+        "retention",
+        "--quick"
+      ],
+      "sdk_configuration": "728c45bd8ecedf7d4fc5bb64ffd25edc85bb37115f768cad38a81eb118e0f86b"
+    },
+    {
+      "evidence": "workspace/gc7/performance-accepted/results.json",
+      "sha256": "84bdfc5f462b92c604c69d8ee58e83b9a6703afc4f7a3d291ddd39fff3fb10e4",
+      "child_checks": 40,
+      "sampled_peak_rss_kib": 877936,
+      "results": [
+        {
+          "case": "child-1",
+          "exit": 0,
+          "sampled_peak_rss_kib": 484048,
+          "stdout.sha256": "4bb055cffaee251f3a4391e77024abfea50b7756c80bab12553f2ca6282f0574",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-2",
+          "exit": 0,
+          "sampled_peak_rss_kib": 872800,
+          "stdout.sha256": "c6f1a25fbed438f4a3cfbf2e4772f68ea554a54e3caa69a3c3adbcc097e633ae",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-3",
+          "exit": 0,
+          "sampled_peak_rss_kib": 1632,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-4",
+          "exit": 0,
+          "sampled_peak_rss_kib": 1488,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-5",
+          "exit": 0,
+          "sampled_peak_rss_kib": 3232,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-6",
+          "exit": 0,
+          "sampled_peak_rss_kib": 2736,
+          "stdout.sha256": "c04883d59fef0cf4b52779def797a547a47fe46f364dfb94bd266ccce7054f98",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-7",
+          "exit": 0,
+          "sampled_peak_rss_kib": 32,
+          "stdout.sha256": "410e85476ffc51f8e232c73e28af9a6a0bc2186b51bf37f107ef149627ca6fe5",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-8",
+          "exit": 0,
+          "sampled_peak_rss_kib": 32,
+          "stdout.sha256": "0b53266041a807d7ccd6118cce60958e25a0d3ddbfc07701646ab687f2ace63f",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-9",
+          "exit": 0,
+          "sampled_peak_rss_kib": 481776,
+          "stdout.sha256": "0f81b2614de5b80c636213ec7116188c33882b3ee448d1fce11e8741f00ebf71",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-10",
+          "exit": 0,
+          "sampled_peak_rss_kib": 868016,
+          "stdout.sha256": "54f6ec8063abe37158d3182cb88c465757c53516de37f8057cfb47a228647631",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-11",
+          "exit": 0,
+          "sampled_peak_rss_kib": 1488,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-12",
+          "exit": 0,
+          "sampled_peak_rss_kib": 1488,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-13",
+          "exit": 0,
+          "sampled_peak_rss_kib": 1472,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-14",
+          "exit": 0,
+          "sampled_peak_rss_kib": 1552,
+          "stdout.sha256": "371806fe621956eb53deb5e4d8814f07e46d6cbd8abcf53396583bc4dbef183b",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-15",
+          "exit": 0,
+          "sampled_peak_rss_kib": 1696,
+          "stdout.sha256": "104069b627c9997fa3bd0ecd7a069c3dd7049a7ecc71ab4e44ec162019d32518",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-16",
+          "exit": 0,
+          "sampled_peak_rss_kib": 32,
+          "stdout.sha256": "0b53266041a807d7ccd6118cce60958e25a0d3ddbfc07701646ab687f2ace63f",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-17",
+          "exit": 0,
+          "sampled_peak_rss_kib": 2400,
+          "stdout.sha256": "4f2e237773376506617637297c4109a088f9493399fffb6e0ef222017a5a0ab2",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-18",
+          "exit": 0,
+          "sampled_peak_rss_kib": 2400,
+          "stdout.sha256": "b8e7a8006f8cd7472043167de18aa8ceabfd16de2eaa8e036d9016d3d936391d",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-19",
+          "exit": 0,
+          "sampled_peak_rss_kib": 2432,
+          "stdout.sha256": "dd097cca4168645548dd62432408095dadc73572667d87d392598b5ab27f58e5",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-20",
+          "exit": 0,
+          "sampled_peak_rss_kib": 2400,
+          "stdout.sha256": "b3b3706ee611378c21005a0b7a6dc9b7f56a5669c3acd79b8bd446ce6115edd4",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-21",
+          "exit": 0,
+          "sampled_peak_rss_kib": 485584,
+          "stdout.sha256": "60ef6317f370a4d4f9802cb263fd72ef51ce8c6d7a16fe3325e8c139fcecff83",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-22",
+          "exit": 0,
+          "sampled_peak_rss_kib": 873712,
+          "stdout.sha256": "0845164c2cbe8e3c0a689d9880309953c55936a73f31510b25cc550174d10cb2",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-23",
+          "exit": 0,
+          "sampled_peak_rss_kib": 1552,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-24",
+          "exit": 0,
+          "sampled_peak_rss_kib": 1552,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-25",
+          "exit": 0,
+          "sampled_peak_rss_kib": 1680,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-26",
+          "exit": 0,
+          "sampled_peak_rss_kib": 1792,
+          "stdout.sha256": "7be87f882ec54a8fd46bcca78fa5ee28fe463ccbd9f6fd37c42b54f7814232e8",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-27",
+          "exit": 0,
+          "sampled_peak_rss_kib": 1840,
+          "stdout.sha256": "704306d87a6e3d2a1aa4709bba9e95c87e77cd4c1246519dce00e6a50142944b",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-28",
+          "exit": 0,
+          "sampled_peak_rss_kib": 32,
+          "stdout.sha256": "37dabb75bd8e90867c0d30ee608ae7e97bf16cb53428a4d69925742f93df89d8",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-29",
+          "exit": 0,
+          "sampled_peak_rss_kib": 484416,
+          "stdout.sha256": "93baf7b6cdbb01dc19ca7d07cf122ef8ddd84613f8f50f0b023016b9fb4aee87",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-30",
+          "exit": 0,
+          "sampled_peak_rss_kib": 877936,
+          "stdout.sha256": "a60ea91d4d088be6aea5bd1b86a975d117eef61f38e18d4af68a0d3d9962ad40",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-31",
+          "exit": 0,
+          "sampled_peak_rss_kib": 1536,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-32",
+          "exit": 0,
+          "sampled_peak_rss_kib": 1552,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-33",
+          "exit": 0,
+          "sampled_peak_rss_kib": 1680,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-34",
+          "exit": 0,
+          "sampled_peak_rss_kib": 1584,
+          "stdout.sha256": "651534aea4ff7da52c4dce81261731ed3f3bfd1628245c1b8c4d0008f6c1661c",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-35",
+          "exit": 0,
+          "sampled_peak_rss_kib": 1584,
+          "stdout.sha256": "75ad33eb34dcd82f69d46a073dd05014d04ea0ab785d1535254107ad8b1739e1",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-36",
+          "exit": 0,
+          "sampled_peak_rss_kib": 32,
+          "stdout.sha256": "37dabb75bd8e90867c0d30ee608ae7e97bf16cb53428a4d69925742f93df89d8",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-37",
+          "exit": 0,
+          "sampled_peak_rss_kib": 2480,
+          "stdout.sha256": "b80eedc256357ad864b64716370ea12a3710dd6d8ff857f70ce4e22f2c62f8c9",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-38",
+          "exit": 0,
+          "sampled_peak_rss_kib": 2448,
+          "stdout.sha256": "ea1c0f57645572e9f514db94d0f69273047f22e856b24e7e514651e130bf5e16",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-39",
+          "exit": 0,
+          "sampled_peak_rss_kib": 2448,
+          "stdout.sha256": "9c1364e9c717ec75f345cd009dddfdc10b6b3c7d151c58d05098b6b917edd46d",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "child-40",
+          "exit": 0,
+          "sampled_peak_rss_kib": 2448,
+          "stdout.sha256": "c28a8bc8a858ddbaf5103c755908875232f455d8189fd6406720758912ea9ad7",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        }
+      ],
+      "command": [
+        "python3",
+        "scripts/test-gc-performance.py",
+        "--sdk",
+        "workspace/gc7-sdk-final",
+        "--llvm-home",
+        "/opt/homebrew/opt/llvm",
+        "--java-home",
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home",
+        "--output",
+        "workspace/gc7/performance-accepted"
+      ],
+      "reports": {
+        "call": {
+          "iterations": 32000000,
+          "ns": {
+            "deferred": [
+              40238000,
+              35721000
+            ],
+            "nested": [
+              35861000,
+              35655000
+            ]
+          },
+          "median_ns": {
+            "deferred": 37979500.0,
+            "nested": 35758000.0
+          },
+          "normalized_assembly_identical": true,
+          "normalized.sha256": "99eb68fb603ba8f284a90727fbf5af5377b18609fde1678ff06b2ad4f7c2f6fc",
+          "results": {
+            "checksum": 8321000502409611264,
+            "captures": 32000000,
+            "actions": 32000000,
+            "bodies": 32000000,
+            "failures": 0,
+            "allocations": 0,
+            "live_delta": 0,
+            "first_allocations": 0,
+            "first_live_delta": 0
+          }
+        },
+        "pool": {
+          "iterations": 32000000,
+          "ns": {
+            "deferred": [
+              78634000,
+              77578000
+            ],
+            "nested": [
+              77333000,
+              77426000
+            ]
+          },
+          "median_ns": {
+            "deferred": 78106000.0,
+            "nested": 77379500.0
+          },
+          "normalized_assembly_identical": true,
+          "normalized.sha256": "6bd8ef799e45754c3ceb5a990e17ebfb9d489733837c6fa2048e93e4bf3cc991",
+          "results": {
+            "checksum": -7167085265927709696,
+            "captures": 0,
+            "actions": 0,
+            "bodies": 32000000,
+            "failures": 0,
+            "allocations": 0,
+            "live_delta": 0,
+            "first_allocations": 0,
+            "first_live_delta": 0
+          }
+        }
+      }
+    },
+    {
+      "evidence": "workspace/gc7/native-integrated-final/results.json",
+      "sha256": "498a87790fd5aeed3a36cbac6f652b9c215177b2b4359a8ce4bd1ccba4ec5de0",
+      "child_checks": 31,
+      "sampled_peak_rss_kib": 909072,
+      "results": [
+        {
+          "case": "integrated-classes",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 477072,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "54afa03c08a7f8881349858ac9d23a10af0461fa9db75b6d599dda99e6cc44a0"
+        },
+        {
+          "case": "integrated-O0-link",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 891568,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "866cd2fa99d4bb8f96acc9ff0592471746379b7f3ec5da35df56df3e6a8b09dc"
+        },
+        {
+          "case": "integrated-O0-run",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 32,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "5a6d2ef95efb386ed11fe0a234f885a6532c1cd3edb452ca8d3415cf562338fe"
+        },
+        {
+          "case": "integrated-O3-link",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 909072,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "0852694399ad7687180b16a011bc1918c3ee1ee2dabe20ae308be2f2ed5bc1e6"
+        },
+        {
+          "case": "integrated-O3-run",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 32,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "5a6d2ef95efb386ed11fe0a234f885a6532c1cd3edb452ca8d3415cf562338fe"
+        },
+        {
+          "case": "no_collect-classes",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 492080,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "a843f0bb9c2044229c5ae2d692f35af5aed7b419fc1265b0c68113ad4c985a21"
+        },
+        {
+          "case": "no_collect-O0-link",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 859184,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "02d8f76dc615bc08304d082e0394464535c1926935cc7adb7a052f5d715e58a1"
+        },
+        {
+          "case": "no_collect-O0-run",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 32,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "no_collect-O3-link",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 871872,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "c5044d52f6accb445a94c92e63d641baf036769bc0cfc3f41fe82d70239fc118"
+        },
+        {
+          "case": "no_collect-O3-run",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 32,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "resources-classes",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 510720,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "2160e1016053521c682f0f95108dc67de6a51d6295adbb11d0ce1dca3980940c"
+        },
+        {
+          "case": "resources-O0-link",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 872736,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "838a6cb18e510c280796abe762f5baa58045b93b670266fc81aa2570a6f79b79"
+        },
+        {
+          "case": "resources-O0-success",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 32,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "resources-O0-failure",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 0,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "resources-O3-link",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 905744,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "5d1eec38c48538bbceb9ea62b3bd42b755f06a5d9a05ef56aa35f61bd0f76775"
+        },
+        {
+          "case": "resources-O3-success",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 32,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "resources-O3-failure",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 0,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "pools-classes",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 477936,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "5bc35eecb98b1978671b340426e799fa35d6edc9cdd7b59de6590fcbe78b406b"
+        },
+        {
+          "case": "pools-O0-link",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 870384,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "3ff5d627aa7d13d70d29bce83989d39194f2fb7e0b94c6b7923744d3d5f68cae"
+        },
+        {
+          "case": "pools-O0-run",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 32,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "pools-O3-link",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 875280,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "4fec19837ef8336ea87b5685250599642697116cba6d2709abaaafb6c76ac37c"
+        },
+        {
+          "case": "pools-O3-run",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 32,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "oom-classes",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 496928,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "aef4d86d8c0057a657fd0bcc8ddf24e07427b71fb82e787f12b84678249fafe5"
+        },
+        {
+          "case": "oom-O0-link",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 862464,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "ff550df40a22554dab187359c8db104f258cedefd809792df2ef6051cf7d2587"
+        },
+        {
+          "case": "oom-O0-allocation",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 32,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "oom-O0-preparation",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 0,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "oom-O0-constructor",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 0,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "oom-O3-link",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 875296,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "407d21cf9f5aff22e1b931366ce357faa1d57e3b6460ef85bf9915e18d55769a"
+        },
+        {
+          "case": "oom-O3-allocation",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 32,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "oom-O3-preparation",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 0,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "oom-O3-constructor",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 0,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "command": [
+        "python3",
+        "scripts/test-gc-integrated.py",
+        "--sdk",
+        "workspace/gc7-sdk-final",
+        "--llvm-home",
+        "/opt/homebrew/opt/llvm",
+        "--java-home",
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home",
+        "--output",
+        "workspace/gc7/native-integrated-final",
+        "--level",
+        "O0",
+        "--level",
+        "O3"
+      ],
+      "sdk_configuration": "728c45bd8ecedf7d4fc5bb64ffd25edc85bb37115f768cad38a81eb118e0f86b",
+      "target": "macos-arm64",
+      "output.sha256": {
+        "integrated-O0": "1a30b41b72bde0a348b1aadc1b25687130093dec671ed0fe1a33c9adc6285cf2",
+        "integrated-O0.ll": "4869b1d7dec3c4ea1282cb20a0f6a8aad5b108ff1118f4597e660a3bd98f3bb3",
+        "integrated-O3": "f0cc5a5496597fd0e4cd559ac33b1ac483e5bd85be88adc34f809e401f032db3",
+        "integrated-O3.ll": "4869b1d7dec3c4ea1282cb20a0f6a8aad5b108ff1118f4597e660a3bd98f3bb3",
+        "no_collect-O0": "344c5d44131dd598d4629b40a495cb61d491e6910d11f4f613102810b94a7707",
+        "no_collect-O0.ll": "b1a67c547a8c1e9b12dc2939119c3cffdfdc65fb64f168ef9aa4e2933d9ce41b",
+        "no_collect-O3": "545a14b5494217299623a959bb30ed68c50087b6d14c142872f440df2569901b",
+        "no_collect-O3.ll": "b1a67c547a8c1e9b12dc2939119c3cffdfdc65fb64f168ef9aa4e2933d9ce41b",
+        "oom-O0": "f6d00e7a7e5f69ec611f266d0d721deab3de3ab5b6f908f2bf16cbed38e92e24",
+        "oom-O0.ll": "f06660bdbbd7c80de95a680704968e67a0a5f94c0127eec5e63ec3545a2cd24d",
+        "oom-O3": "bb9063e21afd30b86e133a9abce64225b78a4179f78e7053ff9feed38d103f09",
+        "oom-O3.ll": "f06660bdbbd7c80de95a680704968e67a0a5f94c0127eec5e63ec3545a2cd24d",
+        "pools-O0": "ce3f3d452b9b9bcd9317b89ed866bb03015f7263781f0e3798b762541b2f00b0",
+        "pools-O0.ll": "35b8f6a5efe6689e890feb8f9d250fcb093de601b2ad2e520a4f7ea8e8c3b21f",
+        "pools-O3": "56838c922c9334c0c936e3c379ef8e37e2306fda0f42d86cf13cf984a7b87f91",
+        "pools-O3.ll": "35b8f6a5efe6689e890feb8f9d250fcb093de601b2ad2e520a4f7ea8e8c3b21f",
+        "resources-O0": "4a9b96b4027a2bf6f40331267af9ed755a0bf02dd1933f6a9af2853faebd1623",
+        "resources-O0.ll": "3ac42eaefec328b87bb39b57b6dbbbfef86e503eb2155c1833f18d64f21dccc5",
+        "resources-O3": "370c7ed2a96b855d2abaef6b97289481ddb8e637e564b31782795364bb2b8cca",
+        "resources-O3.ll": "3ac42eaefec328b87bb39b57b6dbbbfef86e503eb2155c1833f18d64f21dccc5"
+      }
+    },
+    {
+      "evidence": "workspace/gc7/pools-final-reviewed/results.json",
+      "sha256": "cdd32f3127a4d1e5fd337a82079183460e46c0aa7a3f7834e460c05115145935",
+      "child_checks": 12,
+      "sampled_peak_rss_kib": 1313104,
+      "results": [
+        {
+          "case": "0-owning_pools-compile",
+          "exit": 0,
+          "sampled_peak_rss_kib": 470048,
+          "stdout.sha256": "f0c55b579a32e339dcc0abb305c9b008782131535f0e508e71e8d9acdacebad9",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "0-owning_pools-link",
+          "exit": 0,
+          "sampled_peak_rss_kib": 841712,
+          "stdout.sha256": "ff68e2ff630a28d219ca7e56776bded51b200848cc5f1410d8395fc0b469980a",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "0-owning_pools-run",
+          "exit": 42,
+          "sampled_peak_rss_kib": 32,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "1-pool_release_helpers-compile",
+          "exit": 0,
+          "sampled_peak_rss_kib": 464336,
+          "stdout.sha256": "bed1e8e03c2c8f62b70207c8b7f618ea69f2e641115299b67803e180cb4fe329",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "1-pool_release_helpers-link",
+          "exit": 0,
+          "sampled_peak_rss_kib": 884480,
+          "stdout.sha256": "fa8dc50c916bf69cd186e312e6a7b521412a5194584e751409ce76e3f9a207dd",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "1-pool_release_helpers-run",
+          "exit": 42,
+          "sampled_peak_rss_kib": 32,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "2-ds_caller_item_reclamation-compile",
+          "exit": 0,
+          "sampled_peak_rss_kib": 605312,
+          "stdout.sha256": "82d69e262c41141da454369800efd532bcfa9a95cd5b19108fb0cac5cf04b0b3",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "2-ds_caller_item_reclamation-link",
+          "exit": 0,
+          "sampled_peak_rss_kib": 1313104,
+          "stdout.sha256": "6dfe09a19c68235c4f671fe8cea717d1967f0d3ebb350cb8ff8fc07af0d432cb",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "2-ds_caller_item_reclamation-run",
+          "exit": 42,
+          "sampled_peak_rss_kib": 32,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "3-unread_primitive_stores-compile",
+          "exit": 0,
+          "sampled_peak_rss_kib": 489216,
+          "stdout.sha256": "61e8ef792d6fa5ff228e18824eef7299f98d8fbdb3afe4d053526587142d3244",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "3-unread_primitive_stores-link",
+          "exit": 0,
+          "sampled_peak_rss_kib": 859904,
+          "stdout.sha256": "ff9ce0bafeb35a5d6b1c2a17164430719df05f6ddf38179a824e41c0637ff565",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "3-unread_primitive_stores-run",
+          "exit": 42,
+          "sampled_peak_rss_kib": 32,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        }
+      ],
+      "command": [
+        "python3",
+        "scripts/test-gc7-consumers.py",
+        "--sdk",
+        "workspace/gc7-sdk-final",
+        "--llvm-home",
+        "/opt/homebrew/opt/llvm",
+        "--java-home",
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home",
+        "--output",
+        "workspace/gc7/pools-final-reviewed",
+        "--case",
+        "pools"
+      ],
+      "selections": [
+        "pools"
+      ]
+    },
+    {
+      "evidence": "workspace/gc7/consumers-accepted/results.json",
+      "sha256": "d21092cea6e2a2e87ec8283d8fb641722e8e40de5603fef5eb63bf7046e96d09",
+      "child_checks": 27,
+      "sampled_peak_rss_kib": 2138320,
+      "results": [
+        {
+          "case": "0-gc7_shared_graphs-compile",
+          "exit": 0,
+          "sampled_peak_rss_kib": 479712,
+          "stdout.sha256": "d5068d48a700590e69e8875c83fbc2cc7b5fca33989c0fa329a8d813e7f1fb20",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "0-gc7_shared_graphs-link",
+          "exit": 0,
+          "sampled_peak_rss_kib": 862784,
+          "stdout.sha256": "9763eb97c312fe998091955109232fef4f8af46e033bf2fb089c27014a07480f",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "0-gc7_shared_graphs-run",
+          "exit": 42,
+          "sampled_peak_rss_kib": 32,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "1-creation_array_cleanup-compile",
+          "exit": 0,
+          "sampled_peak_rss_kib": 475040,
+          "stdout.sha256": "7a9cb4ced545fa6761e3411089d328faeb79f25eb805c9fce6408915d82e63c1",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "1-creation_array_cleanup-link",
+          "exit": 0,
+          "sampled_peak_rss_kib": 867504,
+          "stdout.sha256": "163e8e36366e41fcd50acf11e2bbbdb5bb67ac31c6080a9441a8cc73b53eaa26",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "1-creation_array_cleanup-run",
+          "exit": 42,
+          "sampled_peak_rss_kib": 32,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "2-frontend_correctness-compile",
+          "exit": 0,
+          "sampled_peak_rss_kib": 479904,
+          "stdout.sha256": "7a16c7101e9ecc475f18153e1cba0532720768e232868cd8e24362baec66cc8a",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "2-frontend_correctness-link",
+          "exit": 0,
+          "sampled_peak_rss_kib": 860768,
+          "stdout.sha256": "3c79fb86be528c4b57126ba5126015f8e5541757b3e7788a719d9a1ea680ffed",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "2-frontend_correctness-run",
+          "exit": 42,
+          "sampled_peak_rss_kib": 32,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "3-defer_calls-compile",
+          "exit": 0,
+          "sampled_peak_rss_kib": 479872,
+          "stdout.sha256": "0f2aedb628592b7ca9f9034ab5d24e18dbfc948bcf83f4fe186403af15b69449",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "3-defer_calls-link",
+          "exit": 0,
+          "sampled_peak_rss_kib": 2138320,
+          "stdout.sha256": "48fb46e1e709e07cd9b78ec9f29d95254761b97f64fa6da3dc734d51fc6752db",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "3-defer_calls-run",
+          "exit": 42,
+          "sampled_peak_rss_kib": 32,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "4-defer_server_failure-compile",
+          "exit": 0,
+          "sampled_peak_rss_kib": 484896,
+          "stdout.sha256": "d96e95827ca84cdf08f6b524628c3c587c5e0fbf5987485c3ab7cc586fc86eeb",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "4-defer_server_failure-link",
+          "exit": 0,
+          "sampled_peak_rss_kib": 876848,
+          "stdout.sha256": "9749b0d333a9a51f15569dd12b25cad82df43ca93201126bae20dc966c6fc8c4",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "4-defer_server_failure-run",
+          "exit": 74,
+          "sampled_peak_rss_kib": 32,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "5-owning_pools-compile",
+          "exit": 0,
+          "sampled_peak_rss_kib": 493520,
+          "stdout.sha256": "42fffdb5d1b953f1713de84a3a82d0ca3a6efeb8a69ed0632d6a4b5166595d72",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "5-owning_pools-link",
+          "exit": 0,
+          "sampled_peak_rss_kib": 888944,
+          "stdout.sha256": "b8a174043ddfb3fd965bc26ed710d49d8dfe663d6ff589f1228eba517eb7905b",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "5-owning_pools-run",
+          "exit": 42,
+          "sampled_peak_rss_kib": 32,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "6-pool_release_helpers-compile",
+          "exit": 0,
+          "sampled_peak_rss_kib": 478176,
+          "stdout.sha256": "2da99a264fb340f6de6d690ddbff3a95d07b125a2d6f8692a3ab158afb50ee9f",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "6-pool_release_helpers-link",
+          "exit": 0,
+          "sampled_peak_rss_kib": 870736,
+          "stdout.sha256": "c2c00e46be7c14b62991886233965034b0f928973ab61eb4079e27fb66fd6ce0",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "6-pool_release_helpers-run",
+          "exit": 42,
+          "sampled_peak_rss_kib": 32,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "7-ds_caller_item_reclamation-compile",
+          "exit": 0,
+          "sampled_peak_rss_kib": 605888,
+          "stdout.sha256": "26747fec9050b1a04dfc1c9e00bc1356241adac315331b1a38690eef06995b39",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "7-ds_caller_item_reclamation-link",
+          "exit": 0,
+          "sampled_peak_rss_kib": 1338736,
+          "stdout.sha256": "fe47ea2e670de7d20216998aeba55549331fa397de51f29f3bd459ab030a5d2d",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "7-ds_caller_item_reclamation-run",
+          "exit": 42,
+          "sampled_peak_rss_kib": 32,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "8-unread_primitive_stores-compile",
+          "exit": 0,
+          "sampled_peak_rss_kib": 478368,
+          "stdout.sha256": "d78c32402a702d76f188fb518cb3ace44ab7bafd7c49e5fa4cc7d7faf2b0a2b9",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "8-unread_primitive_stores-link",
+          "exit": 0,
+          "sampled_peak_rss_kib": 852064,
+          "stdout.sha256": "93330069d9f789ee58fdda5d6e92c62eef505f3d3360aeff4ca095b6015c942b",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "8-unread_primitive_stores-run",
+          "exit": 42,
+          "sampled_peak_rss_kib": 32,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        }
+      ],
+      "command": [
+        "python3",
+        "scripts/test-gc7-consumers.py",
+        "--sdk",
+        "workspace/gc7-sdk-final",
+        "--llvm-home",
+        "/opt/homebrew/opt/llvm",
+        "--java-home",
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home",
+        "--output",
+        "workspace/gc7/consumers-accepted",
+        "--case",
+        "core",
+        "--case",
+        "pools"
+      ],
+      "selections": [
+        "core",
+        "pools"
+      ]
+    },
+    {
+      "evidence": "workspace/gc7/consumers-library-final/results.json",
+      "sha256": "e037a2c1e7efa683d5b9150aaaa2f585f9715d0e871a058413f39a079a41804b",
+      "child_checks": 15,
+      "sampled_peak_rss_kib": 1014256,
+      "results": [
+        {
+          "case": "0-PoolRetentionTests-compile",
+          "exit": 0,
+          "sampled_peak_rss_kib": 486672,
+          "stdout.sha256": "87233931864ce312a3d557dc24a1a9d1ad08cc3053ecf880166cf5b5f9a959db",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "0-PoolRetentionTests-link",
+          "exit": 0,
+          "sampled_peak_rss_kib": 859616,
+          "stdout.sha256": "6abc01250d2b2208efd659ec2ef286d1b1f7c583bf9756f6da717be34a13af0f",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "0-PoolRetentionTests-run",
+          "exit": 0,
+          "sampled_peak_rss_kib": 32,
+          "stdout.sha256": "c1bb4e3b0f666ad271080c6b963d118495aedda035874b60c46c4a4849d452c2",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "1-CollectionRetentionTests-compile",
+          "exit": 0,
+          "sampled_peak_rss_kib": 856208,
+          "stdout.sha256": "b0614d9110d08c71f54fb5c187ce0d6247837bc9f78128cfb10cd1f2798dc723",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "1-CollectionRetentionTests-link",
+          "exit": 0,
+          "sampled_peak_rss_kib": 1014256,
+          "stdout.sha256": "f73d3b7d77d39a90e1b35554d5984ef9d4709fde844ddb25d5c8a2237b497c06",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "1-CollectionRetentionTests-run",
+          "exit": 0,
+          "sampled_peak_rss_kib": 32,
+          "stdout.sha256": "016aa931eb68bff420feb2d5eeb41da2429749f6537750523b977ca52097f32f",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "2-BenchTests-compile",
+          "exit": 0,
+          "sampled_peak_rss_kib": 479952,
+          "stdout.sha256": "4fd66c55ef27d2d6f3917fbe64c652ce93793c25780160f7f392e99f034974c9",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "2-BenchTests-link",
+          "exit": 0,
+          "sampled_peak_rss_kib": 926672,
+          "stdout.sha256": "bc052687f324186662ed7c923db55336307a2550279dd4cefdc57c3ffdd5f28c",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "2-BenchTests-run",
+          "exit": 0,
+          "sampled_peak_rss_kib": 32,
+          "stdout.sha256": "4afe4f9157792b0ff4daea984b907863d70a270833a1aabe1cf2db127e0d2dec",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "3-ExplicitReclamation-compile",
+          "exit": 0,
+          "sampled_peak_rss_kib": 473376,
+          "stdout.sha256": "f7651d8b9ee43508551016ca7ab77ce86e5cc12f753246e84c796d60bf2d4f3e",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "3-ExplicitReclamation-link",
+          "exit": 0,
+          "sampled_peak_rss_kib": 860112,
+          "stdout.sha256": "c489d4f7fa9bca330e2a87b74838696117703d5a273183c8876f842a068695d7",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "3-ExplicitReclamation-run",
+          "exit": 42,
+          "sampled_peak_rss_kib": 32,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "4-DeferredCleanup-compile",
+          "exit": 0,
+          "sampled_peak_rss_kib": 501040,
+          "stdout.sha256": "7bf3907121ace80902b41ae646eb06aba9d9eceffb89d1576f55713d09f10cae",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "4-DeferredCleanup-link",
+          "exit": 0,
+          "sampled_peak_rss_kib": 872048,
+          "stdout.sha256": "dffed0b475cd916e3e2e180289fe6e90d504104f7546e41222bce6a0a1f58abc",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "4-DeferredCleanup-run",
+          "exit": 42,
+          "sampled_peak_rss_kib": 32,
+          "stdout.sha256": "36936b1cd885ed9ad9bc14ef8a2bc2f974fb5ebd03433712d60eee3658048e34",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        }
+      ],
+      "command": [
+        "python3",
+        "scripts/test-gc7-consumers.py",
+        "--sdk",
+        "workspace/gc7-sdk-final",
+        "--llvm-home",
+        "/opt/homebrew/opt/llvm",
+        "--java-home",
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home",
+        "--output",
+        "workspace/gc7/consumers-library-final",
+        "--case",
+        "library",
+        "--case",
+        "examples"
+      ],
+      "selections": [
+        "library",
+        "examples"
+      ]
+    },
+    {
+      "evidence": "workspace/gc7/retained-consumers-accepted/results.json",
+      "sha256": "6649fff1999ae7917eead5deb952ec8fce83855de727d416fde6db3ac238d76e",
+      "child_checks": 6,
+      "sampled_peak_rss_kib": 882736,
+      "results": [
+        {
+          "case": "0-gc7_constructor_dispatch-compile",
+          "exit": 0,
+          "sampled_peak_rss_kib": 453040,
+          "stdout.sha256": "efaf76879e89188cf568f7b4d0672c172bfe526d659fecea2e19e8f28c4464e2",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "0-gc7_constructor_dispatch-link",
+          "exit": 0,
+          "sampled_peak_rss_kib": 834752,
+          "stdout.sha256": "5648b746ba5827410c87df6c069a7f0a62d7237e2c7f3d5014a59e7276622a69",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "0-gc7_constructor_dispatch-run",
+          "exit": 42,
+          "sampled_peak_rss_kib": 32,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "1-gc7_retained_visitor-compile",
+          "exit": 0,
+          "sampled_peak_rss_kib": 498560,
+          "stdout.sha256": "e5febb6f188b7529243d84fcf4535dad7167314069ad1942286c58571be6a2f1",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "1-gc7_retained_visitor-link",
+          "exit": 0,
+          "sampled_peak_rss_kib": 882736,
+          "stdout.sha256": "0687f64dba1141f848cc0fa1da855e9f0d7e2aebc43a3da8e48c5ff5fca1239a",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "1-gc7_retained_visitor-run",
+          "exit": 42,
+          "sampled_peak_rss_kib": 32,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        }
+      ],
+      "command": [
+        "python3",
+        "scripts/test-gc7-consumers.py",
+        "--sdk",
+        "workspace/gc7-sdk-final",
+        "--llvm-home",
+        "/opt/homebrew/opt/llvm",
+        "--java-home",
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home",
+        "--output",
+        "workspace/gc7/retained-consumers-accepted",
+        "--case",
+        "retained"
+      ],
+      "selections": [
+        "retained"
+      ]
+    },
+    {
+      "evidence": "workspace/gc7/native-inputs-final/results.json",
+      "sha256": "80ea8a5ce3dedd842bdc13388a2556c163bd8eb56ae0ac1c55c8351c8997b070",
+      "child_checks": 16,
+      "sampled_peak_rss_kib": 905328,
+      "results": [
+        {
+          "case": "source-to-class",
+          "exit": 0,
+          "sampled_peak_rss_kib": 478176,
+          "stdout.sha256": "e3834e8625e534a43c91511eff353c1231a17e3107a4d1428843123b32ad07ad",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "class-to-archive",
+          "exit": 0,
+          "sampled_peak_rss_kib": 48768,
+          "stdout.sha256": "6f1437403ccbc67d8091bb721489fe2b0ce2081af5e012e5b8752c2a4361aa37",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "classes-link",
+          "exit": 0,
+          "sampled_peak_rss_kib": 896752,
+          "stdout.sha256": "cb1a0ea332b955b599f045812b7c4e4b047ce825af2045d20e883b1290cbfe79",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "classes-run",
+          "exit": 0,
+          "sampled_peak_rss_kib": 32,
+          "stdout.sha256": "5a6d2ef95efb386ed11fe0a234f885a6532c1cd3edb452ca8d3415cf562338fe",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "archive-link",
+          "exit": 0,
+          "sampled_peak_rss_kib": 905328,
+          "stdout.sha256": "d6994b89f6a4b552607e794e7346749b754c9a496f0a357c40b905b89288948e",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "archive-run",
+          "exit": 0,
+          "sampled_peak_rss_kib": 32,
+          "stdout.sha256": "5a6d2ef95efb386ed11fe0a234f885a6532c1cd3edb452ca8d3415cf562338fe",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "root-abi",
+          "exit": 1,
+          "sampled_peak_rss_kib": 518208,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "5420456e4513f2dc7cbfcd6ace8818435251bd5ee8c920036648a7d905c96c32",
+          "data": []
+        },
+        {
+          "case": "owner-abi",
+          "exit": 1,
+          "sampled_peak_rss_kib": 512528,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "5420456e4513f2dc7cbfcd6ace8818435251bd5ee8c920036648a7d905c96c32",
+          "data": []
+        },
+        {
+          "case": "engine-abi",
+          "exit": 1,
+          "sampled_peak_rss_kib": 503232,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "5420456e4513f2dc7cbfcd6ace8818435251bd5ee8c920036648a7d905c96c32",
+          "data": []
+        },
+        {
+          "case": "llvm-version",
+          "exit": 1,
+          "sampled_peak_rss_kib": 512416,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "5420456e4513f2dc7cbfcd6ace8818435251bd5ee8c920036648a7d905c96c32",
+          "data": []
+        },
+        {
+          "case": "configuration-identity",
+          "exit": 1,
+          "sampled_peak_rss_kib": 506144,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "5420456e4513f2dc7cbfcd6ace8818435251bd5ee8c920036648a7d905c96c32",
+          "data": []
+        },
+        {
+          "case": "statepoint-pass",
+          "exit": 1,
+          "sampled_peak_rss_kib": 518608,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "afb64a02e26f895e3a41acb94ce70bd2ee03b9b9f33473fde6ecb2e1ec7b028f",
+          "data": []
+        },
+        {
+          "case": "runtime-owner-source",
+          "exit": 1,
+          "sampled_peak_rss_kib": 508480,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "a24f839197fd4f30cdb34440c7863fea0a0a00e5bb8bd54511ecbcfb58974f19",
+          "data": []
+        },
+        {
+          "case": "root-reader-source",
+          "exit": 1,
+          "sampled_peak_rss_kib": 520032,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "ed009f1601089eaf612a3fa67e23b9ee0e9de5a4e42690967b9a8f4d9ff87268",
+          "data": []
+        },
+        {
+          "case": "configuration-payload",
+          "exit": 1,
+          "sampled_peak_rss_kib": 510464,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "5420456e4513f2dc7cbfcd6ace8818435251bd5ee8c920036648a7d905c96c32",
+          "data": []
+        },
+        {
+          "case": "extra-sdk-input",
+          "exit": 1,
+          "sampled_peak_rss_kib": 510608,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "68aec76860da020fb8ccfe30e731cea737ccd3587fd670944166592ce6d37242",
+          "data": []
+        }
+      ],
+      "command": [
+        "python3",
+        "scripts/test-gc-inputs.py",
+        "--sdk",
+        "workspace/gc7-sdk-final",
+        "--llvm-home",
+        "/opt/homebrew/opt/llvm",
+        "--java-home",
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home",
+        "--output",
+        "workspace/gc7/native-inputs-final"
+      ]
+    },
+    {
+      "evidence": "workspace/gc7/reviewed-analysis/results.json",
+      "sha256": "818a8d56f1b12ee83c7cbf6e88eed8f988de0db7aa8e69bffe18dcb91d4b277b",
+      "child_checks": 3,
+      "sampled_peak_rss_kib": 1538752,
+      "results": [
+        {
+          "case": "test-compile",
+          "exit": 0,
+          "sampled_peak_rss_kib": 397264,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "shared-contracts",
+          "exit": 0,
+          "sampled_peak_rss_kib": 1154128,
+          "stdout.sha256": "da4a2278be5e479791215dd07ea05aabd291782d81b4f469ebca2714b72bae0f",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "protocol-and-filetree",
+          "exit": 0,
+          "sampled_peak_rss_kib": 1538752,
+          "stdout.sha256": "00a9dcb0732f343b706aba360ede843fd334ac5001e47a89b050883a74d4de33",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        }
+      ],
+      "scope": "Exact leaf commands are recorded below; each child has its own guard and time bound.",
+      "compiler_test_selections": {
+        "shared-contracts": [
+          "GC7 removed forms retain migration errors and ordinary identifiers",
+          "GC7 shared graph and result origin families use managed admission",
+          "GC7 partial publication retains initialization checks",
+          "GC7 copied inputs and borrowed descriptors retain confinement",
+          "GC7 shared consumers preserve source class and archive parity",
+          "GC7 bounded compiler check has no managed free proof machinery",
+          "GC5 canonical collection intrinsic validates reconstructed declarations",
+          "GC5 source collection effects survive dispatch initialization defer and specialization",
+          "GC5 normal emission uses one managed model and migration diagnostics",
+          "GC5 final link rejects every reachable legacy managed deallocation family",
+          "GC6 managed entries preserve aliases publication and source lifetime member names",
+          "GC6 carriers separate exact managed linkage from JNI completion",
+          "GC6 foreign effects require exact versioned transition contexts",
+          "GC6 managed callbacks bind exact contexts and invocation JNI completion",
+          "GC7 pool origins survive aliases arrays and return helpers",
+          "GC7 snapshot getters root String results and confine foreign receivers",
+          "GC7 stale bridge manifests refuse removed projections and ABIs"
+        ],
+        "protocol-and-filetree": [
+          "pool origins reject wrong-pool use and cached builders",
+          "pool release helper proofs preserve mandatory safety",
+          "pool release helper proofs survive artifact reconstruction",
+          "U5 file tree traversal admits retained managed callback values",
+          "U5 file tree traversal controls depth links and cleanup",
+          "construction publication is admitted through exact subclass dispatch",
+          "publishing overrides called by bundled constructors retain managed lifetime"
+        ]
+      }
+    },
+    {
+      "evidence": "workspace/gc7/reviewed-basics/results.json",
+      "sha256": "91f88ea709097a95847de3dec717fcd2419ec6bb517950c2b60a2a0eb9b36b7f",
+      "child_checks": 3,
+      "sampled_peak_rss_kib": 1071456,
+      "results": [
+        {
+          "case": "compile",
+          "exit": 0,
+          "sampled_peak_rss_kib": 362240,
+          "stdout.sha256": "29f3a9be30a646fe64695d377e9559b2e35793b5e32fe1f78b6603fe04a9e608",
+          "stderr.sha256": "3396cc61419c2f98bba05de2415f6ebd84262feff7b84e0db5464c6762fa6aeb",
+          "data": []
+        },
+        {
+          "case": "link",
+          "exit": 0,
+          "sampled_peak_rss_kib": 1071456,
+          "stdout.sha256": "9111a32418b935dcbcaa0b178cf552ef650b7f0c8ebe74fbaf864e61bc243401",
+          "stderr.sha256": "c0c3e5852ed911bb4f6a470373ce37b5c1fbcd9d035d501854f230795f98fb12",
+          "data": []
+        },
+        {
+          "case": "test",
+          "exit": 0,
+          "sampled_peak_rss_kib": 58576,
+          "stdout.sha256": "ed45c45bd9f28d9389e29aa78c914aa744ec6e33fc0f81021e6103819f41ea40",
+          "stderr.sha256": "52bb754a0ec6b5f68baadbcf864604150215b7b54dfa3aa0d2e4ae992113bfe4",
+          "data": []
+        }
+      ],
+      "scope": "Exact leaf commands are recorded below; each child has its own guard and time bound.",
+      "commands": [
+        [
+          "bash",
+          "examples/java-bridge/basics/compile.sh"
+        ],
+        [
+          "bash",
+          "examples/java-bridge/basics/link.sh"
+        ],
+        [
+          "bash",
+          "examples/java-bridge/basics/test.sh"
+        ]
+      ]
+    },
+    {
+      "evidence": "workspace/gc7/reviewed-packaging/results.json",
+      "sha256": "c335809da7b6e4b5883795a532d1cc9476cb45e34519069a9d1d1f34c86268a7",
+      "child_checks": 10,
+      "sampled_peak_rss_kib": 869712,
+      "results": [
+        {
+          "case": "produce-source",
+          "exit": 0,
+          "sampled_peak_rss_kib": 846768,
+          "stdout.sha256": "f4ce1942062b26400da46047b32c73e0ac4903b329454b9c3eb8a9f50b77204b",
+          "stderr.sha256": "11e1c8b5912490558377f3941e203e0bf0b77d5182e5355a6ade64a0e4251f14",
+          "data": []
+        },
+        {
+          "case": "produce-class",
+          "exit": 0,
+          "sampled_peak_rss_kib": 869712,
+          "stdout.sha256": "f63fb2b2aaba80e8a1d649d5f9733a5df25402990aaf1ae38af9a983c83cd95b",
+          "stderr.sha256": "6a95d945ccca5c8c2d638c153760011ea5c59e69632f339391e31b572fb06ec9",
+          "data": []
+        },
+        {
+          "case": "produce-archive",
+          "exit": 0,
+          "sampled_peak_rss_kib": 858976,
+          "stdout.sha256": "3a166ddc287def6773d7f25f1c1b4ee0f5e7cefb163c7db46accbc5968e43f1f",
+          "stderr.sha256": "5edb9c1f09242e67416e38bd6d6b560e2b70cd73187378817086b0e8ed53ce15",
+          "data": []
+        },
+        {
+          "case": "assemble",
+          "exit": 0,
+          "sampled_peak_rss_kib": 201152,
+          "stdout.sha256": "8e2d9478aee01a39ab1564a2cc6130fb1002aac187b33717938c7ca0b46a0e11",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "duplicate-target",
+          "exit": 1,
+          "sampled_peak_rss_kib": 61824,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "1737011d57219f333d5b7accda7c4156d3e05f0b7e775781ac45ed1ba620ff97",
+          "data": []
+        },
+        {
+          "case": "consumer-javac",
+          "exit": 0,
+          "sampled_peak_rss_kib": 92544,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "consume-source",
+          "exit": 0,
+          "sampled_peak_rss_kib": 52160,
+          "stdout.sha256": "58d0c18c0845109bcb7ebbbfdeace01fc8ac1209f20b04dee77b62df4c04b7af",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "consume-class",
+          "exit": 0,
+          "sampled_peak_rss_kib": 50784,
+          "stdout.sha256": "58d0c18c0845109bcb7ebbbfdeace01fc8ac1209f20b04dee77b62df4c04b7af",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "consume-archive",
+          "exit": 0,
+          "sampled_peak_rss_kib": 52416,
+          "stdout.sha256": "58d0c18c0845109bcb7ebbbfdeace01fc8ac1209f20b04dee77b62df4c04b7af",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "consume-assembled",
+          "exit": 0,
+          "sampled_peak_rss_kib": 49776,
+          "stdout.sha256": "58d0c18c0845109bcb7ebbbfdeace01fc8ac1209f20b04dee77b62df4c04b7af",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        }
+      ],
+      "scope": "Exact leaf commands are recorded below; each child has its own guard and time bound.",
+      "commands": [
+        [
+          "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+          "-ea",
+          "-cp",
+          "compiler/build/classes:compiler/build/test-classes",
+          "ironwood.compiler.Gc6CliTests",
+          "workspace/gc7/reviewed-packaging/source",
+          "/opt/homebrew/opt/llvm"
+        ],
+        [
+          "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+          "-ea",
+          "-cp",
+          "compiler/build/classes:compiler/build/test-classes",
+          "ironwood.compiler.Gc6CliTests",
+          "workspace/gc7/reviewed-packaging/class",
+          "/opt/homebrew/opt/llvm",
+          "class"
+        ],
+        [
+          "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+          "-ea",
+          "-cp",
+          "compiler/build/classes:compiler/build/test-classes",
+          "ironwood.compiler.Gc6CliTests",
+          "workspace/gc7/reviewed-packaging/archive",
+          "/opt/homebrew/opt/llvm",
+          "archive"
+        ],
+        [
+          "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+          "-jar",
+          "compiler/build/ironwoodc.jar",
+          "--java-bridge-assemble",
+          "-o",
+          "workspace/gc7/reviewed-packaging/assembled.jar",
+          "workspace/gc7/reviewed-packaging/source/scalar.jar"
+        ],
+        [
+          "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+          "-jar",
+          "compiler/build/ironwoodc.jar",
+          "--java-bridge-assemble",
+          "-o",
+          "workspace/gc7/reviewed-packaging/duplicate.jar",
+          "workspace/gc7/reviewed-packaging/source/scalar.jar",
+          "workspace/gc7/reviewed-packaging/source/scalar.jar"
+        ]
+      ],
+      "consumer": "Compile ScalarConsumer against source/scalar.jar with javac --release 21 -Xlint:all -Werror; invoke gc6cli.Scalar.mix(25)==42 with -Xcheck:jni against each of source, class, archive and assembled outputs."
+    },
+    {
+      "evidence": "workspace/gc7/bridge-orderbook2/results.json",
+      "sha256": "658938c16cd5613cc1b50d8c277b807a67696c943ce12f623ab114666db25ba5",
+      "child_checks": 5,
+      "sampled_peak_rss_kib": 891056,
+      "results": [
+        {
+          "case": "produce",
+          "exit": 0,
+          "sampled_peak_rss_kib": 891056,
+          "stdout.sha256": "3fe856e8fc5ca889d63854faec61312b5aba728a28a5b85434779def7c52813c",
+          "stderr.sha256": "173ffafd37c6c2c3cd31e2917ae3d9e5989525d44f9e1f97918854c773c5b54f",
+          "data": []
+        },
+        {
+          "case": "javac",
+          "exit": 0,
+          "sampled_peak_rss_kib": 145376,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "BridgeBench",
+          "exit": 0,
+          "sampled_peak_rss_kib": 52880,
+          "stdout.sha256": "918a86f5fb1df0c93849ec0a37a37f8a5049c294196f5d7beb8f327774d2ea0a",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "OrderBookBatchConsumer",
+          "exit": 0,
+          "sampled_peak_rss_kib": 53408,
+          "stdout.sha256": "0e36f128ce9080e9fdd32c91a06816f56793abd186eb983415c44b8799cc773c",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "latency",
+          "exit": 0,
+          "sampled_peak_rss_kib": 49920,
+          "stdout.sha256": "d4a119aaeb0c8d608e7ab1b5e92bf670b5da5d3a1ec57c03c47da9c6674401dc",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        }
+      ],
+      "command": [
+        "python3",
+        "scripts/java-bridge/measure-managed.py",
+        "--sdk",
+        "workspace/gc7-sdk-final",
+        "--llvm-home",
+        "/opt/homebrew/opt/llvm",
+        "--java-home",
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home",
+        "--output",
+        "workspace/gc7/bridge-orderbook2",
+        "--case",
+        "orderbook",
+        "--quick"
+      ],
+      "sdk_configuration": "728c45bd8ecedf7d4fc5bb64ffd25edc85bb37115f768cad38a81eb118e0f86b"
+    },
+    {
+      "evidence": "workspace/gc7/bridge-listeners/results.json",
+      "sha256": "2a706797d66d92aac6b23146be51f66ef106c9b611f8272027a6f4097dd4d972",
+      "child_checks": 4,
+      "sampled_peak_rss_kib": 1005888,
+      "results": [
+        {
+          "case": "produce",
+          "exit": 0,
+          "sampled_peak_rss_kib": 1005888,
+          "stdout.sha256": "e47ae3b454f9ef59ef8af1b279dd7d64da7bbdb39289f67d86a7991b2a4be7fb",
+          "stderr.sha256": "3f0cbe3d01111cf161d3e6a00649ad448a1b24db476e282f9a7b360198dfb302",
+          "data": []
+        },
+        {
+          "case": "javac",
+          "exit": 0,
+          "sampled_peak_rss_kib": 161696,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "java-java",
+          "exit": 0,
+          "sampled_peak_rss_kib": 6560,
+          "stdout.sha256": "eb669a012d4f057491b99df182b717112762643bba804f5e698541f809a0619e",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "native-java",
+          "exit": 0,
+          "sampled_peak_rss_kib": 55152,
+          "stdout.sha256": "894c351d66e1be70c553b69f69c1227d3f4a74f1a54fd6e2bd5bb642272a30f5",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        }
+      ],
+      "command": [
+        "python3",
+        "scripts/java-bridge/measure-managed.py",
+        "--sdk",
+        "workspace/gc7-sdk-final",
+        "--llvm-home",
+        "/opt/homebrew/opt/llvm",
+        "--java-home",
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home",
+        "--output",
+        "workspace/gc7/bridge-listeners",
+        "--case",
+        "listeners",
+        "--quick"
+      ],
+      "sdk_configuration": "728c45bd8ecedf7d4fc5bb64ffd25edc85bb37115f768cad38a81eb118e0f86b"
+    },
+    {
+      "evidence": "workspace/gc7/orderbook-project-final/results.json",
+      "sha256": "67558d42f47008a2fa108ba1bebbb6b45f50edde5a498185e202237860d21ada",
+      "child_checks": 3,
+      "sampled_peak_rss_kib": 830096,
+      "results": [
+        {
+          "case": "compile",
+          "exit": 0,
+          "sampled_peak_rss_kib": 476432,
+          "stdout.sha256": "54b848fe3cfb570ec1856fdee9faca7440aedcfce02255fdf0c616d8f01a2854",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "link",
+          "exit": 0,
+          "sampled_peak_rss_kib": 830096,
+          "stdout.sha256": "b0692e99b86dafd2e2d2c0db012deb8f388b6cee70bdb4a58388a76590e07cdc",
+          "stderr.sha256": "6a2a9ff151c2edb8e964db1696dc3b68ca93706c2a0a2e6da8529dadd9b62330",
+          "data": []
+        },
+        {
+          "case": "test",
+          "exit": 0,
+          "sampled_peak_rss_kib": 91008,
+          "stdout.sha256": "b958980995263fc58d83501570e905ea345b65f00be73a5b2ca9784ed2eac452",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        }
+      ],
+      "scope": "Run projects/OrderBook/java-bridge/{compile,link,test}.sh, separately guarded, using JDK 23 and the qualified SDK."
+    },
+    {
+      "evidence": "workspace/gc7/network-metrics-accepted3/results.json",
+      "sha256": "acf5f5040ab48858203142f3d6ee200e68a301f2e075f185cc877aea954c5059",
+      "child_checks": 5,
+      "sampled_peak_rss_kib": 2583312,
+      "results": [
+        {
+          "case": "source",
+          "exit": 0,
+          "sampled_peak_rss_kib": 693328,
+          "stdout.sha256": "e99e657ec22c8561a992b35589a1c7ec6524b44f68eb4af25a20d8c05fcd348f",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "link",
+          "exit": 0,
+          "sampled_peak_rss_kib": 2583312,
+          "stdout.sha256": "7b33b7d8ef2e715d6a4ec0eaecf93a0ab1245fcd48dda33dc191c998887f062a",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "default",
+          "exit": 0,
+          "sampled_peak_rss_kib": 2832,
+          "stdout.sha256": "c2c2a846601138284973557a8f4786d099fca27a8a6b8f6b045991a345fa27c9",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "custom",
+          "exit": 0,
+          "sampled_peak_rss_kib": 2816,
+          "stdout.sha256": "2d7ef66ded139455feecfebe1aff324588112ed7704170ccf20e34a9d335c1b5",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        },
+        {
+          "case": "assembly",
+          "exit": 0,
+          "sampled_peak_rss_kib": 22160,
+          "stdout.sha256": "e15725fd388de11071872a7ec2892ac362a4cf3b7eca0f6bc72e45c6ee417d9f",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": []
+        }
+      ],
+      "scope": "Compile tcp_delegation/Main.iron and Metrics.iron; link Metrics -O3 --emit-llvm; run Metrics default 4 4 and custom 4 4; disassemble with llvm-objdump. Four exact ledger rows per mode, zero repeated-operation/source-close managed allocations."
+    },
+    {
+      "evidence": "workspace/gc7/linux-accepted/objects/results.json",
+      "sha256": "77a00e2762152e222604ce5ec9ed0272c0d09f16d890129f951eee6acb64c5f7",
+      "child_checks": 3,
+      "sampled_peak_rss_kib": 1440220,
+      "results": [
+        {
+          "case": "consumer-javac",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 218880,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "O3-generated-build",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 1440220,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "O3-consumer",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 95460,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "df1d150a967ca126d874e26269fbdd14f6973a736e9ce772a7973ef9bf1da946"
+        }
+      ],
+      "sdk_configuration": "27c2bc0d5de40df986063ea05fed548dc6450160b803eaf3dc1b4b344c5b446d",
+      "target": "linux-x86_64",
+      "scope": "Local translated linux-x86_64 Docker/Rosetta control with LLVM 23, JDK 21, rebuilt linux SDK; O3. Executed before the last constructor-summary correction; that correction was rerun in macOS object/callback and platform-independent compiler selections."
+    },
+    {
+      "evidence": "workspace/gc7/linux-accepted/callbacks/results.json",
+      "sha256": "da96f2089596da75548e9915bdcc0661bef1ebf4a6029dd28c62912fff96ba80",
+      "child_checks": 4,
+      "sampled_peak_rss_kib": 1305944,
+      "results": [
+        {
+          "case": "consumer-javac",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 242396,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "O3-generated-build",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 1305944,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "O3-consumer",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 153364,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "a3152043d963d8cda552a55c274048a29ed82def64247c2e7b8cf6b2cb2ced41"
+        },
+        {
+          "case": "O3-batch-fallback",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 86744,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "a3152043d963d8cda552a55c274048a29ed82def64247c2e7b8cf6b2cb2ced41"
+        }
+      ],
+      "sdk_configuration": "27c2bc0d5de40df986063ea05fed548dc6450160b803eaf3dc1b4b344c5b446d",
+      "target": "linux-x86_64",
+      "scope": "Local translated linux-x86_64 Docker/Rosetta control with LLVM 23, JDK 21, rebuilt linux SDK; O3 and --batch-fallback. Executed before the last constructor-summary correction; that correction was rerun in macOS object/callback and platform-independent compiler selections."
+    },
+    {
+      "evidence": "workspace/gc7/retention-structural-final/results.json",
+      "sha256": "9875076f97f85f11c84aba3ed1a0fce3dc730f2894b5b6cb1861ec698f5cfc24",
+      "child_checks": 3,
+      "sampled_peak_rss_kib": 1101088,
+      "results": [
+        {
+          "case": "compile-tests",
+          "exit": 0,
+          "sampled_peak_rss_kib": 401760,
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": [],
+          "command": [
+            "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/javac",
+            "--release",
+            "21",
+            "-encoding",
+            "UTF-8",
+            "-Xlint:all",
+            "-Werror",
+            "-cp",
+            "compiler/build/classes",
+            "-d",
+            "compiler/build/test-classes",
+            "@workspace/gc7/test-sources.txt"
+          ]
+        },
+        {
+          "case": "retention-controls",
+          "exit": 0,
+          "sampled_peak_rss_kib": 1101088,
+          "stdout.sha256": "0bede38ee6440a49a6df4cfef187b1974082f44fd833b9d22d0521730db2fe6e",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": [],
+          "command": [
+            "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+            "-ea",
+            "-cp",
+            "compiler/build/classes:compiler/build/test-classes",
+            "ironwood.compiler.CompilerTests",
+            "--test",
+            "Java Bridge unwind reachability requires complete nonraising helper proofs",
+            "--test",
+            "Java Bridge primitive arraycopy proofs preserve erased-helper and artifact attribution",
+            "--test",
+            "GC6 carriers separate exact managed linkage from JNI completion",
+            "--test",
+            "GC6 managed callbacks bind exact contexts and invocation JNI completion",
+            "--test",
+            "GC7 copied inputs and borrowed descriptors retain confinement",
+            "--test",
+            "GC7 snapshot getters root String results and confine foreign receivers"
+          ]
+        },
+        {
+          "case": "jni-callbacks",
+          "exit": 0,
+          "sampled_peak_rss_kib": 70864,
+          "stdout.sha256": "6d7de391f0c4205f07f08b908301c706295ee37aca48a4fd99f248fe3f3c7b50",
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "data": [],
+          "command": [
+            "/opt/homebrew/opt/python@3.15/bin/python3.15",
+            "scripts/test-gc6-callbacks.py",
+            "--sdk",
+            "workspace/gc7-sdk-final",
+            "--llvm-home",
+            "/opt/homebrew/opt/llvm",
+            "--java-home",
+            "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home",
+            "--output",
+            "workspace/gc7/retention-structural-final/callbacks",
+            "--level",
+            "O3",
+            "--batch-fallback"
+          ]
+        }
+      ],
+      "tests": [
+        "Java Bridge unwind reachability requires complete nonraising helper proofs",
+        "Java Bridge primitive arraycopy proofs preserve erased-helper and artifact attribution",
+        "GC6 carriers separate exact managed linkage from JNI completion",
+        "GC6 managed callbacks bind exact contexts and invocation JNI completion",
+        "GC7 copied inputs and borrowed descriptors retain confinement",
+        "GC7 snapshot getters root String results and confine foreign receivers"
+      ]
+    },
+    {
+      "evidence": "workspace/gc7/retention-structural-final/callbacks/results.json",
+      "sha256": "8a541b118e543384eff65c6310d47277ec2579d2936f8a756a6a6b49c6790f0d",
+      "child_checks": 4,
+      "sampled_peak_rss_kib": 1027776,
+      "results": [
+        {
+          "case": "consumer-javac",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 139120,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "O3-generated-build",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 1027776,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "O3-consumer",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 91696,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "a3152043d963d8cda552a55c274048a29ed82def64247c2e7b8cf6b2cb2ced41"
+        },
+        {
+          "case": "O3-batch-fallback",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 63568,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "a3152043d963d8cda552a55c274048a29ed82def64247c2e7b8cf6b2cb2ced41"
+        }
+      ],
+      "sdk_configuration": "728c45bd8ecedf7d4fc5bb64ffd25edc85bb37115f768cad38a81eb118e0f86b",
+      "target": "macos-arm64",
+      "scope": "Actual O3 checked-JNI callback and batch-fallback rerun after final unused query/stub retirement."
+    }
+  ],
+  "searches": [
+    {
+      "command": "rg -n 'mustFree|MustFree|DeferredFree|FreeStatement|DestructorDeclaration|IrDealloc|IrDestroy|IrRollback|OwnedArray|TemporaryBorrow|ClosedWorldEffectAnalyzer|RejectedFree|UnfreedMode|releaseOwned|destroyFunction|rollbackFunction' compiler/src/main runtime stdlib ide scripts (exclude stopped self-hosting, inventory scripts and JSON evidence)",
+      "matches": 0,
+      "output.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "disposition": "zero production matches"
+    },
+    {
+      "command": "rg -n '\\b(free|destructor)\\b|SuppressUnfreed|--unfreed|explain-rejected-free' compiler/src/main/java --glob '*.java'",
+      "matches": 66,
+      "output.sha256": "aeccef28b479d98c27f129df2321019fad1053123325029d08f7f4238e937d80",
+      "disposition": "migration diagnostics, forbidden-symbol recognition, native C cleanup, allocation-free descriptions or ordinary names; no managed release producer"
+    },
+    {
+      "command": "rg -n '\\b(free|realloc)\\s*\\(' runtime/src compiler/src/main/javacompiler/bridge --glob '*.c' --glob '*.java'",
+      "matches": 71,
+      "output.sha256": "98e85daf70053971f91c3757b800e9f5e4762f4aae351e4377fe0858a0686bad",
+      "disposition": "native scratch/resources/owner/JNI records only; categories and remaining realloc sites documented in GC7_DISPOSITION"
+    }
+  ],
+  "tcp_O3_audit": {
+    "llvm": "workspace/gc7/network-metrics-accepted3/metrics.ll",
+    "llvm.sha256": "39f427d2957715e2716e86d4d1d8bf8579bdc46342a2cdc8d858c57b2bd8f549",
+    "disassembly.sha256": "e15725fd388de11071872a7ec2892ac362a4cf3b7eca0f6bc72e45c6ee417d9f",
+    "excerpt": [
+      "10000e2bc:     \tldr\tw0, [x19, #0x8]",
+      "10000e2c0:     \tadd\tx23, x19, #0x6c",
+      "10000e2c4:     \tstrb\twzr, [x19, #0x50]",
+      "10000e2c8:     \tadd\tx2, x19, #0x54",
+      "10000e2cc:     \tadd\tx3, x19, #0x58",
+      "10000e2d0:     \tadd\tx4, x19, #0x5c",
+      "10000e2d4:     \tadd\tx5, x19, #0x60",
+      "10000e2d8:     \tadd\tx6, x19, #0x64",
+      "10000e2dc:     \tadd\tx7, x19, #0x68",
+      "10000e2e0:     \tmov\tw1, wzr",
+      "10000e2e4:     \tstr\tx23, [sp]",
+      "10000e2e8:     \tbl\t0x10001c514 <_ironwood_tcp_endpoint>"
+    ],
+    "finding": "Managed field addresses lower to ordinary add instructions feeding the existing noncollecting TCP leaf call; address-space casts introduce no helper, collection or bookkeeping."
+  },
+  "generic_quick_summaries": [
+    {
+      "path": "workspace/gc7/generic-getter-accepted2/summary.json",
+      "sha256": "1f4c7f07b33c3ba5499ba89553add8fb2db63916346962e3e575cee4e75060fc",
+      "summary": {
+        "quick": true,
+        "results": [
+          {
+            "scenario": "generic",
+            "median_ns_per_call": 174.0083,
+            "million_calls_per_second": 5.7468523053210685,
+            "min_ns_per_call": 171.4667,
+            "max_ns_per_call": 206.8
+          },
+          {
+            "scenario": "plain",
+            "median_ns_per_call": 174.2875,
+            "million_calls_per_second": 5.737646130674891,
+            "min_ns_per_call": 173.225,
+            "max_ns_per_call": 204.5083
+          }
+        ]
+      }
+    },
+    {
+      "path": "workspace/gc7/bounded-generic-accepted/summary.json",
+      "sha256": "c6b0b37c2c9b9218f369baa6a843867bcf5d502b8b2a98a192d2d70631fea089",
+      "summary": {
+        "quick": true,
+        "results": [
+          {
+            "scenario": "generic",
+            "median_ns_per_call": 124.6458,
+            "million_calls_per_second": 8.022733216843248,
+            "min_ns_per_call": 109.8334,
+            "max_ns_per_call": 127.5
+          },
+          {
+            "scenario": "plain",
+            "median_ns_per_call": 124.7875,
+            "million_calls_per_second": 8.013623159370932,
+            "min_ns_per_call": 111.8916,
+            "max_ns_per_call": 227.1209
+          }
+        ]
+      }
+    }
+  ],
+  "unexecuted": [
+    "unfiltered compiler/stdlib/platform suite or reconstruction through all groups",
+    "exhaustive native GC2-GC4 fault/OOM matrices",
+    "every migrated runnable consumer or optimization level",
+    "full JDK and timing matrices",
+    "fresh physical Linux host qualification",
+    "Linux arm64 and arm64e",
+    "GC8 capacity/performance acceptance, GC9-GC10 and self-hosting/I1/I2"
+  ],
+  "evidence_policy": "Commit manifests/hashes/summaries only. Raw logs, SDKs, binaries and dependency archives remain ignored. Historical evidence is not relabeled as a rerun."
+}

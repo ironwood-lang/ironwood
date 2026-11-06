@@ -24,7 +24,6 @@ public class StableControlFlow {
             selected.next();
             seen++;
         }
-        free list; // Valid: the branch merge did not obscure the owner.
         return seen == 1 ? 42 : 1;
     }
 }

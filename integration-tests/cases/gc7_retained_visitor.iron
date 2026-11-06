@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.nio.file.*;
+import ironwood.nio.file.attribute.BasicFileAttributes;
+
+// A walk closes native directory handles while retained callback values remain
+// ordinary managed roots. The driver supplies a directory containing kept.txt (abc).
+class RetainingVisitor extends SimpleFileVisitor<Path> {
+    static Path saved;
+    static BasicFileAttributes attributes;
+
+    @Override
+    public FileVisitResult visitFile(Path path, BasicFileAttributes value) {
+        saved = path;
+        attributes = value;
+        return FileVisitResult.CONTINUE;
+    }
+}
+
+class Main {
+    public static int main(String[] args) throws Exception {
+        Files.walkFileTree(Path.of(args[0]), new RetainingVisitor());
+        ironwood.lang.Memory.collect();
+        if (RetainingVisitor.saved == null || RetainingVisitor.attributes == null) return 1;
+        if (!RetainingVisitor.saved.toString().endsWith("kept.txt")) return 2;
+        if (RetainingVisitor.attributes.size() != 3L) return 3;
+        return 42;
+    }
+}

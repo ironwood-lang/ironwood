@@ -19,8 +19,7 @@ class LayoutBase {
 
     boolean baseValid(int seed) {
 
-        return this.tag == seed && this.count == 1234567890123L + seed
-                && this.enabled && this.amount == 3.25;
+        return this.tag == seed && this.count == 1234567890123L + seed && this.enabled && this.amount == 3.25;
     }
 }
 
@@ -40,8 +39,7 @@ class LayoutChild extends LayoutBase {
 
     boolean valid(int seed) {
 
-        return this.baseValid(seed) && this.small == 7
-                && this.tail == 9876543210123L + seed && this.text.length() == 6;
+        return this.baseValid(seed) && this.small == 7 && this.tail == 9876543210123L + seed && this.text.length() == 6;
     }
 }
 
@@ -73,13 +71,9 @@ class Main {
     public static int main(String[] args) {
 
         LayoutChild child = new LayoutChild(args.length);
-        defer free child;
         long[] longs = new long[3];
-        defer free longs;
         double[] doubles = new double[2];
-        defer free doubles;
         String[] strings = new String[2];
-        defer free strings;
         longs[1] = 1234567890123L;
         longs[2] = global;
         doubles[1] = 2.75;

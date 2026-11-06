@@ -5,7 +5,7 @@ set -euo pipefail
 EXAMPLE_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$EXAMPLE_DIR"
 COMMAND=(ironwoodc --link -cp target/classes --main-class org.ironwood.tls.TlsEcho
-    -o target/TlsEcho -O3 --unfreed=error)
+    -o target/TlsEcho -O3 )
 printf '+'
 printf ' %q' "${COMMAND[@]}"
 printf '\n'

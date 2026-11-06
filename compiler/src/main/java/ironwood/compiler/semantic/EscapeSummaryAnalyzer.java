@@ -19,10 +19,8 @@ import ironwood.compiler.ast.EmptyStatement;
 import ironwood.compiler.ast.EnhancedForStatement;
 import ironwood.compiler.ast.ExpressionStatement;
 import ironwood.compiler.ast.DeferStatement;
-import ironwood.compiler.ast.DeferredFreeStatement;
 import ironwood.compiler.ast.FieldAccessExpression;
 import ironwood.compiler.ast.FieldDeclaration;
-import ironwood.compiler.ast.FreeStatement;
 import ironwood.compiler.ast.ForStatement;
 import ironwood.compiler.ast.IfStatement;
 import ironwood.compiler.ast.InstanceOfExpression;
@@ -78,92 +76,32 @@ final class EscapeSummaryAnalyzer {
             new LinkedHashMap<>();
     private final Map<String, TypeSymbol> types;
     private final TypeResolver resolver;
-    private final OwnedArrayFieldAnalyzer ownedFields;
     private final BorrowDispatchAnalysis borrowDispatch;
-    private FreshArrayElementAnalysis freshArrayElements;
     private PoolReleaseAnalysis poolReleases;
-    private final Map<String, Set<SourceSpan>> temporaryBorrows;
-    private final Map<String, Map<SourceSpan, TemporaryListBorrowAnalysis.Site>> temporaryLists;
+
     private final Map<String, Set<SourceSpan>> dynamicStringConcatenationSpans;
-    private final SemanticAnalysisObserver observer;
-    private final long observerToken;
-    private final SummaryWitnessEvidence witnessEvidence;
-    private int observedRound;
+
     private final Deque<Set<Integer>> switchYields = new ArrayDeque<>();
     private TypeSymbol analyzingOwner;
     private CallableSymbol analyzingCallable;
     private Set<Integer> retainedByReceiver = Set.of();
     private Map<Integer, FieldSymbol> currentRetainedParameterFields = Map.of();
     private Set<Integer> ambiguousRetainedParameterFields = Set.of();
-    private Map<Integer, RawCandidate> rawCandidates;
-    private long rawEvent;
-
-    private record RawCandidate(SourceSpan span, String reason,
-                                SummaryWitnessEvidence.Witness dependency, long event) {
-    }
 
     EscapeSummaryAnalyzer(Map<String, TypeSymbol> types) {
-        this(types, new TypeResolver(types), null);
+        this(types, new TypeResolver(types));
     }
 
     EscapeSummaryAnalyzer(Map<String, TypeSymbol> types, TypeResolver resolver) {
-        this(types, resolver, null);
+        this(types, resolver, null, Map.of());
     }
 
     EscapeSummaryAnalyzer(Map<String, TypeSymbol> types, TypeResolver resolver,
-                          OwnedArrayFieldAnalyzer ownedFields) {
-        this(types, resolver, ownedFields, null);
-    }
-
-    EscapeSummaryAnalyzer(Map<String, TypeSymbol> types, TypeResolver resolver,
-                          OwnedArrayFieldAnalyzer ownedFields, BorrowDispatchAnalysis borrowDispatch) {
-        this(types, resolver, ownedFields, borrowDispatch, Map.of());
-    }
-
-    EscapeSummaryAnalyzer(Map<String, TypeSymbol> types, TypeResolver resolver,
-                          OwnedArrayFieldAnalyzer ownedFields,
-                          BorrowDispatchAnalysis borrowDispatch,
+                          BorrowDispatchAnalysis dispatch,
                           Map<String, Set<SourceSpan>> dynamicStringConcatenationSpans) {
-        this(types, resolver, ownedFields, borrowDispatch, dynamicStringConcatenationSpans, Map.of(), Map.of());
-    }
-
-    EscapeSummaryAnalyzer(Map<String, TypeSymbol> types, TypeResolver resolver,
-                          OwnedArrayFieldAnalyzer ownedFields, BorrowDispatchAnalysis borrowDispatch,
-                          Map<String, Set<SourceSpan>> dynamicStringConcatenationSpans,
-                          Map<String, Set<SourceSpan>> temporaryBorrows,
-                          Map<String, Map<SourceSpan, TemporaryListBorrowAnalysis.Site>> temporaryLists) {
-        this(types, resolver, ownedFields, borrowDispatch, dynamicStringConcatenationSpans,
-                temporaryBorrows, temporaryLists, null, 0,
-                SemanticAnalysisObserver.AnalyzerPhase.INITIAL, null, null);
-    }
-
-    EscapeSummaryAnalyzer(Map<String, TypeSymbol> types, TypeResolver resolver,
-                          OwnedArrayFieldAnalyzer ownedFields, BorrowDispatchAnalysis borrowDispatch,
-                          Map<String, Set<SourceSpan>> dynamicStringConcatenationSpans,
-                          Map<String, Set<SourceSpan>> temporaryBorrows,
-                          Map<String, Map<SourceSpan, TemporaryListBorrowAnalysis.Site>> temporaryLists,
-                          SemanticAnalysisObserver observer, long observerToken,
-                          SemanticAnalysisObserver.AnalyzerPhase phase,
-                          RejectedFreeEvidence.Budget evidenceBudget,
-                          RejectedFreeEvidence.Limits evidenceLimits) {
-        this.observer = observer;
-        this.observerToken = observerToken;
-        witnessEvidence = evidenceBudget == null ? null : new SummaryWitnessEvidence(evidenceBudget,
-                evidenceLimits == null ? SummaryWitnessEvidence.METHOD_LIMIT
-                        : evidenceLimits.summaryMethod(),
-                evidenceLimits == null ? SummaryWitnessEvidence.FACT_LIMIT
-                        : evidenceLimits.summaryFact());
-        if (observer != null) {
-            observer.analyzerCreated(observerToken,
-                    SemanticAnalysisObserver.AnalyzerKind.ESCAPE, phase);
-            observer.summaryEvidenceLifecycle(observerToken, witnessEvidence != null, false);
-        }
-        this.temporaryBorrows = temporaryBorrows;
-        this.temporaryLists = temporaryLists;
-        this.borrowDispatch = borrowDispatch;
         this.types = types;
         this.resolver = resolver;
-        this.ownedFields = ownedFields;
+        this.borrowDispatch = dispatch;
         this.dynamicStringConcatenationSpans = dynamicStringConcatenationSpans;
         // Start the finite escape fixed point at no escape. Unresolved calls still
         // add all origins; cycles of fully resolved borrowing calls need not escape.
@@ -187,8 +125,8 @@ final class EscapeSummaryAnalyzer {
             }
         }
         Map<String, SymbolicReturnOriginAnalyzer.ReturnSummary> returnedOrigins =
-                new SymbolicReturnOriginAnalyzer(types, ownedFields, this,
-                        dynamicStringConcatenationSpans, observer, -observerToken, phase).analyze();
+                new SymbolicReturnOriginAnalyzer(types, this,
+                        dynamicStringConcatenationSpans).analyze();
         summaries.replaceAll((linkageName, summary) -> summary.withSymbolicReturnSummary(
                 returnedOrigins.getOrDefault(linkageName,
                         SymbolicReturnOriginAnalyzer.ReturnSummary.empty())));
@@ -198,96 +136,17 @@ final class EscapeSummaryAnalyzer {
             }
             type.declaredMethods().values().forEach(this::applyAuditedBorrowingContract);
         }
-        filterFinalWitnesses();
-    }
 
-    SummaryWitnessEvidence witnessEvidence() {
-        return witnessEvidence;
-    }
-
-    boolean supportsFinalWitness(SummaryWitnessEvidence.Witness witness) {
-        if (witnessEvidence == null || witness == null
-                || witnessEvidence.get(witness.method(), witness.fact()) != witness) return false;
-        EscapeSummary finalSummary = summaries.get(witness.method());
-        return finalSummary != null && supportsFact(finalSummary, witness.fact());
-    }
-
-    private void filterFinalWitnesses() {
-        if (witnessEvidence == null) return;
-        for (Map.Entry<String, EscapeSummary> entry : summaries.entrySet()) {
-            for (SummaryWitnessEvidence.Fact fact : witnessEvidence.facts(entry.getKey())) {
-                if (!supportsFact(entry.getValue(), fact)) {
-                    witnessEvidence.remove(entry.getKey(), fact);
-                }
-            }
-        }
-    }
-
-    private static boolean supportsFact(EscapeSummary summary, SummaryWitnessEvidence.Fact fact) {
-        int role = fact.role();
-        ReturnOrigin returnOrigin = role == THIS_ORIGIN ? ReturnOrigin.thisOrigin()
-                : "element".equals(fact.detail()) ? ReturnOrigin.elementOfParameter(role)
-                : ReturnOrigin.parameter(role);
-        return switch (fact.effect()) {
-            case RAW_ESCAPE -> role == THIS_ORIGIN ? summary.thisEscapes()
-                    : summary.escapingParameters().contains(role);
-            case RECEIVER_RETENTION -> summary.receiverRetainedParameters().contains(role);
-            case NON_RETURN_ESCAPE -> fact.detail() == null && (role == THIS_ORIGIN
-                    ? summary.thisEscapesWithoutReturn()
-                    : summary.parametersEscapingWithoutReturn().contains(role));
-            case RETURN_ALIAS -> summary.returnedOrigins().contains(returnOrigin);
-            case BORROWED_RETURN -> summary.borrowedReturnedOrigins().stream().anyMatch(borrowed ->
-                    borrowed.ownerOrigin().equals(returnOrigin)
-                            && (borrowed.helperType() + "/" + borrowed.borrowedOwnerField())
-                            .equals(fact.detail()));
-            case FRESH_RETURN -> summary.mayReturnFresh();
-            case FRESH_PUBLICATION -> summary.freshEscapes();
-        };
-    }
-
-    void retireWitnessEvidence() {
-        if (witnessEvidence == null) return;
-        if (observer != null) {
-            observer.summaryEvidenceFinished(observerToken,
-                    witnessEvidence.anyMethodTruncated(), witnessEvidence.invocationStopped(),
-                    witnessEvidence.observerMethodCount(), witnessEvidence.observerFactCount(),
-                    witnessEvidence.observerLiveUnits());
-        }
-        witnessEvidence.close();
-        if (observer != null) {
-            observer.summaryEvidenceLifecycle(observerToken, true, true);
-        }
     }
 
     private void analyzeAll() {
-        if (observer != null) {
-            observer.analyzerRound(observerToken,
-                    SemanticAnalysisObserver.AnalyzerKind.ESCAPE, observedRound++);
-        }
+
         for (TypeSymbol type : types.values()) {
             if (!type.isInterface()) {
                 type.constructors().forEach(this::analyze);
             }
             type.declaredMethods().values().forEach(this::analyze);
         }
-    }
-
-    long observerToken() {
-        return observerToken;
-    }
-
-    long symbolicObserverToken() {
-        return -observerToken;
-    }
-
-    Map<String, String> observerProjection(boolean symbolicOnly) {
-        Map<String, String> facts = new java.util.TreeMap<>();
-        summaries.forEach((name, summary) -> facts.put(name, symbolicOnly
-                ? summary.returnedOrigins() + "/" + summary.borrowedReturnedOrigins()
-                    + "/" + summary.mayReturnNonOrigin() + "/" + summary.mayReturnFresh()
-                    + "/" + summary.mayReturnNull() + "/" + summary.freshEscapes()
-                : summary.toString()));
-        return Map.copyOf(facts);
     }
 
     EscapeSummary summary(CallableSymbol callable) {
@@ -303,37 +162,12 @@ final class EscapeSummaryAnalyzer {
                 && borrowDispatch.foreignReceiverConfined(callable.linkageName());
     }
 
-    boolean isDetachedFreshArrayElement(String function, SourceSpan span) {
-        if (borrowDispatch == null) { return false; }
-        if (freshArrayElements == null) {
-            freshArrayElements = new FreshArrayElementAnalysis(borrowDispatch.functions(), this);
-        }
-        return freshArrayElements.isDetachedLoad(function, span);
-    }
-
-    boolean isTemporaryBorrow(CallableSymbol caller, SourceSpan span) {
-        return caller != null && temporaryBorrows.getOrDefault(caller.linkageName(), Set.of()).contains(span);
-    }
-
-    TemporaryListBorrowAnalysis.Site temporaryList(CallableSymbol caller, SourceSpan span) {
-        return caller == null ? null : temporaryLists.getOrDefault(caller.linkageName(), Map.of()).get(span);
-    }
-
     boolean constructorArgumentIsConfined(CallableSymbol constructor, int index) {
         EscapeSummary effects = summary(constructor);
         if (effects.parameterEscapesOutsideReceiver(index)) { return false; }
         if (!effects.parameterRetainedByReceiverOnly(index)) { return true; }
         FieldSymbol retained = retainedParameterField(constructor, index);
-        return ownedFields != null && retained != null && ownedFields.isEncapsulated(retained);
-    }
-
-    boolean constructorCleanupIsConfined(CallableSymbol constructor) {
-        if (ownedFields == null) return false;
-        for (int parameter : summary(constructor).receiverRetainedParameters()) {
-            FieldSymbol field = retainedParameterField(constructor, parameter);
-            if (field == null || !ownedFields.cleanupPreservesBorrow(field)) return false;
-        }
-        return true;
+        return FinalFieldOrigins.isStable(retained);
     }
 
     boolean returnsToOriginatingPool(CallableSymbol caller, SourceSpan span) {
@@ -350,29 +184,8 @@ final class EscapeSummaryAnalyzer {
 
     boolean hasEntryPoint() { return borrowDispatch != null && borrowDispatch.hasEntryPoint(); }
 
-    boolean emptyFlowFallback(String caller, SourceSpan evidenceSpan, String target) {
-        return borrowDispatch != null
-                && borrowDispatch.emptyFlowFallback(caller, evidenceSpan, target);
-    }
-
     FreshBorrowingFactoryAnalysis.Result freshBorrowingFactory(CallableSymbol callable) {
-        return freshBorrowingFactory(callable, null);
-    }
-
-    FreshBorrowingFactoryAnalysis.Result freshBorrowingFactory(CallableSymbol callable, FieldSymbol checkingField) {
-        return new FreshBorrowingFactoryAnalysis(types, resolver, this, ownedFields, checkingField).prove(callable);
-    }
-
-    java.util.List<FreshBorrowingFactoryAnalysis.Input> constructorBorrowedElements(CallableSymbol callable) {
-        return new FreshBorrowingFactoryAnalysis(types, resolver, this, ownedFields, null).constructorElements(callable);
-    }
-
-    CopiedMapReadAnalysis.Read copiedMembershipRead(CallableSymbol callable) {
-        return new FreshBorrowingFactoryAnalysis(types, resolver, this, ownedFields, null).copiedMembershipRead(callable);
-    }
-
-    boolean primitivePayloadRead(CallableSymbol callable) {
-        return new FreshBorrowingFactoryAnalysis(types, resolver, this, ownedFields, null).primitivePayloadRead(callable);
+        return new FreshBorrowingFactoryAnalysis(types, resolver, this).prove(callable);
     }
 
     java.util.List<CallableSymbol> boundTargets(CallableSymbol caller, CallExpression call) {
@@ -540,8 +353,6 @@ final class EscapeSummaryAnalyzer {
 
         analyzingOwner = types.get(callable.ownerType());
         analyzingCallable = callable;
-        rawCandidates = null;
-        rawEvent = 0;
         Set<Integer> escaped = new LinkedHashSet<>();
         Set<Integer> retained = new LinkedHashSet<>();
         retainedByReceiver = retained;
@@ -600,10 +411,9 @@ final class EscapeSummaryAnalyzer {
             }
             CallableSymbol target = targets.size() == 1 ? targets.getFirst() : null;
             EscapeSummary delegated = target == null ? null : summary(target);
-            // Superclass receiver publication is checked over the constructor
-            // chain by FunctionAnalyzer and the mandatory typed effect check.
-            // Its raw return-alias effects must not poison subclass summaries.
-            if (sameClass && (delegated == null || delegated.thisEscapes())) { escaped.add(THIS_ORIGIN); }
+            // Constructor publication is a real effect for pool/native protocols,
+            // even though it never restricts ordinary managed construction.
+            if (delegated == null || delegated.thisEscapes()) escaped.add(THIS_ORIGIN);
             for (int index = 0; index < arguments.size(); index++) {
                 Set<Integer> argument = origins(arguments.get(index), environment, escaped, false);
                 if (delegated == null || delegated.parameterEscapesOutsideReceiver(index)) {
@@ -625,11 +435,19 @@ final class EscapeSummaryAnalyzer {
                 && callable.sourceName().equals("arraycopy")
                 && callable.isStatic()
                 && callable.parameters().size() == 5) {
-            // The destination may retain aliases copied from a reference array. The current
-            // allocation proof does not model per-element provenance, so reject a later free
-            // of a tracked destination rather than risk losing an alias edge.
+            // Bulk mutation invalidates exact destination element provenance.
+            // Keep the effect conservative for pool and foreign confinement.
             escaped.add(2);
-            recordRaw(2, callable.span(), "conservative arraycopy destination");
+
+        }
+        if (callable.isConstructor() && callable.thisInvocation().isEmpty()
+                && callable.superInvocation().isEmpty()) {
+            TypeSymbol parent = analyzingOwner.superclass().orElse(null);
+            // Object's compiler-owned empty constructor has no publication effect.
+            if (parent != null && !parent.name().equals("ironwood.lang.Object")) {
+                var defaults = parent.constructors().stream().filter(value -> value.parameters().isEmpty()).toList();
+                if (defaults.size() != 1 || summary(defaults.getFirst()).thisEscapes()) escaped.add(THIS_ORIGIN);
+            }
         }
         if (callable.isConstructor() && callable.thisInvocation().isEmpty()) {
             TypeSymbol owner = types.get(callable.ownerType());
@@ -652,8 +470,7 @@ final class EscapeSummaryAnalyzer {
             // buffer. Wrapped storage is caller-owned, but keep one conservative
             // source-level contract for every dispatch target of array().
             escaped.add(THIS_ORIGIN);
-            recordRaw(THIS_ORIGIN, callable.span(),
-                    "conservative backing-array publication");
+
         }
         if (isBorrowingFilesFacade(callable) || isBorrowingProcessFacade(callable)) {
             // These Java-shaped whole-file operations observe their arguments only for the
@@ -674,95 +491,11 @@ final class EscapeSummaryAnalyzer {
         summaries.put(callable.linkageName(), new EscapeSummary(
                 escaped.contains(THIS_ORIGIN), escaped.stream().filter(value -> value >= 0).collect(
                         java.util.stream.Collectors.toUnmodifiableSet()), retained));
-        finishRawWitnesses(callable, escaped);
+
         Map<Integer, FieldSymbol> retainedFields = new LinkedHashMap<>(
                 currentRetainedParameterFields);
         ambiguousRetainedParameterFields.forEach(retainedFields::remove);
         retainedParameterFields.put(callable.linkageName(), Map.copyOf(retainedFields));
-    }
-
-    private void recordRaw(Set<Integer> origins, SourceSpan span, String reason) {
-        if (witnessEvidence == null || origins.isEmpty()) return;
-        long event = ++rawEvent;
-        origins.stream().sorted().forEach(origin -> recordRaw(origin, span, reason, null, event));
-    }
-
-    private void recordRawCall(Set<Integer> origins, SourceSpan span,
-                               java.util.List<CallableSymbol> bound,
-                               CallableSymbol fallback, int calleeRole) {
-        if (witnessEvidence == null || origins.isEmpty()) return;
-        java.util.List<CallableSymbol> targets = bound.isEmpty()
-                ? fallback == null ? java.util.List.of() : java.util.List.of(fallback) : bound;
-        java.util.List<CallableSymbol> contributing = targets.stream()
-                .filter(target -> calleeRole == THIS_ORIGIN
-                        ? summary(target).thisEscapesWithoutReturn()
-                        : summary(target).parameterEscapesWithoutReturn(calleeRole))
-                .sorted(java.util.Comparator.comparing(CallableSymbol::linkageName)).toList();
-        CallableSymbol selected = contributing.stream().filter(target ->
-                witnessEvidence.get(target.linkageName(), new SummaryWitnessEvidence.Fact(
-                        SummaryWitnessEvidence.Effect.RAW_ESCAPE, calleeRole, null)) != null)
-                .findFirst().orElse(contributing.isEmpty() ? null : contributing.getFirst());
-        SummaryWitnessEvidence.Witness dependency = selected == null ? null
-                : witnessEvidence.get(selected.linkageName(), new SummaryWitnessEvidence.Fact(
-                        SummaryWitnessEvidence.Effect.RAW_ESCAPE, calleeRole, null));
-        String reason = selected == null ? "unresolved call"
-                : "call '" + selected.linkageName() + "' as "
-                + (calleeRole == THIS_ORIGIN ? "receiver" : "argument " + (calleeRole + 1));
-        long event = ++rawEvent;
-        origins.stream().sorted().forEach(origin ->
-                recordRaw(origin, span, reason, dependency, event));
-    }
-
-    private String rawStoreReason(Expression target) {
-        if (target instanceof NameExpression name) {
-            FieldSymbol field = analyzingOwner.declaredFields().get(name.name());
-            if (field != null) {
-                return (field.isStatic() ? "static field '" : "field '")
-                        + field.ownerClass() + "." + name.name() + "'";
-            }
-        }
-        if (target instanceof FieldAccessExpression access) {
-            return "field '" + access.fieldName() + "'";
-        }
-        if (target instanceof ArrayAccessExpression) return "array element";
-        return "assignment";
-    }
-
-    private void recordRaw(int origin, SourceSpan span, String reason) {
-        if (witnessEvidence != null) recordRaw(origin, span, reason, null, ++rawEvent);
-    }
-
-    private void recordRaw(int origin, SourceSpan span, String reason,
-                           SummaryWitnessEvidence.Witness dependency, long event) {
-        if (witnessEvidence == null) return;
-        if (rawCandidates == null) rawCandidates = new LinkedHashMap<>();
-        if (rawCandidates.containsKey(origin)) return;
-        if (rawCandidates.size() >= Math.max(1, witnessEvidence.methodLimit() / 4)) {
-            witnessEvidence.markTruncated(analyzingCallable.linkageName());
-            return;
-        }
-        rawCandidates.put(origin, new RawCandidate(span, reason, dependency, event));
-    }
-
-    private void finishRawWitnesses(CallableSymbol callable, Set<Integer> escaped) {
-        if (witnessEvidence == null) return;
-        for (SummaryWitnessEvidence.Fact fact : witnessEvidence.facts(callable.linkageName(),
-                SummaryWitnessEvidence.Effect.RAW_ESCAPE)) {
-            if (!escaped.contains(fact.role())) witnessEvidence.remove(callable.linkageName(), fact);
-        }
-        Map<Integer, RawCandidate> candidates = rawCandidates == null ? Map.of() : rawCandidates;
-        for (Map.Entry<Integer, RawCandidate> entry : candidates.entrySet().stream()
-                .sorted(java.util.Comparator.comparingLong(
-                        (Map.Entry<Integer, RawCandidate> entry) -> entry.getValue().event())
-                        .thenComparingInt(Map.Entry::getKey)).toList()) {
-            if (!escaped.contains(entry.getKey())) continue;
-            RawCandidate candidate = entry.getValue();
-            SummaryWitnessEvidence.Fact fact = new SummaryWitnessEvidence.Fact(
-                    SummaryWitnessEvidence.Effect.RAW_ESCAPE, entry.getKey(), null);
-            witnessEvidence.first(callable.linkageName(), fact, analyzingOwner.source(),
-                    candidate.span(), candidate.reason(), candidate.dependency());
-        }
-        rawCandidates = null;
     }
 
     private static boolean isBorrowingFilesFacade(CallableSymbol callable) {
@@ -778,9 +511,7 @@ final class EscapeSummaryAnalyzer {
                     "isRegularFile", "isDirectory", "isSymbolicLink", "newDirectoryStream",
                     "readAttributes", "openDirectory", "directoryHasNext",
                     "nextDirectoryEntry", "closeDirectory",
-                    "walkFileTree", "walkEntry", "createsTraversalLoop", "checkedVisitResult",
-                    "releaseVisitedPath", "releaseVisitedAttributes",
-                    "releaseVisitedDirectoryStream",
+                    "createsTraversalLoop", "checkedVisitResult",
                     "size", "deleteIfExists", "createTempFile", "createTempDirectory", "temporary",
                     "isReadable", "isExecutable", "readAttributesNoFollow", "moveAtomicReplacing",
                     "moveReplacing", "moveAtomicNoReplace" -> true;
@@ -851,9 +582,7 @@ final class EscapeSummaryAnalyzer {
                 origins(assignment.target(), environment, escaped, staticFunction);
             } else {
                 markEscaped(value, escaped);
-                if (witnessEvidence != null) {
-                    recordRaw(value, assignment.value().span(), rawStoreReason(assignment.target()));
-                }
+
                 origins(assignment.target(), environment, escaped, staticFunction);
             }
             return;
@@ -862,34 +591,24 @@ final class EscapeSummaryAnalyzer {
             origins(deferred.call(), environment, escaped, staticFunction);
             return;
         }
-        if (statement instanceof DeferredFreeStatement deferred) {
-            Set<Integer> value = origins(deferred.target(), environment, escaped, staticFunction);
-            markEscaped(value, escaped);
-            recordRaw(value, deferred.target().span(), "deferred free");
-            return;
-        }
+
         if (statement instanceof ExpressionStatement expression) {
             origins(expression.expression(), environment, escaped, staticFunction);
             return;
         }
-        if (statement instanceof FreeStatement free) {
-            Set<Integer> value = origins(free.value(), environment, escaped, staticFunction);
-            markEscaped(value, escaped);
-            recordRaw(value, free.value().span(), "free");
-            return;
-        }
+
         if (statement instanceof ReturnStatement returned) {
             returned.value().ifPresent(value -> {
                 Set<Integer> result = origins(value, environment, escaped, staticFunction);
                 markEscaped(result, escaped);
-                recordRaw(result, value.span(), "return");
+
             });
             return;
         }
         if (statement instanceof ThrowStatement thrown) {
             Set<Integer> value = origins(thrown.value(), environment, escaped, staticFunction);
             markEscaped(value, escaped);
-            recordRaw(value, thrown.value().span(), "throw");
+
             return;
         }
         if (statement instanceof SuperConstructorInvocation invocation) {
@@ -1083,7 +802,7 @@ final class EscapeSummaryAnalyzer {
             initializer.elements().forEach(element -> {
                 Set<Integer> value = origins(element, environment, escaped, staticFunction);
                 markEscaped(value, escaped);
-                recordRaw(value, element.span(), "array initializer");
+
             });
             return Set.of();
         }
@@ -1116,12 +835,11 @@ final class EscapeSummaryAnalyzer {
             for (int index = 0; index < allocation.arguments().size(); index++) {
                 Set<Integer> argumentOrigins = origins(allocation.arguments().get(index), environment, escaped, staticFunction);
                 int parameter = index;
-                if (!copiesStorage && !isTemporaryBorrow(analyzingCallable, allocation.span())
+                if (!copiesStorage
                         && (constructors.isEmpty()
                         || constructors.stream().anyMatch(target -> summary(target).parameterEscapes(parameter)))) {
                     markEscaped(argumentOrigins, escaped);
-                    recordRawCall(argumentOrigins, allocation.arguments().get(index).span(),
-                            constructors, null, index);
+
                 }
             }
             if (allocated != null) {
@@ -1146,12 +864,7 @@ final class EscapeSummaryAnalyzer {
                     .map(argument -> origins(argument, environment, escaped, staticFunction))
                     .toList();
             if (returnsToOriginatingPool(analyzingCallable, call.span())) return Set.of();
-            TemporaryListBorrowAnalysis.Site list = temporaryList(analyzingCallable, call.span());
-            if (list != null) {
-                ReturnOrigin root = list.returnedOwner();
-                return root == null ? Set.of() : Set.of(root.kind() == ReturnOrigin.Kind.THIS
-                        ? THIS_ORIGIN : root.parameterIndex());
-            }
+
             CallableSymbol target = resolveCall(call, environment, staticFunction);
             java.util.List<CallableSymbol> bound = boundTargets(analyzingCallable, call);
             if (!bound.isEmpty()) { target = bound.getFirst(); }
@@ -1177,26 +890,23 @@ final class EscapeSummaryAnalyzer {
                     return Set.of();
                 }
                 markEscaped(receiverOrigins, escaped);
-                recordRawCall(receiverOrigins, call.receiver().map(Expression::span)
-                        .orElse(call.span()), bound, null, THIS_ORIGIN);
+
                 for (int index = 0; index < argumentOrigins.size(); index++) {
                     Set<Integer> argument = argumentOrigins.get(index);
                     markEscaped(argument, escaped);
-                    recordRawCall(argument, call.arguments().get(index).span(), bound, null, index);
+
                 }
                 return Set.of();
             }
             EscapeSummary targetSummary = bound.isEmpty() ? summary(target) : combinedSummary(bound);
             if (!target.isStatic() && targetSummary.thisEscapesWithoutReturn()) {
                 markEscaped(receiverOrigins, escaped);
-                recordRawCall(receiverOrigins, call.receiver().map(Expression::span)
-                        .orElse(call.span()), bound, target, THIS_ORIGIN);
+
             }
             for (int index = 0; index < argumentOrigins.size(); index++) {
                 if (targetSummary.parameterEscapesWithoutReturn(index)) {
                     markEscaped(argumentOrigins.get(index), escaped);
-                    recordRawCall(argumentOrigins.get(index), call.arguments().get(index).span(),
-                            bound, target, index);
+
                 }
             }
             Set<Integer> returned = new LinkedHashSet<>();
@@ -1251,9 +961,7 @@ final class EscapeSummaryAnalyzer {
                         staticFunction);
             } else {
                 markEscaped(value, escaped);
-                if (witnessEvidence != null) {
-                    recordRaw(value, assignment.value().span(), rawStoreReason(assignment.target()));
-                }
+
             }
             origins(assignment.target(), environment, escaped, staticFunction);
             return assignment.operator() == ironwood.compiler.ast.AssignmentOperator.ASSIGN
@@ -1349,53 +1057,10 @@ final class EscapeSummaryAnalyzer {
                                               Set<Integer> escaped,
                                               boolean staticFunction) {
         FieldSymbol field = assignedReceiverField(target, environment, staticFunction);
-        if (field == null) field = OwnedArrayElementAnalyzer.constructionField(
-                analyzingOwner, analyzingCallable, target, value);
-        if (ownedFields != null && ownedFields.isContainedListViewAssignment(analyzingCallable, field, value)) {
-            return Set.of();
-        }
-        if (ownedFields == null || field == null || !ownedFields.isOwned(field)
-                || !(value instanceof NewExpression allocation)) {
+        if (field == null) field = null;
+
             return origins(value, environment, escaped, staticFunction);
-        }
-        TypeSymbol allocated = allocatedType(allocation);
-        if (allocated == null) {
-            return origins(value, environment, escaped, staticFunction);
-        }
-        java.util.List<CallableSymbol> constructors = boundTargets(analyzingCallable.linkageName(),
-                allocation.span(), allocated.simpleName()).stream().filter(CallableSymbol::isConstructor).toList();
-        if (constructors.isEmpty()) constructors = allocated.constructors().stream()
-                .filter(candidate -> candidate.parameters().size() == allocation.arguments().size()).toList();
-        if (constructors.size() != 1) {
-            return origins(value, environment, escaped, staticFunction);
-        }
-        EscapeSummary constructor = summary(constructors.getFirst());
-        allocation.enclosingInstance().ifPresent(enclosing -> markEscaped(
-                origins(enclosing, environment, escaped, staticFunction), escaped));
-        for (int index = 0; index < allocation.arguments().size(); index++) {
-            Set<Integer> argument = origins(allocation.arguments().get(index), environment,
-                    escaped, staticFunction);
-            if (constructor.parameterEscapesOutsideReceiver(index)) {
-                markEscaped(argument, escaped);
-            } else if (constructor.parameterRetainedByReceiverOnly(index)) {
-                FieldSymbol retainedField = retainedParameterFields
-                        .getOrDefault(constructors.getFirst().linkageName(), Map.of())
-                        .get(index);
-                if (retainedField == null || !ownedFields.isEncapsulated(retainedField)) {
-                    markEscaped(argument, escaped);
-                }
-            }
-        }
-        if (allocated.captureSlots().isEmpty()) {
-            return Set.of();
-        }
-        // Captured locals need a richer per-capture retention summary. Until then, keep
-        // the ordinary conservative behavior for an owned anonymous/local helper.
-        for (TypeSymbol.CaptureSlot capture : allocated.captureSlots()) {
-            markEscaped(environment.getOrDefault(capture.variable().name(), Set.of()), escaped);
-        }
-        return Set.of();
-    }
+}
 
     private boolean isReceiverFieldTarget(Expression expression,
                                           Map<String, Set<Integer>> environment,
@@ -1745,11 +1410,6 @@ final class EscapeSummaryAnalyzer {
         return false;
     }
 
-    private static void markEnvironmentEscaped(Map<String, Set<Integer>> environment,
-                                               Set<Integer> escaped) {
-        environment.values().forEach(value -> markEscaped(value, escaped));
-    }
-
     private static void markEscaped(Set<Integer> origins, Set<Integer> escaped) {
         escaped.addAll(origins);
     }
@@ -1858,7 +1518,7 @@ final class EscapeSummaryAnalyzer {
                     symbolicThisEscapes, symbolicParameters);
         }
 
-        boolean returnsOwnedFresh() {
+        boolean returnsFresh() {
             return mayReturnFresh && !mayReturnNonOrigin && !freshEscapes
                     && returnedOrigins.isEmpty() && borrowedReturnedOrigins.isEmpty();
         }

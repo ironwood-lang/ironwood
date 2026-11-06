@@ -5,7 +5,7 @@
 The default example prints interface names, current MTUs and captured IP
 addresses. Output depends on the host; successful completion returns 0. The
 owning enumeration keeps its interface and address views alive. Independent
-address cursors are explicitly freed before that owner.
+address cursors keep the snapshot graph alive through ordinary references.
 
 ```console
 ./compile.sh

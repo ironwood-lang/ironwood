@@ -1,0 +1,194 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.pool;
+
+import ironwood.testing.Assertions;
+import ironwood.testing.TestSuite;
+
+class RetainedPoolValue {
+
+    private int[] storage;
+    int id;
+
+    RetainedPoolValue(int id) {
+
+        this.id = id;
+        this.storage = new int[3];
+        this.storage[0] = id;
+    }
+
+}
+
+class RetainedPoolBuilder implements ObjectBuilder<RetainedPoolValue> {
+
+    int created;
+
+    RetainedPoolBuilder() {
+
+        this.created = 0;
+    }
+
+    @Override
+    public RetainedPoolValue newInstance() {
+
+        return new RetainedPoolValue(this.created++);
+    }
+
+}
+
+/** Ironwood-native coverage for pool ownership and explicit reuse and managed collection. */
+public final class PoolRetentionTests extends TestSuite {
+
+    @Test
+    private void arrayEmptyPoolReusesStorage() {
+
+        RetainedPoolBuilder builder = new RetainedPoolBuilder();
+        ArrayObjectPool<RetainedPoolValue> pool =
+                new ArrayObjectPool<RetainedPoolValue>(2, 0, builder);
+        Assertions.assertEquals(0, builder.created);
+
+    }
+
+    @Test
+    private void arrayPreloadedValuesAreDestroyed() {
+
+        RetainedPoolBuilder builder = new RetainedPoolBuilder();
+        ArrayObjectPool<RetainedPoolValue> pool =
+                new ArrayObjectPool<RetainedPoolValue>(4, 4, builder);
+        Assertions.assertEquals(4, builder.created);
+
+    }
+
+    @Test
+    private void arrayCheckedOutValuesAreDestroyed() {
+
+        RetainedPoolBuilder builder = new RetainedPoolBuilder();
+        ArrayObjectPool<RetainedPoolValue> pool =
+                new ArrayObjectPool<RetainedPoolValue>(2, 0, builder);
+        RetainedPoolValue first = pool.get();
+        RetainedPoolValue second = pool.get();
+        RetainedPoolValue third = pool.get();
+        Assertions.assertEquals(0, first.id);
+        Assertions.assertEquals(1, second.id);
+        Assertions.assertEquals(2, third.id);
+
+    }
+
+    @Test
+    private void arrayReleasedValuesAreDestroyedOnce() {
+
+        RetainedPoolBuilder builder = new RetainedPoolBuilder();
+        ArrayObjectPool<RetainedPoolValue> pool =
+                new ArrayObjectPool<RetainedPoolValue>(2, 2, builder);
+        RetainedPoolValue first = pool.get();
+        RetainedPoolValue second = pool.get();
+        pool.release(second);
+        pool.release(first);
+        for (int index = 0; index < 100; index++) {
+            RetainedPoolValue value = pool.get();
+            pool.release(value);
+        }
+
+    }
+
+    @Test
+    private void arrayGrowthReclaimsEveryAllocation() {
+
+        RetainedPoolBuilder builder = new RetainedPoolBuilder();
+        ArrayObjectPool<RetainedPoolValue> pool =
+                new ArrayObjectPool<RetainedPoolValue>(1, 0, builder, 2.0f);
+        for (int index = 0; index < 32; index++) pool.get();
+        Assertions.assertEquals(32, builder.created);
+
+    }
+
+    @Test
+    private void multiArrayEmptyPoolReusesStorage() {
+
+        RetainedPoolBuilder builder = new RetainedPoolBuilder();
+        MultiArrayObjectPool<RetainedPoolValue> pool =
+                new MultiArrayObjectPool<RetainedPoolValue>(2, 0, builder);
+        Assertions.assertEquals(0, builder.created);
+
+    }
+
+    @Test
+    private void multiArrayPreloadedValuesAreDestroyed() {
+
+        RetainedPoolBuilder builder = new RetainedPoolBuilder();
+        MultiArrayObjectPool<RetainedPoolValue> pool =
+                new MultiArrayObjectPool<RetainedPoolValue>(4, 4, builder);
+        Assertions.assertEquals(4, builder.created);
+
+    }
+
+    @Test
+    private void multiArrayCheckedOutValuesAreDestroyed() {
+
+        RetainedPoolBuilder builder = new RetainedPoolBuilder();
+        MultiArrayObjectPool<RetainedPoolValue> pool =
+                new MultiArrayObjectPool<RetainedPoolValue>(2, 0, builder);
+        RetainedPoolValue first = pool.get();
+        RetainedPoolValue second = pool.get();
+        RetainedPoolValue third = pool.get();
+        Assertions.assertEquals(0, first.id);
+        Assertions.assertEquals(1, second.id);
+        Assertions.assertEquals(2, third.id);
+
+    }
+
+    @Test
+    private void multiArrayReleasedValuesAreDestroyedOnce() {
+
+        RetainedPoolBuilder builder = new RetainedPoolBuilder();
+        MultiArrayObjectPool<RetainedPoolValue> pool =
+                new MultiArrayObjectPool<RetainedPoolValue>(2, 2, builder);
+        RetainedPoolValue first = pool.get();
+        RetainedPoolValue second = pool.get();
+        pool.release(second);
+        pool.release(first);
+        for (int index = 0; index < 100; index++) {
+            RetainedPoolValue value = pool.get();
+            pool.release(value);
+        }
+
+    }
+
+    @Test
+    private void multiArrayGrowthReclaimsEverySegment() {
+
+        RetainedPoolBuilder builder = new RetainedPoolBuilder();
+        MultiArrayObjectPool<RetainedPoolValue> pool =
+                new MultiArrayObjectPool<RetainedPoolValue>(1, 0, builder);
+        for (int index = 0; index < 32; index++) pool.get();
+        Assertions.assertEquals(32, builder.created);
+
+    }
+    private static int reusePhase() {
+
+        RetainedPoolBuilder builder = new RetainedPoolBuilder();
+        ArrayObjectPool<RetainedPoolValue> pool = new ArrayObjectPool<RetainedPoolValue>(1, builder);
+        RetainedPoolValue first = pool.get();
+        pool.release(first);
+        ironwood.lang.Memory.collect();
+        long allocated = System.allocationCount();
+        for (int i = 0; i < 100; i++) {
+            RetainedPoolValue next = pool.get();
+            Assertions.assertTrue(next == first);
+            pool.release(next);
+        }
+        Assertions.assertEquals(allocated, System.allocationCount());
+        return 42;
+    }
+
+    @Test
+    private void collectionPreservesPoolReuseAndReclaimsCompletedPhase() {
+
+        Assertions.assertEquals(42, reusePhase());
+        ironwood.lang.Memory.collect();
+        long baseline = System.liveAllocationCount();
+        Assertions.assertEquals(42, reusePhase());
+        ironwood.lang.Memory.collect();
+        Assertions.assertEquals(baseline, System.liveAllocationCount());
+    }
+}

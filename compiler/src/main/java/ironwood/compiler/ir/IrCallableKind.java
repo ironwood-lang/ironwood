@@ -6,7 +6,5 @@ package ironwood.compiler.ir;
 public enum IrCallableKind {
     METHOD,
     CONSTRUCTOR,
-    DESTRUCTOR,
-    CLASS_INITIALIZER,
-    CONSTRUCTOR_ROLLBACK
+    CLASS_INITIALIZER
 }

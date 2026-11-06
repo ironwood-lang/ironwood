@@ -3,4 +3,4 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 set -x
-ironwoodc --source-path src/main/ironwood -d target/classes --unfreed=error src/main/ironwood/org/ironwood/hostnetworking/HostNetworking.iron
+ironwoodc --source-path src/main/ironwood -d target/classes src/main/ironwood/org/ironwood/hostnetworking/HostNetworking.iron

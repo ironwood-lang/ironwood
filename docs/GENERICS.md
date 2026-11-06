@@ -7,7 +7,7 @@ Canonical Memory.collect() is the only reclamation point. There is no source
 free, destructor, implicit temporary destruction or managed constructor rollback.
 General defer, initialization, native resource and pool protocols remain.
 Historical proof discussions and examples mentioning those removed forms are
-pre-GC5 records awaiting GC7 consumer migration, not alternate supported semantics.
+superseded by the completed GC7 consumer migration, not alternate supported semantics.
 Native bridge/shared-library output remains refused until GC6 qualification.
 
 ## Status and scope
@@ -15,7 +15,7 @@ Native bridge/shared-library output remains refused until GC6 qualification.
 This document defines Ironwood's implemented generic model: shared native
 layouts for reference arguments and closed-world native value specialization
 for primitive arguments. The model is validated through semantic diagnostics,
-typed IR, native execution, safe-`free` analysis, and source/class/archive
+typed IR, native execution, exact managed roots, and source/class/archive
 reconstruction.
 
 It is a Java-shaped source model adapted to Ironwood's closed-world,
@@ -56,8 +56,8 @@ The following rules govern the implemented model:
    specialized membership for source-provable casts.
 6. Raw types and unchecked conversions are rejected rather than accepted with
    warnings.
-7. Generic conversions must preserve allocation identity for safe-`free`
-   analysis. Changing a static generic view never changes the native address.
+7. Generic conversions preserve alias identity for pool origins, foreign
+   confinement, dispatch and exact managed roots. Changing a static generic view never changes the native address.
 8. Closed-world compilation materializes required primitive layouts, callable
    bodies, and dispatch slots before LLVM lowering, then may eliminate unused
    shapes. This never boxes a value or changes exact source typing.
@@ -515,11 +515,10 @@ whose correctness would depend on an erased argument is rejected.
 ## Deliberate exclusion: varargs
 
 Ironwood does not support `T...` parameters or expanded variable-arity calls.
-Those calls require a compiler-created array with no ordinary source-level
-owner. In a language without garbage collection, the hidden allocation can
-remain unreclaimed after every invocation and produce unbounded growth in hot
-code. Pooling, implicit cleanup, and escape-dependent stack promotion would add
-ownership rules that Ironwood deliberately avoids at this stage.
+Expanded calls would introduce hidden allocation on ordinary call paths.
+Explicit collection makes allocation visible but does not supply a collection
+boundary per call. The fixed-arity API convention remains in effect; GC7 does
+not add a varargs feature.
 
 The parser consumes a parameter ellipsis only to produce a clear unsupported-
 feature diagnostic. No varargs flag enters the AST, callable model, inference,
@@ -644,7 +643,7 @@ depending on another variable, is reference-only. Primitive arguments are
 exact and invariant; wildcards remain pointer-shaped reference views.
 
 The semantic pipeline first performs ordinary exact substitution, inference,
-overload resolution, ownership checking, and typed-IR construction. A dedicated
+overload resolution, initialization/protocol checking, and typed-IR construction. A dedicated
 typed-IR pass then discovers used primitive shapes and materializes:
 
 - specialized class/interface layouts and descriptors for every distinct
@@ -661,15 +660,11 @@ world, so specialization is deterministic at link time and does not claim a
 stable separately compiled ABI. Tree shaking removes unused shapes and bodies.
 
 Generic bodies are checked again after substitution. Value transport, equality,
-storage, return, and arrays specialize without allocation. `null`, reference
-conversion, `Object` member use, throwing a primitive value, or dispatching on
-it as a receiver is diagnosed at the source operation. No wrapper, runtime tag,
-parameterized registry, or hidden allocation is introduced. Safe `free` tracks
-only the containing reference allocation; primitive contents create no aliases.
-Destructor and constructor-rollback functions specialize with the same exact
-owner shape as constructors and methods. A generic owned reference field keeps
-its substituted nominal descriptor; a primitive field has no child rollback or
-destructor obligation.
+storage, return and arrays specialize without boxing. Invalid null/reference,
+Object-member, throw or receiver uses of primitives diagnose their source
+operation. Exact specialized layouts mark only reference slots. Alias identity,
+GC effects/roots and actual pool/foreign provenance survive specialization;
+there are no destructor, managed rollback or child-reclamation obligations.
 
 ## Deliberate exclusions
 
@@ -687,7 +682,7 @@ The following are not part of the implemented reference-generics model:
   Ironwood does not add `SuppressWarnings` or similar loopholes around the
   static model.
 - **Varargs.** Variable-arity parameters are excluded because expanded calls
-  would create hidden arrays without reliable source-level ownership.
+  would introduce hidden argument-array allocation on ordinary call paths.
 - **Runtime generic reflection.** Parameterized instantiations do not acquire
   runtime `Class` objects, registries, or dynamically loadable identities.
 - **Declaration-site variance.** Variance remains Java-shaped and use-site.
@@ -703,7 +698,7 @@ The following are not part of the implemented reference-generics model:
   appear in a generic owner.
 - **Automatic boxing/unboxing.** A primitive argument never becomes an
   `Object`-bounded inference variable through an implicit wrapper allocation.
-  Hidden wrappers would have unclear source-level ownership and reclamation.
+  Hidden wrapper allocations are outside the current native specialization convention.
 
 These exclusions are intentional source-language choices, not temporary JVM
 limitations.
@@ -734,8 +729,7 @@ The model's completion coverage includes:
 - typed-IR preservation, reference first-bound ABI erasure, primitive native
   specialization, dispatch, and native execution at every optimization level;
 - allocation-identity preservation through captures, inferred calls, casts,
-  fresh/alias return summaries, specialized destructors and rollback, and
-  conservative safe-`free` rejection;
+  fresh/alias return summaries, exact specialized layouts, roots and conservative pool/foreign provenance;
   and
 - source-path, class-directory, individual `.ironclass`, `.ironjar`, tree-
   shaking, relocated-package, and release-package round trips.

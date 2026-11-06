@@ -95,7 +95,7 @@ public final class IronDocTests {
                      * @deprecated Use {@link #read(int)}.
                      */
                     public E read() { return null; }
-                    /** Old description. */ /** Correct description. */
+                    /** Correct description. */
                     /* ordinary trivia */ public void latest() {}
                     public static class Nested { public void nested() {} }
                     private static class Secret { public void secret() {} }
@@ -247,7 +247,6 @@ public final class IronDocTests {
     private static void packageDocumentation(Path root) throws Exception {
         Path sources = root.resolve("package-docs");
         Path info = write(sources, "p/package-info.iron", """
-                /** This earlier comment does not apply. */
                 /**
                  * Uses {@link Widget} and {@code v1. v2 | v3} with {@link Helper}.
                  * The second sentence belongs only on the package page.

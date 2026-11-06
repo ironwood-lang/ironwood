@@ -38,15 +38,9 @@ class Main {
             SourceFile source = SourceFile.of("Sample.iron", SOURCE);
             Lexer lexer = new Lexer(source);
             LexResult lexed = lexer.lex();
-            free lexer;
             Parser parser = new Parser(source, lexed.tokens());
             ParseResult parsed = parser.parse();
-            free parser;
-            boolean complete = lexed.tokens().size() == 199 && lexed.diagnostics().size() == 0
-                    && parsed.diagnostics().size() == 0 && parsed.unit() != null
-                    && parsed.unit().declarations().size() == 1;
-            free parsed;
-            free lexed;
+            boolean complete = lexed.tokens().size() == 199 && lexed.diagnostics().size() == 0 && parsed.diagnostics().size() == 0 && parsed.unit() != null && parsed.unit().declarations().size() == 1;
             return complete ? 43 : 1;
         } catch (OutOfMemoryError failure) {
             return 42;

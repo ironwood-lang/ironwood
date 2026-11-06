@@ -56,7 +56,6 @@ public final class ZipWriter {
 
         if (offset < 0 || length < 0 || length > data.length - offset) throw new IndexOutOfBoundsException();
         byte[] encoded = name.getBytes();
-        defer free encoded;
         if (encoded.length > 0xFFFF) throw new IOException("ZIP entry name is too long: " + name);
         this.crc.reset();
         this.crc.update(data, offset, length);
@@ -167,7 +166,6 @@ public final class ZipWriter {
         byte[] previous = this.buffer;
         this.buffer = new byte[(int) capacity];
         System.arraycopy(previous, 0, this.buffer, 0, this.size);
-        free previous;
     }
 
     private void growEntries() {
@@ -175,7 +173,6 @@ public final class ZipWriter {
         int[] previous = this.entries;
         this.entries = new int[previous.length * 2];
         System.arraycopy(previous, 0, this.entries, 0, previous.length);
-        free previous;
     }
 
     private void timestamp() {
@@ -205,10 +202,4 @@ public final class ZipWriter {
         this.int32((int) (value >>> 32));
     }
 
-    destructor {
-
-        free this.buffer;
-        free this.entries;
-        free this.crc;
-    }
 }

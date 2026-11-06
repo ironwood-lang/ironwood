@@ -8,7 +8,6 @@
 // suffixes, magnitudes up to 2^64 with leading zeros) and 20,000 seeded
 // spellings, each plain and negated; folds cover wrapping to every width,
 // eleven binary operators and an unfolded comparison over boundary operands,
-// negation, complement and constant narrowing. Every text is freed. Exit 42.
 import ironwood.compiler.ast.BinaryOperator;
 import ironwood.compiler.port.IntegerLiterals;
 import ironwood.compiler.port.IntegralConstants;
@@ -65,14 +64,12 @@ class Main {
         for (int pass = 0; pass < 2; pass++) {
             boolean negated = pass == 1;
             StringBuilder line = new StringBuilder();
-            defer free line;
             line.append("lit ");
             escape(line, spelling);
             line.append(' ').append(negated).append(' ').append(IntegerLiterals.isLong(spelling) ? "I64" : "I32");
             String error = IntegerLiterals.error(spelling, negated);
             if (error != null) {
                 line.append(" error ").append(error);
-                free error;
             } else {
                 line.append(" value ").append(IntegerLiterals.value(spelling, negated));
             }
@@ -83,7 +80,6 @@ class Main {
     static String underscored(String text) {
 
         StringBuilder out = new StringBuilder();
-        defer free out;
         for (int index = 0; index < text.length(); index++) {
             if (index > 0) out.append('_');
             out.append(text.charAt(index));
@@ -102,26 +98,20 @@ class Main {
                         String body = zeros[zero] + digits[magnitude];
                         String plain = prefixes[prefix] + body + suffixes[suffix];
                         literal(plain);
-                        free plain;
                         String spaced = underscored(body);
                         String separated = prefixes[prefix] + spaced + suffixes[suffix];
                         literal(separated);
-                        free separated;
-                        free spaced;
-                        free body;
                     }
                 }
             }
         }
         for (int round = 0; round < 20000; round++) {
             StringBuilder spelling = new StringBuilder();
-            defer free spelling;
             spelling.append(prefixes[next(prefixes.length)]);
             int length = next(24);
             for (int index = 0; index < length; index++) spelling.append(alphabet.charAt(next(alphabet.length())));
             String text = spelling.toString();
             literal(text);
-            free text;
         }
     }
 
@@ -131,13 +121,10 @@ class Main {
             Integer.MAX_VALUE - 1, Integer.MIN_VALUE + 1, 0x55555555L, (int) 0xAAAAAAAAL, 1000000007, -1000000007,
             Long.MAX_VALUE, Long.MIN_VALUE, Long.MAX_VALUE - 1, Long.MIN_VALUE + 1, 1L << 32, -(1L << 32),
             0x5555555555555555L, 0xAAAAAAAAAAAAAAAAL, 65535, 65536, -32768, 32767, 127, -128, 255, 256};
-        defer free values;
         OperationVariants.TypeKind[] widths = {OperationVariants.TypeKind.I8, OperationVariants.TypeKind.I16,
             OperationVariants.TypeKind.U16, OperationVariants.TypeKind.I32, OperationVariants.TypeKind.I64};
-        defer free widths;
         for (int index = 0; index < values.length; index++) {
             StringBuilder line = new StringBuilder();
-            defer free line;
             line.append("wrap ").append(values[index]);
             for (int width = 0; width < widths.length; width++) {
                 line.append(' ').append(IntegralConstants.wrap(values[index], widths[width]));
@@ -148,7 +135,6 @@ class Main {
             BinaryOperator.DIVIDE, BinaryOperator.REMAINDER, BinaryOperator.SHIFT_LEFT, BinaryOperator.SHIFT_RIGHT,
             BinaryOperator.UNSIGNED_SHIFT_RIGHT, BinaryOperator.BITWISE_AND, BinaryOperator.BITWISE_XOR,
             BinaryOperator.BITWISE_OR, BinaryOperator.LESS};
-        defer free operators;
         for (int pass = 0; pass < 2; pass++) {
             OperationVariants.TypeKind type = pass == 0 ? OperationVariants.TypeKind.I32 : OperationVariants.TypeKind.I64;
             for (int operator = 0; operator < operators.length; operator++) {
@@ -177,7 +163,6 @@ class Main {
         }
         for (int index = 0; index < values.length; index++) {
             StringBuilder line = new StringBuilder();
-            defer free line;
             line.append("narrow ").append(values[index]);
             for (int actual = 0; actual < widths.length; actual++) {
                 for (int expected = 0; expected < widths.length; expected++) {

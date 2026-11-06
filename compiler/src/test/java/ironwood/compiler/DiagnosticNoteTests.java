@@ -23,25 +23,25 @@ final class DiagnosticNoteTests {
 
     static void runAll() throws Exception {
         SourceFile primarySource = SourceFile.of("demo/Main.iron",
-                "\n".repeat(13) + "    free item;\n");
+                "\n".repeat(13) + "    ;\n");
         SourceFile relatedSource = SourceFile.of("lib/Owner.iron",
                 "\n".repeat(6) + "    hold(item);\n    next();\n");
         SourceSpan primarySpan = span(14, 10, 14, 14);
         SourceSpan relatedSpan = span(7, 10, 7, 14);
-        Diagnostic primary = new Diagnostic("cannot free 'item'", primarySource, primarySpan);
+        Diagnostic primary = new Diagnostic("uninitialized final field 'item'", primarySource, primarySpan);
         DiagnosticFormatter formatter = new DiagnosticFormatter();
-        String noNote = "error: cannot free 'item'" + System.lineSeparator()
+        String noNote = "error: uninitialized final field 'item'" + System.lineSeparator()
                 + "  --> demo/Main.iron:14:10" + System.lineSeparator()
                 + "   |" + System.lineSeparator()
-                + "14 |     free item;" + System.lineSeparator()
+                + "14 |     ;" + System.lineSeparator()
                 + "   |          ^^^^";
         require(formatter.format(primary).equals(noNote), "legacy no-note primary changed");
         require(!formatter.format(primary).endsWith(System.lineSeparator()),
                 "formatter must not add a final newline");
         require(formatter.format(Diagnostic.global("global failure")).equals("error: global failure"),
                 "unlocated error changed");
-        require(formatter.format(Diagnostic.warning(primarySource, primarySpan, "missing free"))
-                .equals(noNote.replaceFirst("error: cannot free 'item'", "warning: missing free")),
+        require(formatter.format(Diagnostic.warning(primarySource, primarySpan, "unused declaration"))
+                .equals(noNote.replaceFirst("error: uninitialized final field 'item'", "warning: unused declaration")),
                 "no-note warning changed");
 
         List<DiagnosticNote> mutable = new ArrayList<>();
@@ -87,7 +87,7 @@ final class DiagnosticNoteTests {
         require(Diagnostic.hasErrors(List.of(primary)), "legacy primary lost error severity");
 
         Diagnostic global = Diagnostic.global("global failure").withNotes(explained.notes());
-        Diagnostic warning = Diagnostic.warning(primarySource, primarySpan, "missing free")
+        Diagnostic warning = Diagnostic.warning(primarySource, primarySpan, "unused declaration")
                 .withNotes(explained.notes());
         Diagnostic missingSpan = new Diagnostic("missing span", primarySource, null)
                 .withNotes(explained.notes());
@@ -97,7 +97,7 @@ final class DiagnosticNoteTests {
         require(warning.notes().equals(explained.notes())
                         && !Diagnostic.hasErrors(List.of(warning)),
                 "located warning lost its notes or changed severity");
-        require(formatter.format(warning).startsWith("warning: missing free")
+        require(formatter.format(warning).startsWith("warning: unused declaration")
                         && formatter.format(warning).contains("\nnote: "),
                 "warning notes were not rendered");
         require(formatter.format(global).equals("error: global failure"),

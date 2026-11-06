@@ -25,7 +25,6 @@ public class FieldHiding {
         HidingBase baseView = child;
 
         // The local base view expires with this block before reclamation.
-        defer free child;
         if (child.value != 20) return 1;
         if (baseView.value != 10) return 2;
         if (child.both() != 30) return 3;

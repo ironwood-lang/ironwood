@@ -86,7 +86,6 @@ public final class SourceFile {
 
         ArrayList<String> result = new ArrayList<String>();
         // The builder retires on every exit; the line strings move to the snapshot.
-        defer free result;
         int start = 0;
         for (int index = 0; index < content.length(); index++) {
             char current = content.charAt(index);

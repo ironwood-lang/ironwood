@@ -76,7 +76,6 @@ public final class ZipStream {
     public int earlierName(int index) {
 
         String name = this.names.get(index);
-        defer free name;
         int first = this.names.indexOf(name);
         return first < index ? first : -1;
     }
@@ -144,7 +143,6 @@ public final class ZipStream {
         }
         if (problem == null) problem = this.problem(result, consumed, compressed, size, crc);
         if (problem != null) {
-            free result;
             throw this.failure(display, index, problem);
         }
         this.position = after;
@@ -181,7 +179,6 @@ public final class ZipStream {
     private IOException failure(String display, int index, String problem) {
 
         StringBuilder message = new StringBuilder();
-        defer free message;
         message.append("invalid ZIP data in ").append(display).append(": entry '");
         this.names.appendTo(index, message);
         message.append("' ").append(problem);
@@ -201,9 +198,4 @@ public final class ZipStream {
         return -1;
     }
 
-    destructor {
-
-        free this.names;
-        free this.checksum;
-    }
 }

@@ -33,7 +33,7 @@ public class BenchExample {
             bench.measure(System.nanoTime() - start);
         }
         bench.printResults();
-        free bench;
+
         return 0;
     }
 }
@@ -83,12 +83,12 @@ bench.printResults();       // Include percentiles.
 bench.printResults(false);  // Omit percentiles.
 ```
 
-To keep a report, declare and `free` its String:
+To retain a report, keep its ordinary managed String:
 
 ```java
 String report = bench.results();
 System.out.println(report);
-free report;
+
 ```
 
 Optional progress logging: `new Bench(1000L, true, 10000)` logs the first iteration
@@ -115,7 +115,7 @@ public class NanoBenchExample {
             bench.measure();
         }
         bench.printResults();
-        free bench;
+
         return 0;
     }
 }

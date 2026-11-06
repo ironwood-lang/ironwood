@@ -47,7 +47,6 @@ class Main {
         ConcatenatedThing missing = null;
         String references = "references=" + named + ',' + missing;
         named = null;
-        free thing;
         if (!references.equals("references=thing,null")) return 3;
 
         int[] array = new int[1];
@@ -68,7 +67,6 @@ class Main {
         if (!slots[0].equals("slot3") || targetEvaluations != 1 || nextValue != 3) return 6;
         int discardValue = 7;
         String disposable = "discard=" + discardValue;
-        free disposable;
         System.out.println(values);
         System.out.println(compound);
         return 42;

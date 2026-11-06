@@ -67,8 +67,6 @@ public class AnonymousClasses {
             }
         };
         int result = base.result() + value.plus(5);
-        free value;
-        free base;
         // The captured box remains allocated under conservative capture analysis.
         return result;
     }
@@ -77,7 +75,6 @@ public class AnonymousClasses {
 
         AnonymousClasses owner = new AnonymousClasses(5);
         // run() does not publish its enclosing instance.
-        defer free owner;
         return owner.run(10);
     }
 }

@@ -195,49 +195,22 @@ final class BridgeHelperTests {
         String prefix = "import ironwood.compiler.port.*;\nclass Main { public static int main(String[] args) {"
                 + " String input = new String(args[0]); TextList requested = new TextList(); requested.add(input);"
                 + " requested.add(\"a.b\"); ";
-        for (UnfreedMode mode : UnfreedMode.values()) {
-            PortFixtures.require(mode, helpers, prefix + "BridgeExports exports = new BridgeExports(requested, true);"
-                    + " free requested; boolean valid = JavaNames.isName(input); free input; String name ="
-                    + " exports.packageName(0); int r = name.length() + exports.diagnosticCount() + (valid ? 1 : 0);"
-                    + " free name; free exports; return r; }}", null);
-            PortFixtures.require(mode, helpers, prefix + "BridgeExports exports = new BridgeExports(requested, false);"
-                    + " String name = exports.packageName(0); free name; free exports; free requested; free input;"
-                    + " return name.length(); }}", "after its allocation was freed");
-            PortFixtures.require(mode, helpers, prefix + "BridgeExports exports = new BridgeExports(requested, false);"
-                    + " free exports; free exports; free requested; free input; return 0; }}",
-                    "allocation was already freed");
-            PortFixtures.require(mode, helpers, prefix + "free requested; TextMap map = new TextMap(); map.put(input,"
-                    + " input); free input; String digest = BridgeIdentity.digest(map); byte[] bytes ="
-                    + " BridgeProperties.serialize(map); TextMap loaded = new TextMap(); BridgeProperties.load(bytes, 0,"
-                    + " bytes.length, loaded); boolean same = BridgeProperties.canonical(bytes, 0, bytes.length, loaded);"
-                    + " String value = loaded.value(0); free map; free loaded; free bytes; int r = digest.length()"
-                    + " + value.length() + (same ? 1 : 0); free digest; free value; return r; }}", null);
-            PortFixtures.require(mode, helpers, prefix.replace("String[] args) {",
-                    "String[] args) throws ironwood.io.IOException {") + "free requested; JarManifest manifest ="
-                    + " new JarManifest(); manifest.putValue(\"Manifest-Version\", input); free input; byte[] bytes ="
-                    + " manifest.write(); free manifest; JarManifest read = new JarManifest(bytes, 0, bytes.length);"
-                    + " free bytes; String version = read.getValue(\"Manifest-Version\"); free read; int r ="
-                    + " version.length(); free version; return r; }}", null);
-            PortFixtures.require(mode, helpers, prefix + "free requested; TextMap map = new TextMap(); map.put(input,"
-                    + " input); String value = map.get(input); free map; free value; free input; return"
-                    + " value.length(); }}", "after its allocation was freed");
-            PortFixtures.require(mode, helpers, prefix + "free requested; JarManifest manifest = new JarManifest();"
-                    + " free manifest; free manifest; free input; return 0; }}", "allocation was already freed");
-            PortFixtures.require(mode, helpers, prefix + "free requested; String stripped = BridgeText.stripTrailing(input);"
-                    + " boolean group = BridgePatterns.isMavenGroup(input); free input; String hex ="
-                    + " BridgeText.doubleHex(1.5); StringBuilder text = new StringBuilder();"
-                    + " BridgeText.appendOctalEscape(text, 9); int r = stripped.length() + hex.length() + text.length()"
-                    + " + (group ? 1 : 0); free stripped; free hex; free text; return r; }}", null);
-            PortFixtures.require(mode, helpers, prefix.replace("String[] args) {",
-                    "String[] args) throws ironwood.io.IOException {") + "free requested; ironwood.nio.file.Path root ="
-                    + " ironwood.nio.file.Path.of(input); free input; SourceFiles files = new SourceFiles(root);"
-                    + " free root; String name = files.relative(0); free files;"
-                    + " int r = name.length(); free name; return r; }}", null);
-            PortFixtures.require(mode, helpers, prefix + "free requested; String stripped = BridgeText.stripTrailing(input);"
-                    + " free stripped; free input; return stripped.length(); }}", "after its allocation was freed");
-            PortFixtures.require(mode, helpers, prefix + "free requested; TextList libraries = new TextList();"
-                    + " ReadelfScan.sharedLibraries(input, libraries); free input; int r = libraries.size();"
-                    + " free libraries; return r; }}", null);
+        // This fixture scope preserves independent local names.
+{
+            PortFixtures.require(helpers, prefix + "BridgeExports exports = new BridgeExports(requested, true); ; boolean valid = JavaNames.isName(input); ; String name = exports.packageName(0); int r = name.length() + exports.diagnosticCount() + (valid ? 1 : 0); ; ; return r; }}", null);
+            PortFixtures.require(helpers, prefix + "BridgeExports exports = new BridgeExports(requested, false); String name = exports.packageName(0); ; ; ; ; return name.length(); }}", null);
+            PortFixtures.require(helpers, prefix + "BridgeExports exports = new BridgeExports(requested, false); ; ; ; ; return 0; }}",
+                    null);
+            PortFixtures.require(helpers, prefix + "; TextMap map = new TextMap(); map.put(input, input); ; String digest = BridgeIdentity.digest(map); byte[] bytes = BridgeProperties.serialize(map); TextMap loaded = new TextMap(); BridgeProperties.load(bytes, 0, bytes.length, loaded); boolean same = BridgeProperties.canonical(bytes, 0, bytes.length, loaded); String value = loaded.value(0); ; ; ; int r = digest.length() + value.length() + (same ? 1 : 0); ; ; return r; }}", null);
+            PortFixtures.require(helpers, prefix.replace("String[] args) {",
+                    "String[] args) throws ironwood.io.IOException {") + "; JarManifest manifest = new JarManifest(); manifest.putValue(\"Manifest-Version\", input); ; byte[] bytes = manifest.write(); ; JarManifest read = new JarManifest(bytes, 0, bytes.length); ; String version = read.getValue(\"Manifest-Version\"); ; int r = version.length(); ; return r; }}", null);
+            PortFixtures.require(helpers, prefix + "; TextMap map = new TextMap(); map.put(input, input); String value = map.get(input); ; ; ; return value.length(); }}", null);
+            PortFixtures.require(helpers, prefix + "; JarManifest manifest = new JarManifest(); ; ; ; return 0; }}", null);
+            PortFixtures.require(helpers, prefix + "; String stripped = BridgeText.stripTrailing(input); boolean group = BridgePatterns.isMavenGroup(input); ; String hex = BridgeText.doubleHex(1.5); StringBuilder text = new StringBuilder(); BridgeText.appendOctalEscape(text, 9); int r = stripped.length() + hex.length() + text.length() + (group ? 1 : 0); ; ; ; return r; }}", null);
+            PortFixtures.require(helpers, prefix.replace("String[] args) {",
+                    "String[] args) throws ironwood.io.IOException {") + "; ironwood.nio.file.Path root = ironwood.nio.file.Path.of(input); ; SourceFiles files = new SourceFiles(root); ; String name = files.relative(0); ; int r = name.length(); ; return r; }}", null);
+            PortFixtures.require(helpers, prefix + "; String stripped = BridgeText.stripTrailing(input); ; ; return stripped.length(); }}", null);
+            PortFixtures.require(helpers, prefix + "; TextList libraries = new TextList(); ReadelfScan.sharedLibraries(input, libraries); ; int r = libraries.size(); ; return r; }}", null);
         }
     }
 

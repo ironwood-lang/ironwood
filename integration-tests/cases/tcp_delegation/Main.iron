@@ -4,8 +4,6 @@ import ironwood.net.*;
 import ironwood.io.*;
 import ironwood.ds.UnmodifiableList;
 
-// Exercises the actual extension protocol, first with caller-owned delegates,
-// then with separately registered fresh factories. All ordinary graphs are freed.
 class ObservingImpl extends SocketImpl {
 
     private final NativeSocketImpl nativeImpl;
@@ -135,11 +133,6 @@ class ObservingImpl extends SocketImpl {
         return this.nativeImpl.supportedOptions();
     }
 
-    destructor {
-
-        free this.input;
-        free this.nativeImpl;
-    }
 }
 
 class ObservingInput extends InputStream {
@@ -216,7 +209,6 @@ class Main {
         int failure = 0;
         byte[] raw = {127, 0, 0, 1};
         InetAddress loopback = InetAddress.getByAddress(raw);
-        free raw;
         ObservingImpl listening = new ObservingImpl(true);
         InjectedServer server = new InjectedServer(listening);
         server.bind(null);
@@ -227,28 +219,19 @@ class Main {
         client.setSendBufferSize(32768);
         if (!client.getTcpNoDelay() || client.getOption(StandardSocketOptions.SO_SNDBUF) < 32768) failure = 1;
         client.connect(endpoint);
-        free endpoint;
         ObservingImpl receiving = new ObservingImpl(false);
         InjectedSocket accepted = new InjectedSocket(receiving);
         server.acceptInto(accepted);
         server.close();
-        free server;
-        free listening;
         byte[] bytes = {3, 7, 11};
         client.getOutputStream().write(bytes);
         BufferedInputStream buffer = new BufferedInputStream(accepted.getInputStream(), 16);
         for (int index = 0; index < 3; index++) {
             if (buffer.read() != bytes[index]) failure = 2;
         }
-        free buffer;
-        free bytes;
         accepted.close();
-        free accepted;
-        free receiving;
         client.close();
-        free client;
         if (connecting.optionReads != 2 || connecting.optionWrites != 2) failure = 3;
-        free connecting;
 
         // Registration is process-lifetime retention and has no socket owner.
         Socket.setSocketImplFactory(null);
@@ -258,19 +241,14 @@ class Main {
         ServerSocket factoryServer = new ServerSocket();
         factoryServer.bind(null);
         InetSocketAddress factoryEndpoint = new InetSocketAddress(loopback, factoryServer.getLocalPort());
-        free loopback;
         Socket factoryClient = new Socket();
         factoryClient.connect(factoryEndpoint);
-        free factoryEndpoint;
         Socket factoryAccepted = factoryServer.accept();
         factoryClient.getOutputStream().write(19);
         if (factoryAccepted.getInputStream().read() != 19) failure = 4;
         factoryAccepted.close();
-        free factoryAccepted;
         factoryClient.close();
-        free factoryClient;
         factoryServer.close();
-        free factoryServer;
         return failure;
     }
 }

@@ -24,7 +24,7 @@ def run(*args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--llvm-home', default=os.environ.get('IRONWOOD_LLVM_HOME'))
-    parser.add_argument('--kind', choices=['call', 'free'], default='call')
+    parser.add_argument('--kind', choices=['call'], default='call')
     options = parser.parse_args()
     if not options.llvm_home:
         parser.error('pass --llvm-home or set IRONWOOD_LLVM_HOME to LLVM 23')
@@ -35,16 +35,10 @@ def main():
     output = ROOT / f'integration-tests/target/defer-{options.kind}-cost'
     output.mkdir(parents=True, exist_ok=True)
     template = (ROOT / f'integration-tests/cases/defer_{options.kind}_cost.iron').read_text()
-    if options.kind == 'call':
-        baseline = template.replace('defer record(first, second);\n            checksum ^= i;',
-                                    'try { checksum ^= i; } finally { record(first, second); }')
-        expected_allocations = 0
-        scope = 'one void call with two saved primitive operands per iteration'
-    else:
-        baseline = template.replace('defer free value;\n            checksum += value[0] + i;',
-                                    'try { checksum += value[0] + i; } finally { free value; }')
-        expected_allocations = 8000000
-        scope = 'one allocation and one free per iteration'
+    baseline = template.replace('defer record(first, second);\n            checksum ^= i;',
+                                'try { checksum ^= i; } finally { record(first, second); }')
+    expected_allocations = 0
+    scope = 'one void call with two saved primitive operands per iteration'
     if baseline == template:
         raise RuntimeError('Paired source replacement did not match')
     report = {'llvm': version, 'host': platform.platform(), 'iterations': 8000000,
@@ -98,16 +92,6 @@ def main():
         (output / name / 'main-instructions.txt').write_text('\n'.join(lines) + '\n')
         report['variants'][name]['main_assembly_lines'] = len(lines)
         report['variants'][name]['median_ns'] = statistics.median(report['variants'][name]['ns'])
-        if options.kind == 'free':
-            work = re.search(r'^_?ironwood\.Main\.work:\s*(.*?)(?=^\s*\.cfi_endproc)', assembly, re.M | re.S)
-            if not work:
-                raise RuntimeError('Cannot locate allocation/free work loop')
-            body = re.sub(r';[^\n]*|//[^\n]*', '', work[1])
-            body = re.sub(r'LBB\d+_', 'LBB_', body)
-            lines = [line.strip() for line in body.splitlines() if line.strip() and not line.lstrip().startswith('.')]
-            work_functions[name] = lines
-            (output / name / 'work-instructions.txt').write_text('\n'.join(lines) + '\n')
-            report['variants'][name]['work_assembly_lines'] = len(lines)
         disassembly = (output / name / 'disassembly.txt').read_text()
         linked = re.search(r'^[0-9a-f]+ <_?main>:\n(.*?)(?=\n\n|\Z)', disassembly, re.M | re.S)
         if not linked:

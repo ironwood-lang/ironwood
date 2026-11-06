@@ -6,7 +6,7 @@ set -euo pipefail
 EXAMPLE_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$EXAMPLE_DIR"
 
-COMMAND=(ironwoodc --link --unfreed=error -cp target/classes \
+COMMAND=(ironwoodc --link -cp target/classes \
     --main-class org.ironwood.deferredcleanup.DeferredCleanup -o target/DeferredCleanup -O3)
 printf '+'
 printf ' %q' "${COMMAND[@]}"

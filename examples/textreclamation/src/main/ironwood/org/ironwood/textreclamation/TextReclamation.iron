@@ -2,9 +2,6 @@
 
 package org.ironwood.textreclamation;
 
-// Demonstrates explicit reclamation of caller-owned text values. With the
-// run-script input, this prints "[ronwood 🌲]" and exits with status 42 when
-// every temporary allocation has been returned to the starting live count.
 public class TextReclamation {
 
     public static int main(String[] args) {
@@ -13,8 +10,6 @@ public class TextReclamation {
             System.out.println("usage: TextReclamation <text>");
             return 1;
         }
-
-        long baseline = System.liveAllocationCount();
 
         // substring, toCharArray, the builder, and toString each produce an
         // independently owned value that this method reclaims below.
@@ -30,10 +25,6 @@ public class TextReclamation {
         // failure without hiding the printed result.
         boolean expectedUnits = units.length == suffix.length();
         if (units[0] != 'r') expectedUnits = false;
-        free rendered;
-        free builder;
-        free units;
-        free suffix;
-        return expectedUnits && System.liveAllocationCount() == baseline ? 42 : 2;
+        return expectedUnits ? 42 : 2;
     }
 }

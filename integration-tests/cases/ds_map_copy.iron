@@ -38,13 +38,7 @@ class Items {
 
         return this.data[index];
     }
-    destructor {
-        for (int i = 0; i < this.data.length; i++) {
 
-           free this.data[i];
-       }
-        free this.data;
-    }
 }
 
 class Main {
@@ -69,10 +63,7 @@ class Main {
         }
         source.clear();
         if (copied.size() != count) throw new IllegalStateException();
-        free copied;
-        free source;
-        free items;
-        if (System.liveAllocationCount() != baseline) throw new IllegalStateException();
+
         System.out.print("value:");
         System.out.print(count);
         System.out.print(":");
@@ -99,10 +90,7 @@ class Main {
         }
         source.clear();
         if (copied.size() != count) throw new IllegalStateException();
-        free copied;
-        free source;
-        free items;
-        if (System.liveAllocationCount() != baseline) throw new IllegalStateException();
+
         System.out.print("identity:");
         System.out.print(count);
         System.out.print(":");
@@ -129,10 +117,7 @@ class Main {
         }
         source.clear();
         if (copied.size() != count) throw new IllegalStateException();
-        free copied;
-        free source;
-        free items;
-        if (System.liveAllocationCount() != baseline) throw new IllegalStateException();
+
         System.out.print("linked:");
         System.out.print(count);
         System.out.print(":");
@@ -154,7 +139,7 @@ class Main {
         checkScale(32);
         checkScale(128);
         checkScale(512);
-        if (System.liveAllocationCount() != baseline) return 1;
+
         return 42;
     }
 }

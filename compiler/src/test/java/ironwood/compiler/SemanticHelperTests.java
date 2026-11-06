@@ -102,22 +102,15 @@ final class SemanticHelperTests {
                 import ironwood.compiler.port.*;
                 class Main { public static int main(String[] args) {
                 """;
-        for (UnfreedMode mode : UnfreedMode.values()) {
+        // This fixture scope preserves independent local names.
+{
             // Inputs are borrowed only during a call; results belong to the caller.
-            require(mode, helpers, prefix + "byte[] data = new byte[4]; Sha256 digest = new Sha256();"
-                    + " digest.update(data, 0, 4); free data; String hex = digest.hexDigest(); free hex;"
-                    + " byte[] raw = digest.digest(); free raw; free digest; return 0; }}", null);
-            require(mode, helpers, prefix + "Sha256 digest = new Sha256(); free digest; digest.update(1);"
-                    + " return 0; }}", "after its allocation was freed");
-            require(mode, helpers, prefix + "Sha256 digest = new Sha256(); byte[] raw = digest.digest(); free raw;"
-                    + " free raw; free digest; return 0; }}", "freed");
-            require(mode, helpers, prefix + "String error = IntegerLiterals.error(\"0x\", false); int r = error.length();"
-                    + " free error; return r; }}", null);
-            require(mode, helpers, prefix + "String error = IntegerLiterals.error(\"0x\", false); free error;"
-                    + " return error.length(); }}", "after its allocation was freed");
-            require(mode, helpers, prefix + "ArrayList<String> parts = new ArrayList<String>(); parts.add(\"a\");"
-                    + " String joined = Texts.join(\",\", parts); free parts; int r = joined.length(); free joined;"
-                    + " return r; }}", null);
+            require(helpers, prefix + "byte[] data = new byte[4]; Sha256 digest = new Sha256(); digest.update(data, 0, 4); ; String hex = digest.hexDigest(); ; byte[] raw = digest.digest(); ; ; return 0; }}", null);
+            require(helpers, prefix + "Sha256 digest = new Sha256(); ; digest.update(1); return 0; }}", null);
+            require(helpers, prefix + "Sha256 digest = new Sha256(); byte[] raw = digest.digest(); ; ; ; return 0; }}", null);
+            require(helpers, prefix + "String error = IntegerLiterals.error(\"0x\", false); int r = error.length(); ; return r; }}", null);
+            require(helpers, prefix + "String error = IntegerLiterals.error(\"0x\", false); ; return error.length(); }}", null);
+            require(helpers, prefix + "ArrayList<String> parts = new ArrayList<String>(); parts.add(\"a\"); String joined = Texts.join(\",\", parts); ; int r = joined.length(); ; return r; }}", null);
         }
     }
 
@@ -155,8 +148,7 @@ final class SemanticHelperTests {
     private static List<Path> links(Path root, String fixture, List<String> helpers) throws Exception {
         Path classes = root.resolve(fixture);
         List<String> arguments = new ArrayList<>(helpers);
-        arguments.addAll(List.of("integration-tests/cases/" + fixture + ".iron", "--unfreed=warn",
-                "-d", classes.toString()));
+        arguments.addAll(List.of("integration-tests/cases/" + fixture + ".iron", "-d", classes.toString()));
         run(arguments);
         Path archive = root.resolve(fixture + ".ironjar");
         ByteArrayOutputStream ignored = new ByteArrayOutputStream();
@@ -167,8 +159,7 @@ final class SemanticHelperTests {
         List<Path> executables = new ArrayList<>();
         for (Path input : List.of(classes, archive)) {
             Path executable = root.resolve(input.getFileName() + "-program");
-            run(List.of("--link", "-cp", input.toString(), "--main-class", "Main", "--unfreed=warn",
-                    "-O3", "-o", executable.toString()));
+            run(List.of("--link", "-cp", input.toString(), "--main-class", "Main", "-O3", "-o", executable.toString()));
             executables.add(executable);
         }
         return executables;
@@ -223,14 +214,14 @@ final class SemanticHelperTests {
         return process.exitValue();
     }
 
-    private static void require(UnfreedMode mode, List<SourceFile> helpers, String source, String rejection) {
+    private static void require(List<SourceFile> helpers, String source, String rejection) {
         List<SourceFile> sources = new ArrayList<>(helpers);
         sources.add(SourceFile.of("test/Main.iron", source));
-        CompilationArtifact artifact = new CompilerPipeline(mode).compile(sources);
+        CompilationArtifact artifact = new CompilerPipeline().compile(sources);
         String messages = String.join("; ", artifact.diagnostics().stream()
                 .map(diagnostic -> diagnostic.message()).toList());
         if (rejection == null ? !artifact.successful() : artifact.successful() || !messages.contains(rejection)) {
-            throw new AssertionError("semantic helper ownership under " + mode + ": " + messages + "\n" + source);
+            throw new AssertionError("semantic helper ownership under " + "GC" + ": " + messages + "\n" + source);
         }
     }
 

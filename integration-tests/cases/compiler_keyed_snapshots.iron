@@ -52,14 +52,6 @@ class Items {
         return this.data[index];
     }
 
-    destructor {
-
-        for (int index = 0; index < this.data.length; index++) {
-            free this.data[index];
-        }
-
-        free this.data;
-    }
 }
 
 class Main {
@@ -74,7 +66,7 @@ class Main {
         SnapshotMap<Item, Item> snapshot = new SnapshotMap<Item, Item>(source);
         long allocations = System.allocationCount() - before;
         if (allocations != (count == 0 ? 9 : count + 8)) throw new RuntimeException();
-        source.clear(); free source;
+        source.clear(); ;
         if (snapshot.size() != count || snapshot.isEmpty() != (count == 0)) throw new RuntimeException();
         before = System.allocationCount();
         for (int index = 0; index < count; index++) {
@@ -83,8 +75,8 @@ class Main {
         }
 
         if (System.allocationCount() != before) throw new RuntimeException();
-        free snapshot; free items;
-        if (System.liveAllocationCount() != baseline) throw new RuntimeException();
+        ; ;
+
         System.out.println("value:" + count + ":" + allocations);
     }
 
@@ -98,7 +90,7 @@ class Main {
         SnapshotIdentityMap<Item, Item> snapshot = new SnapshotIdentityMap<Item, Item>(source);
         long allocations = System.allocationCount() - before;
         if (allocations != (count == 0 ? 9 : count + 8)) throw new RuntimeException();
-        source.clear(); free source;
+        source.clear(); ;
         if (snapshot.size() != count || snapshot.isEmpty() != (count == 0)) throw new RuntimeException();
         before = System.allocationCount();
         for (int index = 0; index < count; index++) {
@@ -107,8 +99,8 @@ class Main {
         }
 
         if (System.allocationCount() != before) throw new RuntimeException();
-        free snapshot; free items;
-        if (System.liveAllocationCount() != baseline) throw new RuntimeException();
+        ; ;
+
         System.out.println("identity:" + count + ":" + allocations);
     }
 
@@ -122,7 +114,7 @@ class Main {
         SnapshotLinkedMap<Item, Item> snapshot = new SnapshotLinkedMap<Item, Item>(source);
         long allocations = System.allocationCount() - before;
         if (allocations != (count == 0 ? 9 : count + 8)) throw new RuntimeException();
-        source.clear(); free source;
+        source.clear(); ;
         if (snapshot.size() != count || snapshot.isEmpty() != (count == 0)) throw new RuntimeException();
         before = System.allocationCount();
         for (int index = 0; index < count; index++) {
@@ -131,8 +123,8 @@ class Main {
         }
 
         if (System.allocationCount() != before) throw new RuntimeException();
-        free snapshot; free items;
-        if (System.liveAllocationCount() != baseline) throw new RuntimeException();
+        ; ;
+
         System.out.println("linked:" + count + ":" + allocations);
     }
 
@@ -146,7 +138,7 @@ class Main {
         SnapshotIdentitySet<Item> snapshot = new SnapshotIdentitySet<Item>(source);
         long allocations = System.allocationCount() - before;
         if (allocations != (count == 0 ? 11 : count + 10)) throw new RuntimeException();
-        source.clear(); free source;
+        source.clear(); ;
         if (snapshot.size() != count || snapshot.isEmpty() != (count == 0)) throw new RuntimeException();
         before = System.allocationCount();
         for (int index = 0; index < count; index++) {
@@ -154,8 +146,8 @@ class Main {
         }
 
         if (System.allocationCount() != before) throw new RuntimeException();
-        free snapshot; free items;
-        if (System.liveAllocationCount() != baseline) throw new RuntimeException();
+        ; ;
+
         System.out.println("set:" + count + ":" + allocations);
     }
 

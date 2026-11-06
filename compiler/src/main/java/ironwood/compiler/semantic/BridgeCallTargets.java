@@ -102,12 +102,4 @@ public final class BridgeCallTargets {
                 .filter(candidate -> candidate.typeMembership().contains(typeId)).toList();
     }
 
-    Call cleanup(IrOperand object, boolean rollback) {
-        if (object.type().isArray()) return new Call(List.of(), List.of(object), Optional.empty(), true);
-        List<IrClass> types = dynamicTypes(object.type().erasure());
-        List<String> names = types.stream().flatMap(type -> (rollback ? type.constructorRollback()
-                : type.destructorChain()).stream()).distinct().toList();
-        return new Call(names.stream().filter(functions::containsKey).map(functions::get).toList(), List.of(object),
-                Optional.empty(), !types.isEmpty() && names.stream().allMatch(functions::containsKey));
-    }
 }

@@ -161,10 +161,6 @@ record CallableSymbol(String ownerType, String sourceName, AccessModifier access
         return kind == IrCallableKind.CONSTRUCTOR;
     }
 
-    boolean isDestructor() {
-        return kind == IrCallableKind.DESTRUCTOR;
-    }
-
     boolean isClassInitializer() {
         return kind == IrCallableKind.CLASS_INITIALIZER;
     }

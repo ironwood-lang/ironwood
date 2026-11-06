@@ -19,9 +19,9 @@ documents.
 
 Place one blank line immediately inside the opening brace of every multiline
 type or callable body. This includes classes, interfaces, enums, constructors,
-methods, destructors, and anonymous type bodies. Represent an empty type or
+methods and anonymous type bodies. Represent an empty type or
 callable body in multiline form with one blank interior line. Expand non-empty
-one-line constructors, methods, and destructors to multiline form, retaining
+one-line constructors and methods to multiline form, retaining
 the blank line immediately after the opening brace.
 
 ## Control-flow blocks
@@ -29,7 +29,7 @@ the blank line immediately after the opening brace.
 The no-leading-blank-line exception applies only to control-flow blocks. Do
 not place a blank line immediately after the opening brace of an `if`, `else`,
 `for`, `while`, `switch`, `try`, `catch`, or `finally` block. Types, methods,
-constructors, and destructors continue to require the blank line specified
+constructors continue to require the blank line specified
 above.
 
 When an `if` has an `else` or `else if`, use braces around each branch and
@@ -45,13 +45,11 @@ if (condition) {
 
 ## Deferred cleanup
 
-Place each `defer` void call or `defer free name;` on its own line directly inside
-an explicit block. Use braces even for a conditional or loop body containing only
-a deferred action.
-Order declarations opposite to their desired cleanup order. Keep separate
-operations separate. To close before freeing, declare `defer free resource;`
-before `defer resource.close();`. Keep the free target binding unchanged until
-cleanup; prefer a separate local for a later allocation.
+Place each deferred void call on its own line directly inside an explicit block.
+Use braces for a conditional/loop body containing deferred actions. Actions run
+in reverse registration order. Resource close and pool release are ordinary
+calls; collection is a deliberate separate phase. Reassignment does not change
+already captured operands.
 
 ## Standalone blocks
 
@@ -61,7 +59,7 @@ when extending the allocation's lifetime to that body's exit is acceptable.
 Do not add a block merely to reproduce the former `finally` boundary.
 
 Retain a smaller scope when its cleanup must finish before a later operation,
-when alias expiration is required for safe reclamation, or when a focused test
+when a phase boundary is needed for an explicit collection, or when a focused test
 specifically verifies block-exit behavior. Explain that boundary. A meaningful
 helper method can also provide an early cleanup boundary; avoid artificial
 control flow introduced only to hide a standalone block. Instance initializer

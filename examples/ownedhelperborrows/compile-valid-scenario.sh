@@ -18,7 +18,7 @@ mkdir -p target/classes
 # Keep this exception local to that scenario, including direct compile19.sh runs.
 COMMAND=(ironwoodc)
 if [[ "$SCENARIO_NAME" == FreeInsertedElement ]]; then
-    COMMAND+=(--unfreed=off)
+    COMMAND+=()
 fi
 COMMAND+=(--source-path src/valid/ironwood -d target/classes "$SOURCE")
 printf '+'

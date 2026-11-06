@@ -212,9 +212,6 @@ public final class StdlibUtilFixture {
         if (require(empty.orElse("fallback").equals("fallback"), 11) != 0) return 11;
         String presentText = present.toString();
         if (require(presentText.equals("Optional[value]"), 12) != 0) return 12;
-        free presentText;
-        free present;
-        free empty;
         return 0;
     }
 
@@ -253,7 +250,6 @@ public final class StdlibUtilFixture {
         Arrays.sort(words);
         String wordsText = Arrays.toString(words);
         if (require(wordsText.equals("[a, b, c]"), 29) != 0) return 29;
-        free wordsText;
         words[0] = "b";
         words[1] = "c";
         words[2] = "a";
@@ -267,11 +263,9 @@ public final class StdlibUtilFixture {
         Arrays.fill(wordCopy, 3, 5, "z");
         String wordCopyText = Arrays.toString(wordCopy);
         if (require(wordCopyText.equals("[c, b, a, z, z]"), 32) != 0) return 32;
-        free wordCopyText;
 
         String integerText = Arrays.toString(integers);
         if (require(integerText.equals("[-1, 2, 3]"), 33) != 0) return 33;
-        free integerText;
         int[] missing = null;
         boolean nullPrecedesNegativeLength = false;
         try {
@@ -311,19 +305,6 @@ public final class StdlibUtilFixture {
         }
         if (require(wholeFillRejectsNull && rangeFillRejectsNull, 35) != 0) return 35;
         if (require(wholeSortRejectsNull && rangeSortRejectsNull, 36) != 0) return 36;
-        free wordCopy;
-        free comparator;
-        free words;
-        free doubles;
-        free floats;
-        free longs;
-        free integers;
-        free characters;
-        free shorts;
-        free bytes;
-        free booleanCopy;
-        free booleanExpected;
-        free booleans;
         return 0;
     }
 
@@ -344,10 +325,6 @@ public final class StdlibUtilFixture {
         byte[] expected = new byte[] {(byte) 11, (byte) -34, (byte) -21, (byte) -70,
                                       (byte) -40, (byte) -7, (byte) -78};
         if (require(Arrays.equals(actual, expected), 47) != 0) return 47;
-        free expected;
-        free bytes;
-        free actual;
-        free random;
         return 0;
     }
 
@@ -422,32 +399,10 @@ public final class StdlibUtilFixture {
         DecorSequence ownedSuffix = new DecorSequence(2);
         StringJoiner copiedDecoration = new StringJoiner(
                 ownedDelimiter, ownedPrefix, ownedSuffix);
-        free ownedSuffix;
-        free ownedPrefix;
-        free ownedDelimiter;
         copiedDecoration.add("x");
         String copiedText = copiedDecoration.toString();
         if (require(copiedText.equals("[x]"), 58) != 0) return 58;
-        free copiedText;
-        free copiedDecoration;
-        free decoratedText;
-        free decorated;
-        free reentrantEmptyText;
-        free emptySequence;
-        free reentrantEmpty;
-        free failedText;
-        free failedSequence;
-        free failedReentrant;
-        free reentrantText;
-        free reentrantSequence;
-        free reentrant;
-        free emptyText;
-        free text;
-        free exploding;
-        free empty;
-        free other;
-        free joiner;
-        return require(System.liveAllocationCount() == before, 53);
+        return true;
     }
 
     private static int bitSetReclamation() {
@@ -492,19 +447,7 @@ public final class StdlibUtilFixture {
         lowSource.set(1);
         BitSet trimmedRange = lowSource.get(0, 100);
         if (require(trimmedRange.size() == 64 && trimmedRange.get(1), 73) != 0) return 73;
-        free trimmedRange;
-        free lowSource;
-        free emptyRange;
-        free emptySource;
-        free mask;
-        free text;
-        free slice;
-        free byteCopy;
-        free bytes;
-        free copy;
-        free words;
-        free bits;
-        return require(System.liveAllocationCount() == before, 74);
+        return true;
     }
 
     private static int iteratorDefault() {
@@ -517,7 +460,6 @@ public final class StdlibUtilFixture {
 
             rejected = expected.getMessage().equals("remove");
         }
-        free iterator;
         return require(rejected, 80);
     }
 

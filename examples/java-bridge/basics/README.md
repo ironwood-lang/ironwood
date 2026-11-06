@@ -14,8 +14,8 @@ into a Java listener. There are just three source files:
 
 Each `add()` runs in native code and calls the Java listener synchronously on
 the same thread, before returning. The two calls add 2 and then 3. The Java
-`finally` block calls the generated `free()` method to reclaim the native counter
-and release its listener registration. The Java listener itself is JVM-managed.
+scopes close the listener registration and counter anchor independently.
+The registration is removed before its anchor is released. The Java listener itself is JVM-managed.
 
 ## Build, run and test
 
@@ -53,7 +53,8 @@ checked-JNI JVM runs. Build commands are printed separately on stderr.
 ## Use it from another Java application
 
 Add `target/ironwood-basics.jar` to your Java compile and runtime classpaths,
-implement `CounterListener`, construct a `Counter` and call `setListener()`.
+implement `CounterListener`, construct through `Roots`, and install through
+`ListenerRegistration`. The shared setup helper delegates to those generated APIs.
 No handwritten JNI, `native` declarations or manual library loading are needed.
 The [Java source](src/main/java/org/ironwood/javabridge/basicsconsumer/Main.java)
 shows the complete integration and cleanup.

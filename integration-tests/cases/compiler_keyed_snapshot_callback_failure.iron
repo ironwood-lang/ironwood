@@ -38,7 +38,6 @@ class Main {
     static void checkValue() {
 
         HashMap<Key, String> source = new HashMap<Key, String>(4);
-        defer free source;
         source.put(first, "one"); source.put(second, "two"); source.put(third, "three");
         Iterator<String> cursor = source.iterator();
         if (!cursor.next().equals("two")) throw new RuntimeException();
@@ -47,7 +46,6 @@ class Main {
         boolean caught = false;
         try {
             SnapshotMap<Key, String> unexpected = new SnapshotMap<Key, String>(source);
-            free unexpected;
         }
 
         catch (RuntimeException expected) {
@@ -56,14 +54,13 @@ class Main {
         }
 
         fail = false;
-        if (!caught || calls != 2 || System.liveAllocationCount() != baseline) throw new RuntimeException();
+        if (!caught || calls != 2) throw new RuntimeException();
         if (source.size() != 3 || !cursor.next().equals("three")) throw new RuntimeException();
     }
 
     static void checkLinked() {
 
         LinkedHashMap<Key, String> source = new LinkedHashMap<Key, String>(4);
-        defer free source;
         source.put(first, "one"); source.put(second, "two"); source.put(third, "three");
         Iterator<String> cursor = source.iterator();
         if (!cursor.next().equals("one")) throw new RuntimeException();
@@ -72,7 +69,6 @@ class Main {
         boolean caught = false;
         try {
             SnapshotLinkedMap<Key, String> unexpected = new SnapshotLinkedMap<Key, String>(source);
-            free unexpected;
         }
 
         catch (RuntimeException expected) {
@@ -81,22 +77,20 @@ class Main {
         }
 
         fail = false;
-        if (!caught || calls != 2 || System.liveAllocationCount() != baseline) throw new RuntimeException();
+        if (!caught || calls != 2) throw new RuntimeException();
         if (source.size() != 3 || !cursor.next().equals("two")) throw new RuntimeException();
     }
 
     static void checkIdentity() {
 
         IdentityHashMap<Key, String> source = new IdentityHashMap<Key, String>(4);
-        defer free source;
         source.put(first, "one"); source.put(second, "two"); source.put(third, "three");
         long baseline = System.liveAllocationCount();
         calls = 0; fail = true;
         SnapshotIdentityMap<Key, String> snapshot = new SnapshotIdentityMap<Key, String>(source);
         if (calls != 0 || snapshot.size() != 3 || !snapshot.get(second).equals("two")) throw new RuntimeException();
-        free snapshot;
         fail = false;
-        if (System.liveAllocationCount() != baseline) throw new RuntimeException();
+
     }
 
     public static int main(String[] args) {

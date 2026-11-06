@@ -21,7 +21,6 @@ public record ClassDeclaration(
         List<InstanceInitialization> instanceInitializations,
         List<StaticInitialization> staticInitializations,
         List<ConstructorDeclaration> constructors,
-        Optional<DestructorDeclaration> destructor,
         List<MethodDeclaration> methods,
         List<TypeDeclaration> memberTypes,
         boolean enumType,
@@ -36,7 +35,6 @@ public record ClassDeclaration(
         instanceInitializations = List.copyOf(instanceInitializations);
         staticInitializations = List.copyOf(staticInitializations);
         constructors = List.copyOf(constructors);
-        destructor = destructor == null ? Optional.empty() : destructor;
         methods = List.copyOf(methods);
         memberTypes = List.copyOf(memberTypes);
         enumConstants = List.copyOf(enumConstants);
@@ -56,38 +54,13 @@ public record ClassDeclaration(
             List<InstanceInitialization> instanceInitializations,
             List<StaticInitialization> staticInitializations,
             List<ConstructorDeclaration> constructors,
-            Optional<DestructorDeclaration> destructor,
             List<MethodDeclaration> methods,
             List<TypeDeclaration> memberTypes,
             SourceSpan span
     ) {
         this(accessModifier, isStatic, isAbstract, isFinal, name, nameSpan, typeParameters,
                 superclass, implementedInterfaces, fields, instanceInitializations,
-                staticInitializations, constructors, destructor, methods, memberTypes,
-                false, List.of(), span);
-    }
-
-    public ClassDeclaration(
-            AccessModifier accessModifier,
-            boolean isStatic,
-            boolean isAbstract,
-            boolean isFinal,
-            String name,
-            SourceSpan nameSpan,
-            List<TypeParameter> typeParameters,
-            Optional<TypeReference> superclass,
-            List<TypeReference> implementedInterfaces,
-            List<FieldDeclaration> fields,
-            List<InstanceInitialization> instanceInitializations,
-            List<StaticInitialization> staticInitializations,
-            List<ConstructorDeclaration> constructors,
-            List<MethodDeclaration> methods,
-            List<TypeDeclaration> memberTypes,
-            SourceSpan span
-    ) {
-        this(accessModifier, isStatic, isAbstract, isFinal, name, nameSpan, typeParameters,
-                superclass, implementedInterfaces, fields, instanceInitializations,
-                staticInitializations, constructors, Optional.empty(), methods, memberTypes,
+                staticInitializations, constructors, methods, memberTypes,
                 false, List.of(), span);
     }
 
@@ -103,6 +76,6 @@ public record ClassDeclaration(
                         (InstanceInitialization) field).toList(),
                 fields.stream().filter(FieldDeclaration::isStatic).map(field ->
                         (StaticInitialization) field).toList(),
-                constructors, Optional.empty(), methods, List.of(), false, List.of(), span);
+                constructors, methods, List.of(), false, List.of(), span);
     }
 }

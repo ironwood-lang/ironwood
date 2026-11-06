@@ -6,15 +6,11 @@ import ironwood.ds.ArrayList;
 
 class RetainedElement {
 
-    static int destroyed;
-    destructor {
+    int value = 42;
 
-        destroyed++;
-    }
 }
 
-// Expected: native exit 42. List destruction releases the caller-item loan;
-// only the subsequent explicit free of the element invokes its destructor.
+// Exit 42 verifies a shared item remains usable after its list is cleared.
 public class FreeInsertedElement {
 
     public static int main(String[] args) {
@@ -22,9 +18,9 @@ public class FreeInsertedElement {
         RetainedElement element = new RetainedElement();
         ArrayList<RetainedElement> list = new ArrayList<RetainedElement>();
         list.add(element);
-        free list;
-        if (RetainedElement.destroyed != 0) return 1;
-        free element;
-        return RetainedElement.destroyed == 1 ? 42 : 2;
+
+        list.clear();
+        ironwood.lang.Memory.collect();
+        return element.value == 42 ? 42 : 2;
     }
 }

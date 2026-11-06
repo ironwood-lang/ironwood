@@ -37,10 +37,6 @@ class NativeImpl extends Impl {
 
     }
 
-    destructor {
-
-        free this.view;
-    }
 }
 
 class NativeView extends InputStream {
@@ -109,11 +105,6 @@ class Facade {
         if (this.supplied != null) this.supplied.close();
     }
 
-    destructor {
-
-        free this.view;
-        free this.owned;
-    }
 }
 
 class FacadeView extends InputStream {
@@ -157,7 +148,6 @@ class ObserverImpl extends Impl {
     @Override
     public void close() { this.delegate.close(); }
 
-    destructor { free this.delegate; }
 }
 
 class Main {
@@ -168,14 +158,10 @@ class Main {
         byte[] bytes = new byte[4];
         int result = socket.input().read(bytes, 0, 4);
         socket.close();
-        free socket;
-        free bytes;
         ObserverImpl nativeImpl = new ObserverImpl();
         Facade injected = new Facade(nativeImpl);
         result += injected.input().read();
         injected.close();
-        free injected;
-        free nativeImpl;
         return result == 46 ? 0 : 1;
     }
 }

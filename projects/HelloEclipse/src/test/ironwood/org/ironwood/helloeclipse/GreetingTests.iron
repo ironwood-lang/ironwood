@@ -9,12 +9,7 @@ import ironwood.testing.TestSuite;
 // executable whose main class is this suite: there is no separate runner and no
 // runtime discovery step.
 //
-// Each case compares its result into a boolean, reclaims what it allocated, and
-// only then asserts. That order is deliberate. Assertions.assertEquals takes
-// Object parameters and compares with a virtual equals, which the compiler
-// cannot devirtualize, so a String passed to it is treated as escaped and can
-// no longer be freed. Comparing through String.equals first, with the built
-// value as the receiver, keeps the value provably owned by the test.
+// Cases preserve formatting, caller storage, call counts and shared-root survival.
 public final class GreetingTests extends TestSuite {
 
     @Test
@@ -24,9 +19,6 @@ public final class GreetingTests extends TestSuite {
         StringBuilder builder = new StringBuilder();
         greeting.appendMessageTo(builder);
         boolean matched = builder.toString().equals("Hello, Ironwood!");
-
-        free builder;
-        free greeting;
 
         assertTrue(matched, "greeting names the given name");
     }
@@ -39,9 +31,6 @@ public final class GreetingTests extends TestSuite {
         greeting.appendMessageTo(builder);
         boolean matched = builder.toString().equals("Hello, world!");
 
-        free builder;
-        free greeting;
-
         assertTrue(matched, "default name is world");
     }
 
@@ -50,8 +39,6 @@ public final class GreetingTests extends TestSuite {
 
         Greeting greeting = new Greeting("Ironwood");
         boolean matched = greeting.name().equals("Ironwood");
-
-        free greeting;
 
         assertTrue(matched, "name is returned unchanged");
     }
@@ -67,9 +54,6 @@ public final class GreetingTests extends TestSuite {
         greeting.appendMessageTo(builder);
         int after = greeting.greetingCount();
 
-        free builder;
-        free greeting;
-
         assertEquals(0, before);
         assertEquals(2, after);
     }
@@ -83,26 +67,18 @@ public final class GreetingTests extends TestSuite {
         greeting.appendMessageTo(builder);
         boolean matched = builder.toString().equals("greeting: Hello, Ironwood!");
 
-        free builder;
-        free greeting;
-
         assertTrue(matched, "existing content is kept");
     }
 
     @Test
-    private void reclaimsEveryAllocation() {
-
-        long baseline = System.liveAllocationCount();
+    private void preservesSharedResultsAcrossCollection() {
 
         Greeting greeting = new Greeting("Ironwood");
         StringBuilder builder = new StringBuilder();
         greeting.appendMessageTo(builder);
         String message = builder.toString();
-
-        free message;
-        free builder;
-        free greeting;
-
-        assertEquals(baseline, System.liveAllocationCount());
+        String alias = message;
+        ironwood.lang.Memory.collect();
+        assertEquals("Hello, Ironwood!", alias);
     }
 }

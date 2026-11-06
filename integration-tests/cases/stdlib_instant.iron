@@ -4,7 +4,6 @@ import ironwood.time.Instant;
 import ironwood.time.DateTimeException;
 import ironwood.time.format.DateTimeParseException;
 
-// The same source runs against Java after removing free and changing imports.
 // It prints values and diagnostic indices, then a calendar-cycle fingerprint.
 class BrokenText implements CharSequence {
 
@@ -44,16 +43,12 @@ class Main {
             Instant value = Instant.parse(input);
             String result = value.toString();
             System.out.println(result);
-            free result;
-            free value;
         } catch (DateTimeParseException failure) {
             System.out.print("error:");
             System.out.println(failure.getErrorIndex());
             String copied = failure.getParsedString();
             if (!input.equals(copied)) throw new RuntimeException("lost parsed text");
-            free copied;
         }
-        free input;
     }
 
     static void dump(Instant value) {
@@ -66,7 +61,6 @@ class Main {
         System.out.print(':');
         String text = value.toString();
         System.out.print(text);
-        free text;
         System.out.print(':');
         try {
             System.out.println(value.toEpochMilli());
@@ -84,9 +78,6 @@ class Main {
         long hash = text.hashCode();
         hash = hash * 31 + parsed.getEpochSecond();
         hash = hash * 31 + parsed.getNano();
-        free parsed;
-        free text;
-        free value;
         return hash;
     }
 
@@ -101,9 +92,7 @@ class Main {
             Instant value = Instant.ofEpochMilli(millis[index]);
             dump(value);
             if (value.toEpochMilli() != millis[index]) return 1;
-            free value;
         }
-        free millis;
         long[] seconds = {Long.MIN_VALUE, -31557014167219201L, -31557014167219200L, -1, 0, 1,
                 31556889864403199L, 31556889864403200L, Long.MAX_VALUE};
         long[] adjustments = {Long.MIN_VALUE, -1000000001L, -1000000000L, -1, 0, 1,
@@ -113,7 +102,6 @@ class Main {
                 try {
                     Instant value = Instant.ofEpochSecond(seconds[s], adjustments[n]);
                     dump(value);
-                    free value;
                 } catch (DateTimeException failure) {
                     System.out.println("range");
                         } catch (ArithmeticException failure) {
@@ -121,8 +109,6 @@ class Main {
                         }
             }
         }
-        free seconds;
-        free adjustments;
         Instant first = Instant.ofEpochSecond(-1, 999999999);
         Instant second = Instant.ofEpochSecond(0);
         Instant third = Instant.ofEpochSecond(0, 999999999);
@@ -134,10 +120,7 @@ class Main {
         System.out.println(first.equals(first));
         System.out.println(first.equals(null));
         System.out.println(first.equals("x"));
-        free first;
         ordered = null;
-        free second;
-        free third;
         try {
             Instant.EPOCH.compareTo(null);
             return 2;
@@ -145,22 +128,18 @@ class Main {
         }
         try {
             Instant value = Instant.parse(null);
-            free value;
             return 3;
         } catch (NullPointerException failure) {
         }
         BrokenText broken = new BrokenText();
         try {
             Instant value = Instant.parse(broken);
-            free value;
             return 4;
         } catch (DateTimeParseException failure) {
             if (!(failure.getCause() instanceof IllegalArgumentException)) return 5;
             String copy = failure.getParsedString();
             if (!copy.equals("broken") || failure.getErrorIndex() != 0) return 6;
-            free copy;
         }
-        free broken;
         String[] inputs = {"", "x", "1970-01-01T00:00:00Z", "1970-01-01t00:00:00z",
                 "1970-01-01T00:00:00.Z", "1970-01-01T00:00:00,1Z", "1970-01-01T00:00Z",
                 "1970-01-01T00:00:00+01", "1970-01-01T00:00:00+0100", "1970-01-01T00:00:00+01:00",
@@ -179,24 +158,19 @@ class Main {
                 "1900-02-29T00:00:00Z", "-0400-02-29T00:00:00Z", "-0100-02-29T00:00:00Z",
                 "9999-12-31T24:00:00Z", "-0001-12-31T24:00:00Z", "1970-01-01T00:00:00-18:00"};
         for (int index = 0; index < inputs.length; index++) parseCase(inputs[index]);
-        free inputs;
         String canonical = "2000-02-29T23:59:58.123456789+01:30:45";
         char[] mutations = {'0', '1', '9', '+', '-', ':', 'T', 'Z', '.', 'x', 'é', (char) 0};
         char[] chars = canonical.toCharArray();
         for (int index = 0; index < chars.length; index++) {
             String prefix = canonical.substring(0, index);
             parseCase(prefix);
-            free prefix;
             for (int c = 0; c < mutations.length; c++) {
                 chars[index] = mutations[c];
                 String mutated = new String(chars);
                 parseCase(mutated);
-                free mutated;
             }
             chars[index] = canonical.charAt(index);
         }
-        free chars;
-        free mutations;
         long hash = 1;
         // A complete Gregorian cycle includes every ordinary leap-year pattern.
         for (int day = 0; day < 146097; day++) {

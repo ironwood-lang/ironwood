@@ -6,8 +6,6 @@ import ironwood.io.IOException;
 import ironwood.io.OutputStream;
 
 // A project-local OutputStream decorator: every write goes to both outputs.
-// The outputs are borrowed, never freed here. Close cascades to both; the caller
-// must still free this wrapper before reclaiming either borrowed output.
 final class TeeOutputStream extends OutputStream {
 
     private OutputStream first;

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-// Exit 42 verifies Java-shaped assignment failure timing and safe destructor reads.
-// Each failing helper frees its guard in finally so exceptional cleanup is observable.
+// Exit 42 verifies Java-shaped assignment failure timing and aliased field reads.
+// Each failing helper closes its guard in finally so exceptional cleanup is observable.
 class AssignmentBox {
 
     int value;
@@ -16,25 +16,25 @@ class CleanupGuard {
         this.marker = marker;
     }
 
-    destructor {
+    void close() {
 
         Main.cleaned = Main.cleaned * 10 + this.marker;
     }
 }
 
-class DestructorReader {
+class AliasReader {
 
     int value;
 
-    DestructorReader(int value) {
+    AliasReader(int value) {
 
         this.value = value;
     }
 
-    destructor {
+    void observe() {
 
-        DestructorReader alias = this;
-        Main.destructorSeen = this.value * 10 + alias.value;
+        AliasReader alias = this;
+        Main.observedValues = this.value * 10 + alias.value;
     }
 }
 
@@ -57,7 +57,7 @@ class Main {
 
     static int effects;
     static int cleaned;
-    static int destructorSeen;
+    static int observedValues;
 
     static int[] arrayReceiver(int[] values) {
 
@@ -101,7 +101,7 @@ class Main {
         try {
             arrayReceiver(values)[index(at)] = rhs();
         } finally {
-            free guard;
+            guard.close();
         }
     }
 
@@ -111,7 +111,7 @@ class Main {
         try {
             return arrayReceiver(values)[index(at)] = rhs();
         } finally {
-            free guard;
+            guard.close();
         }
     }
 
@@ -121,7 +121,7 @@ class Main {
         try {
             arrayReceiver(values)[index(at)] = throwingRhs();
         } finally {
-            free guard;
+            guard.close();
         }
     }
 
@@ -131,7 +131,7 @@ class Main {
         try {
             arrayReceiver(values)[index(at)] += rhs();
         } finally {
-            free guard;
+            guard.close();
         }
     }
 
@@ -141,7 +141,7 @@ class Main {
         try {
             arrayReceiver(values)[index(at)]++;
         } finally {
-            free guard;
+            guard.close();
         }
     }
 
@@ -151,7 +151,7 @@ class Main {
         try {
             fieldReceiver(box).value = rhs();
         } finally {
-            free guard;
+            guard.close();
         }
     }
 
@@ -161,7 +161,7 @@ class Main {
         try {
             return fieldReceiver(box).value = rhs();
         } finally {
-            free guard;
+            guard.close();
         }
     }
 
@@ -171,7 +171,7 @@ class Main {
         try {
             fieldReceiver(box).value = throwingRhs();
         } finally {
-            free guard;
+            guard.close();
         }
     }
 
@@ -181,7 +181,7 @@ class Main {
         try {
             fieldReceiver(box).value += rhs();
         } finally {
-            free guard;
+            guard.close();
         }
     }
 
@@ -191,19 +191,16 @@ class Main {
         try {
             fieldReceiver(box).value++;
         } finally {
-            free guard;
+            guard.close();
         }
     }
 
     public static int main(String[] args) {
 
         int[] empty = new int[0];
-        defer free empty;
         int[] one = new int[1];
-        defer free one;
         int[] missing = null;
         AssignmentBox box = new AssignmentBox();
-        defer free box;
         AssignmentBox missingBox = null;
 
         effects = 0;
@@ -302,8 +299,7 @@ class Main {
 
         effects = 0;
         cleaned = 0;
-        if (simpleArrayExpression(one, 0) != 7 || one[0] != 7
-                || effects != 123 || cleaned != 9) return 23;
+        if (simpleArrayExpression(one, 0) != 7 || one[0] != 7 || effects != 123 || cleaned != 9) return 23;
         effects = 0;
         cleaned = 0;
         compoundArray(one, 0);
@@ -315,8 +311,7 @@ class Main {
 
         effects = 0;
         cleaned = 0;
-        if (simpleFieldExpression(box) != 7 || box.value != 7
-                || effects != 13 || cleaned != 9) return 26;
+        if (simpleFieldExpression(box) != 7 || box.value != 7 || effects != 13 || cleaned != 9) return 26;
         effects = 0;
         cleaned = 0;
         compoundField(box);
@@ -336,9 +331,9 @@ class Main {
         UpdateStaticAssignment.value++;
         if (UpdateStaticAssignment.value != 6 || effects != 4) return 31;
 
-        DestructorReader reader = new DestructorReader(4);
-        free reader;
-        if (destructorSeen != 44) return 32;
+        AliasReader reader = new AliasReader(4);
+        reader.observe();
+        if (observedValues != 44) return 32;
         return 42;
     }
 }

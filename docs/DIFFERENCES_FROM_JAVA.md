@@ -7,7 +7,7 @@ Canonical Memory.collect() is the only reclamation point. There is no source
 free, destructor, implicit temporary destruction or managed constructor rollback.
 General defer, initialization, native resource and pool protocols remain.
 Historical proof discussions and examples mentioning those removed forms are
-pre-GC5 records awaiting GC7 consumer migration, not alternate supported semantics.
+superseded by the completed GC7 consumer migration, not alternate supported semantics.
 [GC6 managed bridges](GC6_IMPLEMENTATION.md) qualify macOS arm64 and Linux
 x86-64 with explicit RootHandle/ListenerRegistration lifetimes, exact suspended
 roots and isolated native images. Linux arm64 and arm64e remain unqualified.
@@ -87,7 +87,7 @@ replacement remains absent. PrintWriter is available for ordinary text output,
 but there is no Throwable PrintWriter overload.
 
 Private trace storage follows the Throwable's explicit lifetime. Thrown or
-published exceptions retain existing restrictions on `free`. Capture allocation
+published exceptions follow ordinary managed reachability. Capture allocation
 failure produces `<trace unavailable>`. If public printing cannot allocate, it
 falls back to the root's stored description and frames, omitting graph traversal
 and virtual callbacks; partial output may precede that fallback. Automatic
@@ -234,7 +234,7 @@ byte arrays are independent results. Bulk results require separate element and
 shallow-array cleanup, now proved with real DNS results as well as synthetic
 fixtures. Retained hostname/scope inputs are copied. Hostname and canonical
 getters borrow per-address cached text; host-string access never triggers reverse
-lookup. Close releases native resources; free reclaims managed graphs. Networking
+lookup. Close releases native resources; Memory.collect() reclaims unreachable managed graphs. Networking
 exceptions copy their messages.
 
 Implemented family policies select dual-stack capability with IPv4 fallback,

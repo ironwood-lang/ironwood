@@ -16,7 +16,6 @@ import ironwood.compiler.ir.IrArrayTypeTestInstruction;
 import ironwood.compiler.ir.IrBasicBlock;
 import ironwood.compiler.ir.IrBinaryInstruction;
 import ironwood.compiler.ir.IrCallInstruction;
-import ironwood.compiler.ir.IrCallableKind;
 import ironwood.compiler.ir.IrConstant;
 import ironwood.compiler.ir.IrDispatchSlot;
 import ironwood.compiler.ir.IrEnsureTypeInitializedInstruction;
@@ -27,7 +26,6 @@ import ironwood.compiler.ir.IrFieldLoadInstruction;
 import ironwood.compiler.ir.IrFieldStoreInstruction;
 import ironwood.compiler.ir.IrFileInstruction;
 import ironwood.compiler.ir.IrFloatingParseInstruction;
-import ironwood.compiler.ir.IrFreeInstruction;
 import ironwood.compiler.ir.IrFunction;
 import ironwood.compiler.ir.IrIdentityHashCodeInstruction;
 import ironwood.compiler.ir.IrImmortalObject;
@@ -44,7 +42,6 @@ import ironwood.compiler.ir.IrNumericConversionInstruction;
 import ironwood.compiler.ir.IrObjectHashCodeInstruction;
 import ironwood.compiler.ir.IrObjectToStringInstruction;
 import ironwood.compiler.ir.IrThrowableDescriptionInstruction;
-import ironwood.compiler.ir.IrReleaseOwnedThrowableMessageInstruction;
 import ironwood.compiler.ir.IrOperand;
 import ironwood.compiler.ir.IrParameter;
 import ironwood.compiler.ir.IrPhiInstruction;
@@ -52,11 +49,8 @@ import ironwood.compiler.ir.IrPrintStreamCheckErrorInstruction;
 import ironwood.compiler.ir.IrPrintStreamFlushInstruction;
 import ironwood.compiler.ir.IrPrintStreamPrintlnInstruction;
 import ironwood.compiler.ir.IrPrintStreamWriteInstruction;
-import ironwood.compiler.ir.IrRawDeallocateInstruction;
 import ironwood.compiler.ir.IrReferenceConversionInstruction;
-import ironwood.compiler.ir.IrReleaseOwnedToStringResultInstruction;
 import ironwood.compiler.ir.IrReturnTerminator;
-import ironwood.compiler.ir.IrRollbackInstruction;
 import ironwood.compiler.ir.IrSecondaryExceptionAtInstruction;
 import ironwood.compiler.ir.IrSecondaryExceptionCountInstruction;
 import ironwood.compiler.ir.IrStaticField;
@@ -128,9 +122,7 @@ final class BorrowDispatchAnalysis {
     private final Map<Dispatch, Optional<String>> implementations = new LinkedHashMap<>();
     private final Map<CallSite, Set<String>> primitiveTargets = new LinkedHashMap<>();
     private final Map<CallSite, Set<String>> callTargets = new LinkedHashMap<>();
-    private final Map<CallSite, Set<String>> emptyFlowFallbacks;
-    private final RejectedFreeEvidence.Budget evidenceBudget;
-    private int fallbackUnits;
+
     private final List<Operation> operations = new ArrayList<>();
     private final Set<String> foreignBodies = new LinkedHashSet<>();
     private final boolean hasEntryPoint;
@@ -139,17 +131,10 @@ final class BorrowDispatchAnalysis {
     BorrowDispatchAnalysis(Map<String, TypeSymbol> types, ClassHierarchy hierarchy,
                            List<IrFunction> input, List<IrStaticField> staticFields,
                            boolean hasEntryPoint) {
-        this(types, hierarchy, input, staticFields, hasEntryPoint, null);
-    }
 
-    BorrowDispatchAnalysis(Map<String, TypeSymbol> types, ClassHierarchy hierarchy,
-                           List<IrFunction> input, List<IrStaticField> staticFields,
-                           boolean hasEntryPoint, RejectedFreeEvidence.Budget evidenceBudget) {
         this.types = types;
         this.hierarchy = hierarchy;
         this.hasEntryPoint = hasEntryPoint;
-        this.evidenceBudget = evidenceBudget;
-        this.emptyFlowFallbacks = evidenceBudget == null ? null : new LinkedHashMap<>();
         for (IrFunction function : input) {
             functions.put(function.linkageName(), function);
             for (IrBasicBlock block : function.blocks()) {
@@ -167,14 +152,10 @@ final class BorrowDispatchAnalysis {
         // Without a selected entry point, library arguments are unknown. In a
         // closed-world executable, ordinary reference arguments originate in IR
         // calls (main receives only String[]; array loads stay conservative).
-        // Destructors are implicit native callbacks, so seed their receivers
-        // even when no ordinary invocation is present. Other source methods and
-        // constructors receive this through the same call edges as arguments.
+        // Source receivers propagate through the same call edges as arguments.
         for (IrFunction function : input) {
             for (IrParameter parameter : function.parameters()) {
-                if (!hasEntryPoint || parameter.name().equals("this")
-                        && (function.kind() == IrCallableKind.DESTRUCTOR
-                        || function.kind() == IrCallableKind.CONSTRUCTOR_ROLLBACK)) {
+                if (!hasEntryPoint) {
                     addValue(function, parameter.value(), unknown(parameter.value().type()));
                 }
             }
@@ -205,7 +186,6 @@ final class BorrowDispatchAnalysis {
                     : Optional.ofNullable(functions.get(call.directTarget()))
                     .map(IrFunction::sourceName).orElse("");
             Set<String> targets = targets(operation.function(), call, false);
-            boolean emptyFlow = targets.isEmpty();
             // Empty flow is not a proof: check all type-compatible targets. This
             // also keeps checks meaningful in bodies that have no observed caller.
             if (targets.isEmpty()) {
@@ -213,23 +193,7 @@ final class BorrowDispatchAnalysis {
             }
             CallSite site = new CallSite(operation.function().linkageName(),
                     operation.instruction().sourceSpan(), name);
-            if (emptyFlow && !targets.isEmpty() && emptyFlowFallbacks != null) {
-                Set<String> retained = emptyFlowFallbacks.get(site);
-                if (retained == null) {
-                    int units = 1 + targets.size();
-                    if (evidenceBudget.reserve(units)) {
-                        emptyFlowFallbacks.put(site, new LinkedHashSet<>(targets));
-                        fallbackUnits += units;
-                    }
-                } else {
-                    for (String target : targets) {
-                        if (!retained.contains(target) && evidenceBudget.reserve(1)) {
-                            retained.add(target);
-                            fallbackUnits++;
-                        }
-                    }
-                }
-            }
+
             callTargets.computeIfAbsent(site, ignored -> new LinkedHashSet<>()).addAll(targets);
             if (call.result().filter(value -> value.type().isReference()).isEmpty()) {
                 primitiveTargets.computeIfAbsent(site, ignored -> new LinkedHashSet<>()).addAll(targets);
@@ -246,36 +210,6 @@ final class BorrowDispatchAnalysis {
     }
 
     boolean hasEntryPoint() { return hasEntryPoint; }
-
-    boolean emptyFlowFallback(String caller, SourceSpan evidenceSpan, String target) {
-        if (emptyFlowFallbacks == null || evidenceSpan == null) return false;
-        CallSite selected = null;
-        int selectedWidth = Integer.MAX_VALUE;
-        for (var entry : emptyFlowFallbacks.entrySet()) {
-            CallSite site = entry.getKey();
-            if (!site.function().equals(caller) || site.span() == null
-                    || site.span().start().offset() > evidenceSpan.start().offset()
-                    || site.span().end().offset() < evidenceSpan.end().offset()
-                    || !entry.getValue().contains(target)) continue;
-            int width = site.span().end().offset() - site.span().start().offset();
-            if (width < selectedWidth) {
-                selected = site;
-                selectedWidth = width;
-            } else if (width == selectedWidth) {
-                selected = null;
-            }
-        }
-        return selected != null;
-    }
-
-    void retireFallbackEvidence() {
-        if (emptyFlowFallbacks == null) return;
-        evidenceBudget.release(fallbackUnits);
-        fallbackUnits = 0;
-        emptyFlowFallbacks.clear();
-    }
-
-    boolean observerEvidencePresent() { return emptyFlowFallbacks != null; }
 
     java.util.Collection<IrFunction> functions() { return functions.values(); }
 
@@ -376,17 +310,13 @@ final class BorrowDispatchAnalysis {
             case IrPrintStreamFlushInstruction ignored -> { }
             case IrPrintStreamCheckErrorInstruction ignored -> { }
             case IrExceptionCaughtInstruction ignored -> { }
-            case IrFreeInstruction ignored -> { }
-            case ironwood.compiler.ir.IrDestroyArrayElementsInstruction ignored -> { }
+
             case IrInstanceOfInstruction ignored -> { }
             case IrStreamInstruction ignored -> { }
             case ironwood.compiler.ir.IrCharacterInstruction ignored -> { }
             case ironwood.compiler.ir.IrFloatingBitsInstruction ignored -> { }
             case IrFloatingParseInstruction ignored -> { }
-            case IrRawDeallocateInstruction ignored -> { }
-            case IrReleaseOwnedToStringResultInstruction ignored -> { }
-            case IrReleaseOwnedThrowableMessageInstruction ignored -> { }
-            case IrRollbackInstruction ignored -> { }
+
             case IrIdentityHashCodeInstruction ignored -> { }
             case IrNullCheckInstruction ignored -> { }
             case IrEnsureTypeInitializedInstruction ignored -> { }

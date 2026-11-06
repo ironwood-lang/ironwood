@@ -135,10 +135,6 @@ class BorrowingImpl extends SocketImpl {
         return this.nativeImpl.supportedOptions();
     }
 
-    destructor {
-
-        free this.input;
-    }
 }
 
 class BorrowedInput extends InputStream {
@@ -202,22 +198,16 @@ class Borrowed {
         server.bind(null);
         byte[] raw = {127, 0, 0, 1};
         InetAddress address = InetAddress.getByAddress(raw);
-        free raw;
         InetSocketAddress endpoint = new InetSocketAddress(address, server.getLocalPort());
-        free address;
         NativeSocketImpl connecting = new NativeSocketImpl(false);
         BorrowingImpl clientImpl = new BorrowingImpl(connecting);
         InjectedSocket client = new InjectedSocket(clientImpl);
         client.connect(endpoint);
-        free endpoint;
         NativeSocketImpl receiving = new NativeSocketImpl(false);
         BorrowingImpl acceptedImpl = new BorrowingImpl(receiving);
         InjectedSocket accepted = new InjectedSocket(acceptedImpl);
         server.acceptInto(accepted);
         server.close();
-        free server;
-        free listenerImpl;
-        free listening;
         byte[] bytes = {3, 7, 11};
         client.getOutputStream().write(bytes);
         BufferedInputStream buffer = new BufferedInputStream(accepted.getInputStream(), 16);
@@ -225,18 +215,10 @@ class Borrowed {
         for (int index = 0; index < bytes.length; index++) {
             if (buffer.read() != bytes[index]) failure = 1;
         }
-        free buffer;
-        free bytes;
         accepted.close();
-        free accepted;
-        free acceptedImpl;
         if (receiving.getPort() == 0) failure = 2;
-        free receiving;
         client.close();
-        free client;
-        free clientImpl;
         if (connecting.getPort() == 0) failure = 3;
-        free connecting;
         return failure;
     }
 }

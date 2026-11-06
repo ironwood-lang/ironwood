@@ -255,7 +255,6 @@ public final class Inflate {
         byte[] previous = this.scratch;
         this.scratch = new byte[size];
         System.arraycopy(previous, 0, this.scratch, 0, this.produced);
-        free previous;
     }
 
     private void dynamic(byte[] input) throws IOException {
@@ -435,13 +434,4 @@ public final class Inflate {
         this.produced = this.produced + length;
     }
 
-    destructor {
-
-        free this.fastTables;
-        free this.counts;
-        free this.symbols;
-        free this.lengths;
-        free this.offsets;
-        free this.scratch;
-    }
 }

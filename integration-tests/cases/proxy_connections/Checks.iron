@@ -24,9 +24,8 @@ class ProxyChecks {
                 Proxy warmProxy = Proxy.socks5(endpoint, secret, secret);
                 try {
                     Socket warm = new Socket(warmProxy);
-                    try { warm.supportedOptions(); } finally { try { warm.close(); } finally { free warm; } }
-                } finally { free warmProxy; }
-                long live = System.liveAllocationCount();
+                    try { warm.supportedOptions(); } finally { try { warm.close(); } finally { ; } }
+                } finally { ; }
                 for (int index = 0; index < 20; index++) {
                     long before = System.allocationCount();
                     Proxy proxy = Proxy.socks5(endpoint, secret, secret);
@@ -41,12 +40,12 @@ class ProxyChecks {
                             proxy.type();
                             socket.supportedOptions();
                             if (System.allocationCount() != before) throw new IllegalStateException("Getter allocation");
-                        } finally { try { socket.close(); } finally { free socket; } }
-                    } finally { free proxy; }
-                    if (System.liveAllocationCount() != live) throw new IllegalStateException("Configuration leak");
+                        } finally { try { socket.close(); } finally { ; } }
+                    } finally { ; }
+
                 }
-            } finally { free secret; }
-        } finally { free endpoint; }
+            } finally { ; }
+        } finally { ; }
     }
 
     public static int main(String[] args) throws Exception {
@@ -65,7 +64,7 @@ class ProxyChecks {
             try { TcpNative.peekBytes(-1, null, 0, 0); }
             catch (NullPointerException expected) { rejected = true; }
             if (!rejected) return 2;
-        } finally { free bytes; }
+        } finally { ; }
         String[] keys = {"socksProxyHost", "socksProxyPort", "socksProxyVersion", "socksNonProxyHosts",
             "http.proxyHost", "http.proxyPort", "http.nonProxyHosts", "https.proxyHost", "https.proxyPort",
             "proxyHost", "proxyPort", "java.net.useSystemProxies", "java.net.socks.username",
@@ -73,9 +72,9 @@ class ProxyChecks {
         try {
             for (int index = 0; index < keys.length; index++) {
                 String value = System.getProperty(keys[index]);
-                try { if (value != null) return 3; } finally { free value; }
+                try { if (value != null) return 3; } finally { ; }
             }
-        } finally { free keys; }
+        } finally { ; }
         return 0;
     }
 }

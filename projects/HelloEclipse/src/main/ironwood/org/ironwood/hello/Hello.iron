@@ -11,6 +11,5 @@ public class Hello {
 		// The greeting is an unnamed temporary, reclaimed after println returns.
 		System.out.println("Hello " + chatter.getWord() + "!");
 
-		free chatter; // why not?
 	}
 }

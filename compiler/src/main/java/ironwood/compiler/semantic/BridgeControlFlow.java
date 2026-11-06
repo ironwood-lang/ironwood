@@ -20,12 +20,10 @@ final class BridgeControlFlow {
 
     BridgeControlFlow(IrProgram program) {
         var targets = new BridgeCallTargets(program);
-        var effects = new ClosedWorldEffectAnalyzer(program.functions(), program.classes());
-        effects.analyze();
         var nonraising = new LinkedHashSet<String>();
         Map<String, Set<String>> dependencies = new LinkedHashMap<>();
         for (var function : program.functions()) {
-            boolean complete = effects.nonThrowingAndAllocationFree(function.linkageName());
+            boolean complete = true;
             var called = new LinkedHashSet<String>();
             for (var block : function.blocks()) {
                 if (block.terminator() instanceof IrThrowTerminator thrown && thrown.unwindTarget().isEmpty()) complete = false;
@@ -110,11 +108,7 @@ final class BridgeControlFlow {
     }
 
     private static BridgeCallTargets.Call call(BridgeCallTargets targets, IrInstruction instruction) {
-        if (instruction instanceof IrFreeInstruction free) return targets.cleanup(free.allocation(), false);
-        if (instruction instanceof IrRollbackInstruction rollback) return targets.cleanup(rollback.allocation(), true);
-        if (instruction instanceof IrDestroyArrayElementsInstruction destroy) {
-            return targets.cleanup(new IrNull(destroy.array().type().elementType(), instruction.sourceSpan()), false);
-        }
+
         return targets.resolve(instruction);
     }
 
@@ -135,9 +129,7 @@ final class BridgeControlFlow {
             case IrInstanceOfInstruction ignored -> true;
             case IrTypeInitializedInstruction ignored -> true;
             case IrIdentityHashCodeInstruction ignored -> true;
-            case IrRawDeallocateInstruction ignored -> true;
-            case IrReleaseOwnedToStringResultInstruction ignored -> true;
-            case IrReleaseOwnedThrowableMessageInstruction ignored -> true;
+
             case IrExceptionLandingPadInstruction ignored -> true;
             case IrExceptionCaughtInstruction ignored -> true;
             case IrAllocationCountInstruction ignored -> true;

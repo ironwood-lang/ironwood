@@ -5,25 +5,23 @@ import ironwood.nio.file.Path;
 class Main {
 
     static boolean check(Path base, Path other, int operation, boolean failureExpected) {
-
-        long baseline = System.liveAllocationCount();
         try {
-            if (operation == 0) { Path result = base.normalize(); free result; }
-            else if (operation == 1) { Path result = base.getFileName(); free result; }
-            else if (operation == 2) { Path result = base.getParent(); free result; }
-            else if (operation == 3) { Path result = base.getRoot(); free result; }
-            else if (operation == 4) { Path result = base.toAbsolutePath(); free result; }
-            else if (operation == 5) { Path result = base.resolve("x//y/"); free result; }
-            else if (operation == 6) { Path result = base.resolve(other); free result; }
-            else if (operation == 7) { Path result = base.resolveSibling("x//y/"); free result; }
+            if (operation == 0) { Path result = base.normalize(); ; }
+            else if (operation == 1) { Path result = base.getFileName(); ; }
+            else if (operation == 2) { Path result = base.getParent(); ; }
+            else if (operation == 3) { Path result = base.getRoot(); ; }
+            else if (operation == 4) { Path result = base.toAbsolutePath(); ; }
+            else if (operation == 5) { Path result = base.resolve("x//y/"); ; }
+            else if (operation == 6) { Path result = base.resolve(other); ; }
+            else if (operation == 7) { Path result = base.resolveSibling("x//y/"); ; }
             else {
-                Path result = base.resolveSibling(other); free result;
+                Path result = base.resolveSibling(other); ;
             }
         } catch (OutOfMemoryError expected) {
 
-            return failureExpected && System.liveAllocationCount() == baseline;
+            return failureExpected;
         }
-        return !failureExpected && System.liveAllocationCount() == baseline;
+        return !failureExpected;
     }
 
     public static int main(String[] args) {

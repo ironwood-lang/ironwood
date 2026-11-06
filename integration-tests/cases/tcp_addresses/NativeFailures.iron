@@ -12,7 +12,7 @@ class AddressNativeFailures {
         if (args[0].equals("no-route")) {
             try {
                 Socket value = new Socket("127.0.0.1", 9);
-                try { value.close(); } finally { free value; }
+                try { value.close(); } finally { ; }
             } catch (NoRouteToHostException expected) {
                 return 0;
             }
@@ -27,7 +27,7 @@ class AddressNativeFailures {
             catch (SocketException expected) { return 0; }
             return 3;
         } finally {
-            try { value.close(); } finally { free value; }
+            try { value.close(); } finally { ; }
         }
     }
 }

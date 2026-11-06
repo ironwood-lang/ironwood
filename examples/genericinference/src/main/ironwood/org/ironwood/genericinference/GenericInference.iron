@@ -54,18 +54,12 @@ public class GenericInference {
         // Named arguments retain their original inference types and permit explicit cleanup.
         Object ignored = new Object();
         String inferred = InferenceUtility.first("inferred", ignored);
-        free ignored;
         InferenceBox<String> first = new InferenceBox<String>();
         InferenceBox<Object> second = new InferenceBox<Object>();
         InferenceBox<?> common = InferenceUtility.common(first, second);
 
         // The common view expires with this block before its owner is reclaimed.
-        defer free stringBox;
-        defer free objectBox;
-        defer free first;
-        defer free second;
-        if (expected != null || stringBox == null || objectBox == null
-                || inferred.length() != 8 || common == null) {
+        if (expected != null || stringBox == null || objectBox == null || inferred.length() != 8 || common == null) {
 
             return 2;
         }

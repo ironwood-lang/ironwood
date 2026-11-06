@@ -36,7 +36,7 @@ public final class TreeDeletion implements FileVisitor<Path> {
      * Deletes what it can under {@code root} and ignores every failure, as
      * NativeBackend's cleanup must not hide the link result. Unlike the Java
      * stream, an unreadable subdirectory is skipped too. Each ignored failure
-     * keeps its exception, since a caught exception cannot be freed.
+     * keeps its exception as an ordinary managed value.
      *
      * @param root the tree to delete, or null; borrowed for the call
      */
@@ -44,7 +44,6 @@ public final class TreeDeletion implements FileVisitor<Path> {
 
         if (root == null || !Files.exists(root)) return;
         TreeDeletion visitor = new TreeDeletion(false);
-        defer free visitor;
         try {
             Files.walkFileTree(root, visitor);
         } catch (IOException ignored) {
@@ -63,7 +62,6 @@ public final class TreeDeletion implements FileVisitor<Path> {
 
         if (!Files.exists(root)) return;
         TreeDeletion visitor = new TreeDeletion(true);
-        defer free visitor;
         Files.walkFileTree(root, visitor);
     }
 

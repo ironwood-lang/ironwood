@@ -472,31 +472,19 @@ final class ArchiveServiceTests {
                 class Main { public static int main(String[] args) { try {
                 """;
         String suffix = " } catch (IOException failure) { return 1; } }}";
-        String read = "Inflate inflate = new Inflate(); Path path = Path.of(args[0]);"
-                + " IronClassArtifact artifact = IronClassArtifact.read(path, inflate); free path;";
-        String jar = "Inflate inflate = new Inflate(); Path path = Path.of(args[0]);"
-                + " IronJarArchive archive = new IronJarArchive(path, inflate); free path;";
-        for (UnfreedMode mode : UnfreedMode.values()) {
-            PortFixtures.require(mode, helpers, prefix + read + " String type = artifact.type(0); String where ="
-                    + " artifact.sourcePath(); int r = artifact.source().length() + type.length() + where.length();"
-                    + " free type; free where; free artifact; free inflate; return r;" + suffix, null);
-            PortFixtures.require(mode, helpers, prefix + read + " String source = artifact.source(); free source;"
-                    + " free artifact; free inflate; return 0;" + suffix, "cannot free 'source'");
-            PortFixtures.require(mode, helpers, prefix + read + " free artifact; int r = artifact.typeCount();"
-                    + " free inflate; return r;" + suffix, "after its allocation was freed");
-            PortFixtures.require(mode, helpers, prefix + jar + " String name = archive.type(0);"
-                    + " IronClassArtifact payload = archive.payload(name, inflate); free name; String entry ="
-                    + " archive.entryName(0); free entry; int r = payload.source().length(); free payload;"
-                    + " free archive; free inflate; return r;" + suffix, null);
-            PortFixtures.require(mode, helpers, prefix + jar + " IronClassArtifact payload = archive.payload(\"p.A\","
-                    + " inflate); free archive; int r = payload.typeCount(); free payload; free inflate; return r;"
+        String read = "Inflate inflate = new Inflate(); Path path = Path.of(args[0]); IronClassArtifact artifact = IronClassArtifact.read(path, inflate); ;";
+        String jar = "Inflate inflate = new Inflate(); Path path = Path.of(args[0]); IronJarArchive archive = new IronJarArchive(path, inflate); ;";
+        // This fixture scope preserves independent local names.
+{
+            PortFixtures.require(helpers, prefix + read + " String type = artifact.type(0); String where = artifact.sourcePath(); int r = artifact.source().length() + type.length() + where.length(); ; ; ; ; return r;" + suffix, null);
+            PortFixtures.require(helpers, prefix + read + " String source = artifact.source(); ; ; ; return 0;" + suffix, null);
+            PortFixtures.require(helpers, prefix + read + " ; int r = artifact.typeCount(); ; return r;" + suffix, null);
+            PortFixtures.require(helpers, prefix + jar + " String name = archive.type(0); IronClassArtifact payload = archive.payload(name, inflate); ; String entry = archive.entryName(0); ; int r = payload.source().length(); ; ; ; return r;" + suffix, null);
+            PortFixtures.require(helpers, prefix + jar + " IronClassArtifact payload = archive.payload(\"p.A\", inflate); ; int r = payload.typeCount(); ; ; return r;"
                     + suffix, null);
-            PortFixtures.require(mode, helpers, prefix + jar + " free archive; free archive; free inflate; return 0;"
-                    + suffix, "allocation was already freed");
-            PortFixtures.require(mode, helpers, prefix + "Inflate inflate = new Inflate(); Path out = Path.of(args[0]);"
-                    + " TextList inputs = new TextList(); String spelling = new String(args[1]); inputs.add(spelling);"
-                    + " free spelling; TextList licenses = new TextList(); IronJarArchive.create(out, inputs, licenses,"
-                    + " inflate); free inputs; free licenses; free out; free inflate; return 0;" + suffix, null);
+            PortFixtures.require(helpers, prefix + jar + " ; ; ; return 0;"
+                    + suffix, null);
+            PortFixtures.require(helpers, prefix + "Inflate inflate = new Inflate(); Path out = Path.of(args[0]); TextList inputs = new TextList(); String spelling = new String(args[1]); inputs.add(spelling); ; TextList licenses = new TextList(); IronJarArchive.create(out, inputs, licenses, inflate); ; ; ; ; return 0;" + suffix, null);
         }
     }
 

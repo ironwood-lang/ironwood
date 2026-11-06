@@ -12,23 +12,25 @@ public final class GenericBench {
         if (!bean.isThreadAllocatedMemorySupported()) throw new AssertionError("allocation counter unavailable");
         bean.setThreadAllocatedMemoryEnabled(true);
         long thread = Thread.currentThread().threadId();
-        Box<Quote> box = Box.quote();
+        try (var boxRoot = Box.quote(); var plainRoot = Plain.quote()) {
+        Box<Quote> box = boxRoot.value();
+        Plain plain = plainRoot.value();
         long coldBytes = bean.getThreadAllocatedBytes(thread), coldStart = System.nanoTime();
-        Quote quote = box.get();
+        try (var quoteRoot = box.get(); var plainValue = plain.get()) {
+        Quote quote = quoteRoot.value();
         long coldNs = System.nanoTime() - coldStart;
         coldBytes = bean.getThreadAllocatedBytes(thread) - coldBytes;
-        Plain plain = Plain.quote();
-        Quote expected = generic ? quote : plain.get();
+        Quote expected = generic ? quote : plainValue.value();
         if (expected.value() != 17) throw new AssertionError();
         System.err.println("first generic get: ns=" + coldNs + " java_bytes=" + coldBytes);
         System.out.println("scenario,sample,calls,elapsed_ns,checksum,native_allocations,java_bytes");
-        try {
             for (int sample = -5; sample < 7; sample++) {
                 long sum = 0, allocations = Box.allocations(), bytes = bean.getThreadAllocatedBytes(thread);
                 long start = System.nanoTime();
                 for (int i = 0; i < iterations; i++) {
-                    Quote value = generic ? box.get() : plain.get();
-                    if (value == expected) sum++;
+                    try (var value = generic ? box.get() : plain.get()) {
+                        if (value.value() == expected) sum++;
+                    }
                 }
                 long elapsed = System.nanoTime() - start;
                 bytes = bean.getThreadAllocatedBytes(thread) - bytes;
@@ -38,9 +40,7 @@ public final class GenericBench {
                 if (sample >= 0) System.out.println(args[0] + "," + sample + "," + iterations + "," + elapsed + ","
                         + sum + "," + allocations + "," + bytes);
             }
-        } finally {
-            plain.free();
-            box.free();
+        }
         }
     }
 }

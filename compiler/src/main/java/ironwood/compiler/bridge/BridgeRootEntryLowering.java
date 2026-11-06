@@ -19,7 +19,6 @@ final class BridgeRootEntryLowering {
     private final List<IrBasicBlock> blocks = new ArrayList<>();
     private final List<IrOperand> arguments = new ArrayList<>();
     private final List<IrInstruction> copies = new ArrayList<>();
-    private final Optional<BridgeStringResultContract> stringResult;
     private final Optional<BridgeEnumConversions.Result> enumResult;
     private final Map<Integer, BridgeEnumConversions.Parameter> enums;
     private final Map<Integer, Integer> fixedEnums;
@@ -27,12 +26,11 @@ final class BridgeRootEntryLowering {
     private int next;
 
     private BridgeRootEntryLowering(BridgeRootSet.Root root, BridgeRetentionContract retention,
-            Optional<BridgeStringResultContract> stringResult, List<BridgeEnumConversions.Parameter> enumParameters,
+            List<BridgeEnumConversions.Parameter> enumParameters,
             Optional<BridgeEnumConversions.Result> enumResult, Map<Integer, Integer> fixedEnums) {
         this.root = root;
         this.retention = retention;
         this.span = root.span();
-        this.stringResult = stringResult;
         this.enumResult = enumResult;
         this.enums = enumParameters.stream().collect(java.util.stream.Collectors.toUnmodifiableMap(
                 BridgeEnumConversions.Parameter::input, parameter -> parameter));
@@ -47,36 +45,16 @@ final class BridgeRootEntryLowering {
     }
 
     static IrFunction lower(BridgeRootSet.Root root, String symbol, BridgeRetentionContract retention, boolean initialize) {
-        return lower(root, symbol, retention, initialize, Optional.empty());
+        return lower(root, symbol, retention, initialize, List.of(), Optional.empty(), Map.of());
     }
 
     static IrFunction lower(BridgeRootSet.Root root, String symbol, BridgeRetentionContract retention, boolean initialize,
-            Optional<BridgeStringResultContract> stringResult) {
-        return lower(root, symbol, retention, initialize, stringResult, List.of());
-    }
-
-    static IrFunction lower(BridgeRootSet.Root root, String symbol, BridgeRetentionContract retention, boolean initialize,
-            Optional<BridgeStringResultContract> stringResult, List<BridgeEnumConversions.Parameter> enumParameters) {
-        return lower(root, symbol, retention, initialize, stringResult, enumParameters, Optional.empty());
-    }
-
-    static IrFunction lower(BridgeRootSet.Root root, String symbol, BridgeRetentionContract retention, boolean initialize,
-            Optional<BridgeStringResultContract> stringResult, List<BridgeEnumConversions.Parameter> enumParameters,
-            Optional<BridgeEnumConversions.Result> enumResult) {
-        return lower(root, symbol, retention, initialize, stringResult, enumParameters, enumResult, Map.of());
-    }
-
-    static IrFunction lower(BridgeRootSet.Root root, String symbol, BridgeRetentionContract retention, boolean initialize,
-            Optional<BridgeStringResultContract> stringResult, List<BridgeEnumConversions.Parameter> enumParameters,
+            List<BridgeEnumConversions.Parameter> enumParameters,
             Optional<BridgeEnumConversions.Result> enumResult, Map<Integer, Integer> fixedEnums) {
-        if (root.callable().result().equals(STRING) != stringResult.isPresent()
-                || stringResult.isPresent() && !stringResult.orElseThrow().callable().equals(root.callable())) {
-            throw new IllegalArgumentException("root String lowering requires the exact result contract");
-        }
         if (enumResult.isPresent() && !enumResult.orElseThrow().declaredType().equals(root.callable().result())) {
             throw new IllegalArgumentException("enum lowering requires the exact result mapping");
         }
-        return new BridgeRootEntryLowering(root, retention, stringResult, enumParameters, enumResult, fixedEnums).build(symbol, initialize);
+        return new BridgeRootEntryLowering(root, retention, enumParameters, enumResult, fixedEnums).build(symbol, initialize);
     }
 
     private IrValueReference value(IrType type) { return new IrValueReference(next++, type, span); }
@@ -153,7 +131,7 @@ final class BridgeRootEntryLowering {
         Optional<IrValueReference> result = callable.result().equals(IrType.VOID) ? Optional.empty() : Optional.of(value(callable.result()));
         blocks.add(new IrBasicBlock("target", List.of(), new IrInvokeTerminator(new IrCallInstruction(result,
                 callable.linkage(), callable.result(), arguments, span), enumResult.isPresent() ? "result.convert"
-                        : aliasResult() ? "cleanup.0" : "success",
+                        : "success",
                 constructor ? "failure.constructed" : "failure.before", span), span));
         Optional<IrValueReference> transported = result;
         if (enumResult.isPresent()) {
@@ -163,15 +141,14 @@ final class BridgeRootEntryLowering {
             transported = Optional.of(token);
         }
         List<IrInstruction> success = new ArrayList<>();
-        successCleanup(success, result);
         if (constructor) success.add(new IrBridgeResultStoreInstruction(frame, IrBridgeResultStoreInstruction.Slot.VALUE, created, span));
         transported.ifPresent(value -> success.add(new IrBridgeResultStoreInstruction(frame, IrBridgeResultStoreInstruction.Slot.VALUE, value, span)));
         blocks.add(new IrBasicBlock("success", success, new IrJump("success.slots.0", span), span));
         snapshots("success.slots", false, "return.success");
         blocks.add(new IrBasicBlock("return.success", List.of(), returned(0), span));
-        failure("failure.before", constructor, null, copies.size());
-        if (constructor) failure("failure.constructed", true, created, copies.size());
-        for (int acquired = 0; acquired < copies.size(); acquired++) failure("failure.copy." + acquired, constructor, null, acquired);
+        failure("failure.before", constructor, false);
+        if (constructor) failure("failure.constructed", true, true);
+        for (int acquired = 0; acquired < copies.size(); acquired++) failure("failure.copy." + acquired, constructor, false);
         blocks.add(new IrBasicBlock("snapshot.complete", List.of(), returned(1), span));
         var handle = value(IrType.EXCEPTION);
         var exception = value(IrType.reference("ironwood.lang.Throwable"));
@@ -189,22 +166,11 @@ final class BridgeRootEntryLowering {
                 span, root.sourceFile(), IrCallableKind.METHOD);
     }
 
-    private boolean aliasResult() {
-        return stringResult.filter(result -> result.kind() == BridgeStringResultContract.Kind.INPUT_ALIAS).isPresent();
-    }
-
     private IrOperand absentResult() {
         return enumResult.isPresent() ? new IrConstant(IrType.I32, -1, span) : new IrNull(root.callable().result(), span);
     }
 
-    private void successCleanup(List<IrInstruction> success, Optional<IrValueReference> result) {
-        for (int index = 0; index < copies.size(); index++) {
-            if (aliasResult()) blocks.add(new IrBasicBlock("cleanup." + index, List.of(),
-                    new IrJump(index + 1 == copies.size() ? "success" : "cleanup." + (index + 1), span), span));
-        }
-    }
-
-    private void failure(String label, boolean omitConstructedRoot, IrValueReference rollback, int acquired) {
+    private void failure(String label, boolean omitConstructedRoot, boolean constructedValueReady) {
         var handle = value(IrType.EXCEPTION);
         var exception = value(IrType.reference("ironwood.lang.Throwable"));
         List<IrInstruction> failure = new ArrayList<>();
@@ -216,7 +182,7 @@ final class BridgeRootEntryLowering {
         else if (root.callable().result().isReference()) failure.add(new IrBridgeResultStoreInstruction(frame,
                 IrBridgeResultStoreInstruction.Slot.VALUE, absentResult(), span));
         blocks.add(new IrBasicBlock(label, failure, new IrJump(label + ".slots.0", span), span));
-        snapshots(label + ".slots", omitConstructedRoot && rollback == null, label + ".snapshot");
+        snapshots(label + ".slots", omitConstructedRoot && !constructedValueReady, label + ".snapshot");
         blocks.add(new IrBasicBlock(label + ".snapshot", List.of(), new IrInvokeTerminator(
                 new IrBridgeFailureSnapshotInstruction(exception, frame, span), "snapshot.complete", "snapshot.failure", span), span));
     }

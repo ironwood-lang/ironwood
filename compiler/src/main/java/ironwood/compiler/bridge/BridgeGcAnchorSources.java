@@ -7,10 +7,10 @@ import java.util.stream.Collectors;
 
 /** Explicit image-owned anchors and facade epochs. Collection performs no JNI work. */
 final class BridgeGcAnchorSources {
-    record Sources(String source, List<BridgePermanentNativeSources.Adapter> adapters) {}
+    record Sources(String source, List<BridgeFacadeNativeSources.Adapter> adapters) {}
     private BridgeGcAnchorSources() {}
 
-    static Sources generate(BridgePermanentJavaSources.Sources java, BridgeGeneration generation) {
+    static Sources generate(BridgeFacadeSources.Sources java, BridgeGeneration generation) {
         String support = generation.supportPackage();
         var text = new StringBuilder(TYPES.replace("@COUNT@", Integer.toString(Math.max(1, java.facades().size()))));
         text.append("static const char *const iw_gc_address_names[] = {");
@@ -40,8 +40,8 @@ final class BridgeGcAnchorSources {
                 .append("    if (iw_gc_handle_init == NULL || iw_gc_state_init == NULL || iw_gc_state_status == NULL) goto failed;\n")
                 .append("    return 1;\nfailed: iw_object_metadata_dispose(env); return 0;\n}\n")
                 .append(CORE.replace("@STATE@", "L" + support.replace('.', '/') + "/RootState;"));
-        var adapters = new ArrayList<BridgePermanentNativeSources.Adapter>();
-        adapters.add(new BridgePermanentNativeSources.Adapter(new BridgeJavaSources.NativeDeclaration(support + ".RootHandle", "$release", "(J)V"), "iw_gc_handle_release"));
+        var adapters = new ArrayList<BridgeFacadeNativeSources.Adapter>();
+        adapters.add(new BridgeFacadeNativeSources.Adapter(new BridgeJavaSources.NativeDeclaration(support + ".RootHandle", "$release", "(J)V"), "iw_gc_handle_release"));
         for (int i = 0; i < java.facades().size(); i++) {
             String function = "iw_gc_retain_" + i;
             String name = "$retain$" + (i + 1);
@@ -51,7 +51,7 @@ final class BridgeGcAnchorSources {
                     .append("    struct iw_gc_anchor_reservation reserved __attribute__((cleanup(iw_gc_anchor_discard))) = {0};\n")
                     .append("    if (!iw_gc_anchor_reserve(env, &reserved)) return NULL;\n")
                     .append("    return iw_gc_anchor_deliver(env, &reserved, ").append(i).append(", address);\n}\n");
-            adapters.add(new BridgePermanentNativeSources.Adapter(new BridgeJavaSources.NativeDeclaration(support + ".Roots", name,
+            adapters.add(new BridgeFacadeNativeSources.Adapter(new BridgeJavaSources.NativeDeclaration(support + ".Roots", name,
                     "(L" + java.facades().get(i).binaryName().replace('.', '/') + ";)L" + support.replace('.', '/') + "/RootHandle;"), function));
         }
         return new Sources(text.toString(), List.copyOf(adapters));

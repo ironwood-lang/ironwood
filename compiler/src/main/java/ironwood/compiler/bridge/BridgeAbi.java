@@ -10,7 +10,7 @@ import java.util.Optional;
 
 /**
  * Transport-neutral native value descriptors. Describing a reference does not
- * authorize its export, conversion, retention or destruction. These require proofs.
+ * authorize its export, conversion, retention. These require proofs.
  */
 public record BridgeAbi(List<Value> parameters, Value result) {
     public BridgeAbi {

@@ -99,8 +99,7 @@ final class Response {
 
     private static boolean token(int ch) {
 
-        return ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z'
-            || ch >= '0' && ch <= '9' || "!#$%&'*+-.^_`|~".indexOf((char) ch) >= 0;
+        return ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z' || ch >= '0' && ch <= '9' || "!#$%&'*+-.^_`|~".indexOf((char) ch) >= 0;
     }
 
     private boolean matches(int start, int end, String expected) {
@@ -227,10 +226,7 @@ final class Response {
             this.chunked = false;
             this.identity = true;
             int size = this.physicalLine(0, 65536, true, false);
-            if (size < 13 || this.line[0] != 'H' || this.line[1] != 'T' || this.line[2] != 'T'
-                    || this.line[3] != 'P' || this.line[4] != '/' || this.line[5] != '1'
-                    || this.line[6] != '.' || this.line[7] != '0' && this.line[7] != '1'
-                    || this.line[8] != ' ' || this.line[12] != ' ') throw new IOException("Invalid HTTP status line");
+            if (size < 13 || this.line[0] != 'H' || this.line[1] != 'T' || this.line[2] != 'T' || this.line[3] != 'P' || this.line[4] != '/' || this.line[5] != '1' || this.line[6] != '.' || this.line[7] != '0' && this.line[7] != '1' || this.line[8] != ' ' || this.line[12] != ' ') throw new IOException("Invalid HTTP status line");
             this.http10 = this.line[7] == '0';
             this.status = 0;
             for (int index = 9; index < 12; index++) {
@@ -341,10 +337,4 @@ final class Response {
         return this.total;
     }
 
-    destructor {
-
-        free this.location;
-        free this.line;
-        free this.bytes;
-    }
 }

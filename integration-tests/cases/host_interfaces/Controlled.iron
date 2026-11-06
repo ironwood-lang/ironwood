@@ -19,8 +19,7 @@ class HostControlled {
             if (owner.getIndex() != 7 || !owner.getName().equals("alpha0") || owner.isVirtual()) return 1;
             if (!owner.getDisplayName().equals("alpha0") || owner.getParent() != null) return 2;
             long before = System.allocationCount();
-            if (owner.getMTU() != 1500 || !owner.isUp() || owner.isLoopback()
-                    || owner.isPointToPoint() || !owner.supportsMulticast()) return 3;
+            if (owner.getMTU() != 1500 || !owner.isUp() || owner.isLoopback() || owner.isPointToPoint() || !owner.supportsMulticast()) return 3;
             if (before != System.allocationCount()) return 4;
             byte[] hardware = owner.getHardwareAddress();
             try {
@@ -30,10 +29,8 @@ class HostControlled {
                 try {
                     if (second == hardware || second[0] != 2) return 6;
                 } finally {
-                    free second;
                 }
             } finally {
-                free hardware;
             }
             long listStart = System.allocationCount();
             ArrayList<InterfaceAddress> entries = owner.getInterfaceAddresses();
@@ -43,21 +40,18 @@ class HostControlled {
                 if (System.allocationCount() != listStart + 3) return 27;
                 if (entries.size() != 2) return 7;
                 retained = entries.get(0);
-                if (!(retained.getAddress() instanceof Inet6Address) || retained.getNetworkPrefixLength() != 64
-                        || retained.getBroadcast() != null) return 8;
+                if (!(retained.getAddress() instanceof Inet6Address) || retained.getNetworkPrefixLength() != 64 || retained.getBroadcast() != null) return 8;
                 InterfaceAddress ipv4 = entries.get(1);
                 if (ipv4.getNetworkPrefixLength() != 24 || ipv4.getBroadcast() == null) return 9;
                 String broadcast = ipv4.getBroadcast().getHostAddress();
                 try {
                     if (!broadcast.equals("192.0.2.255")) return 10;
                 } finally {
-                    free broadcast;
                 }
                 entries.clear();
                 entries.add(ipv4);
                 if (entries.get(0) != ipv4) return 11;
             } finally {
-                free entries;
             }
             if (retained.getNetworkPrefixLength() != 64) return 12;
             Enumeration<InetAddress> cursor = owner.getInetAddresses();
@@ -68,16 +62,13 @@ class HostControlled {
                 try {
                     if (independent == cursor || independent.nextElement() != address) return 26;
                 } finally {
-                    free independent;
                 }
                 Iterator<InetAddress> iterator = cursor.asIterator();
                 try {
                     if (!iterator.hasNext() || iterator.next().equals(address) || iterator.hasNext()) return 13;
                 } finally {
-                    free iterator;
                 }
             } finally {
-                free cursor;
             }
             if (((Inet6Address) address).getScopedInterface().getIndex() != 7) return 16;
             Enumeration<NetworkInterface> children = owner.getSubInterfaces();
@@ -86,24 +77,20 @@ class HostControlled {
                 child = children.nextElement();
                 if (!child.isVirtual() || children.hasMoreElements() || !child.getName().equals("alpha0:1")) return 17;
             } finally {
-                free children;
             }
             if (!child.getParent().equals(owner) || child.getParent().hashCode() != owner.hashCode()) return 18;
             NetworkInterface byIndex = NetworkInterface.getByIndex(owner.getIndex());
             try {
                 if (byIndex == owner || !byIndex.equals(owner) || !owner.equals(byIndex)) return 19;
             } finally {
-                free byIndex;
             }
             NetworkInterface byAddress = NetworkInterface.getByInetAddress(address);
             try {
                 if (!byAddress.equals(owner)) return 20;
             } finally {
-                free byAddress;
             }
             return 0;
         } finally {
-            free owner;
         }
     }
 
@@ -120,13 +107,10 @@ class HostControlled {
                 try {
                     return address.copy();
                 } finally {
-                    free address;
                 }
             } finally {
-                free bytes;
             }
         } finally {
-            free owner;
         }
     }
 
@@ -145,22 +129,16 @@ class HostControlled {
                         if (combined.size() != 3 || !incomingEntry.getAddress().isLoopbackAddress())
                             throw new IllegalStateException("Cross-owner insertion failed");
                     } finally {
-                        free combined;
                     }
                 } finally {
-                    free incoming;
                 }
             } finally {
-                free second;
             }
         } finally {
-            free first;
         }
     }
 
     public static int main(String[] args) throws Exception {
-
-        long baseline = System.liveAllocationCount();
         long before = System.allocationCount();
         boolean complete = false;
         try {
@@ -175,28 +153,23 @@ class HostControlled {
                 try {
                     if (((Inet6Address) entries.get(0).getAddress()).getScopedInterface().getIndex() != 7) return 22;
                 } finally {
-                    free entries;
                 }
             } finally {
-                free copy;
             }
             InetAddress literal = InetAddress.getByName("fe80::42%alpha0");
             try {
-                if (((Inet6Address) literal).getScopeId() != 7
-                        || !((Inet6Address) literal).getScopedInterface().getName().equals("alpha0")) return 23;
+                if (((Inet6Address) literal).getScopeId() != 7 || !((Inet6Address) literal).getScopedInterface().getName().equals("alpha0")) return 23;
             } finally {
-                free literal;
             }
             NetworkInterface absent = NetworkInterface.getByName("absent0");
             try {
                 if (absent != null) return 24;
             } finally {
-                free absent;
             }
             complete = true;
         } catch (OutOfMemoryError expected) {
         }
-        if (System.liveAllocationCount() != baseline) return 25;
+
         if (complete) {
             System.out.println("HOST_COMPLETE");
             System.out.println(System.allocationCount() - before);

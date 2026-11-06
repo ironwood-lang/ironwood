@@ -2,17 +2,8 @@
 
 package org.ironwood.helloeclipse;
 
-// Holds one name and writes greetings built from it.
-//
-// The greeting is appended to storage the caller provides rather than returned
-// as a fresh String. That is deliberate: the compiler proves a free only for an
-// allocation made by new in the same method or returned by a factory it knows,
-// so a String returned from here could never be reclaimed by its caller. Taking
-// a StringBuilder instead leaves ownership where it started and keeps the whole
-// program reclaimable.
-//
-// The name belongs to whoever constructed the Greeting, which is why nothing
-// here frees it.
+// Retains a managed name and appends greetings into caller-provided storage.
+// The builder API demonstrates reuse; returned/shared values need no ownership proof.
 public final class Greeting {
 
     /** Used when a caller supplies no name of its own. */
@@ -29,8 +20,7 @@ public final class Greeting {
     }
 
     /**
-     * Returns the name being greeted. The result belongs to whoever supplied it
-     * to the constructor, so a caller must not free it.
+     * Returns the shared managed name supplied to the constructor.
      */
     public String name() {
 
@@ -47,8 +37,7 @@ public final class Greeting {
     }
 
     /**
-     * Appends this instance's greeting to the caller's storage. The caller keeps
-     * ownership of the builder and reclaims it when finished.
+     * Appends this instance's greeting without clearing caller-provided storage.
      */
     public void appendMessageTo(StringBuilder out) {
 

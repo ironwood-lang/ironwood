@@ -9,7 +9,6 @@ import ironwood.compiler.ast.ArrayCreationExpression;
 import ironwood.compiler.ast.ArrayInitializerExpression;
 import ironwood.compiler.ast.AssignmentExpression;
 import ironwood.compiler.ast.AssignmentOperator;
-import ironwood.compiler.ast.AssignmentStatement;
 import ironwood.compiler.ast.BinaryExpression;
 import ironwood.compiler.ast.BinaryOperator;
 import ironwood.compiler.ast.Block;
@@ -24,9 +23,7 @@ import ironwood.compiler.ast.CompilationUnit;
 import ironwood.compiler.ast.ConditionalExpression;
 import ironwood.compiler.ast.ContinueStatement;
 import ironwood.compiler.ast.DeferStatement;
-import ironwood.compiler.ast.DeferredFreeStatement;
 import ironwood.compiler.ast.DoWhileStatement;
-import ironwood.compiler.ast.DestructorDeclaration;
 import ironwood.compiler.ast.EmptyStatement;
 import ironwood.compiler.ast.EnhancedForStatement;
 import ironwood.compiler.ast.ConstructorDeclaration;
@@ -37,7 +34,6 @@ import ironwood.compiler.ast.FieldAccessExpression;
 import ironwood.compiler.ast.FloatingLiteralExpression;
 import ironwood.compiler.ast.FieldDeclaration;
 import ironwood.compiler.ast.ForStatement;
-import ironwood.compiler.ast.FreeStatement;
 import ironwood.compiler.ast.IfStatement;
 import ironwood.compiler.ast.LabeledStatement;
 import ironwood.compiler.ast.ImportDeclaration;
@@ -247,13 +243,12 @@ public final class Parser {
         List<InstanceInitialization> instanceInitializations = new ArrayList<>();
         List<StaticInitialization> staticInitializations = new ArrayList<>();
         List<ConstructorDeclaration> constructors = new ArrayList<>();
-        List<DestructorDeclaration> destructors = new ArrayList<>();
         List<MethodDeclaration> methods = new ArrayList<>();
         List<TypeDeclaration> memberTypes = new ArrayList<>();
         while (!check(TokenKind.RIGHT_BRACE) && !check(TokenKind.EOF)) {
             int before = current;
             parseMember(className.lexeme(), fields, instanceInitializations, staticInitializations,
-                    constructors, destructors, methods, memberTypes, false, false);
+                    constructors, methods, memberTypes, false, false);
             if (current == before) {
                 advance();
             }
@@ -269,7 +264,7 @@ public final class Parser {
                 className.lexeme(), className.span(),
                 typeParameters, superclass, interfaces, fields, instanceInitializations,
                 staticInitializations,
-                constructors, destructors.stream().findFirst(), methods, memberTypes,
+                constructors, methods, memberTypes,
                 new SourceSpan(start.span().start(), rightBrace.span().end()));
     }
 
@@ -353,14 +348,13 @@ public final class Parser {
         List<InstanceInitialization> instanceInitializations = new ArrayList<>();
         List<StaticInitialization> staticInitializations = new ArrayList<>();
         List<ConstructorDeclaration> constructors = new ArrayList<>();
-        List<DestructorDeclaration> destructors = new ArrayList<>();
         List<MethodDeclaration> methods = new ArrayList<>();
         List<TypeDeclaration> memberTypes = new ArrayList<>();
         if (match(TokenKind.SEMICOLON)) {
             while (!check(TokenKind.RIGHT_BRACE) && !check(TokenKind.EOF)) {
                 int before = current;
                 parseMember(enumName.lexeme(), fields, instanceInitializations,
-                        staticInitializations, constructors, destructors, methods, memberTypes,
+                        staticInitializations, constructors, methods, memberTypes,
                         false, true);
                 if (current == before) {
                     advance();
@@ -380,8 +374,7 @@ public final class Parser {
                 : modifiers.accessModifier();
         return new ClassDeclaration(access, !topLevel, false, true,
                 enumName.lexeme(), enumName.span(), List.of(), Optional.empty(), interfaces,
-                fields, instanceInitializations, staticInitializations, constructors,
-                Optional.empty(), methods,
+                fields, instanceInitializations, staticInitializations, constructors, methods,
                 memberTypes, true, constants,
                 new SourceSpan(start.span().start(), rightBrace.span().end()));
     }
@@ -657,7 +650,6 @@ public final class Parser {
                              List<InstanceInitialization> instanceInitializations,
                              List<StaticInitialization> staticInitializations,
                              List<ConstructorDeclaration> constructors,
-                             List<DestructorDeclaration> destructors,
                              List<MethodDeclaration> methods,
                              List<TypeDeclaration> memberTypes,
                              boolean anonymousClass,
@@ -955,7 +947,7 @@ public final class Parser {
             } else if (match(TokenKind.AT)) {
                 Token at = previous();
                 Token name = expect(TokenKind.IDENTIFIER,
-                        "expected 'Override', 'Test', or 'SuppressUnfreed' after '@'");
+                        "expected 'Override' or 'Test' after '@'");
                 if (name != null) {
                     if (name.lexeme().equals("Override")) {
                         if (overrideToken != null) {
@@ -1030,7 +1022,6 @@ public final class Parser {
 
     private VariableModifiers parseVariableModifiers(String role) {
         boolean isFinal = false;
-        boolean suppressUnfreed = false;
         while (isVariableModifier(peek().kind()) || check(TokenKind.AT)) {
             Token modifier = advance();
             if (modifier.kind() == TokenKind.AT) {
@@ -1062,10 +1053,10 @@ public final class Parser {
                         + "' is not permitted on " + role));
             }
         }
-        return new VariableModifiers(isFinal, suppressUnfreed);
+        return new VariableModifiers(isFinal);
     }
 
-    private record VariableModifiers(boolean isFinal, boolean hasSuppressUnfreedDirective) {}
+    private record VariableModifiers(boolean isFinal) {}
 
     private boolean parseMisplacedVariableModifiers(String role, boolean isFinal) {
         while (isVariableModifier(peek().kind())) {
@@ -1414,14 +1405,9 @@ public final class Parser {
                         || tokens.get(current + 2).kind() == TokenKind.LEFT_BRACKET));
     }
 
-    private FreeStatement parseFree(Token freeKeyword) {
-        Expression value = parseExpression();
-        Token semicolon = expect(TokenKind.SEMICOLON, "expected ';' after free statement");
-        SourceSpan end = semicolon == null
-                ? value == null ? freeKeyword.span() : value.span()
-                : semicolon.span();
-        return value == null ? null : new FreeStatement(value,
-                new SourceSpan(freeKeyword.span().start(), end.end()));
+    private void parseFree(Token freeKeyword) {
+        parseExpression();
+        expect(TokenKind.SEMICOLON, "expected ';' after removed free statement");
     }
 
     private ThrowStatement parseThrow(Token throwKeyword) {
@@ -1931,7 +1917,7 @@ public final class Parser {
             synchronizeStatement();
             return null;
         }
-        return new LocalVariableDeclaration(type, isFinal, modifiers.hasSuppressUnfreedDirective(),
+        return new LocalVariableDeclaration(type, isFinal,
                 name.lexeme(), name.span(), initializer,
                 new SourceSpan(start.span().start(), end.end()));
     }
@@ -2623,13 +2609,12 @@ public final class Parser {
         List<InstanceInitialization> instanceInitializations = new ArrayList<>();
         List<StaticInitialization> staticInitializations = new ArrayList<>();
         List<ConstructorDeclaration> constructors = new ArrayList<>();
-        List<DestructorDeclaration> destructors = new ArrayList<>();
         List<MethodDeclaration> methods = new ArrayList<>();
         List<TypeDeclaration> memberTypes = new ArrayList<>();
         while (!check(TokenKind.RIGHT_BRACE) && !check(TokenKind.EOF)) {
             int before = current;
             parseMember(null, fields, instanceInitializations, staticInitializations,
-                    constructors, destructors, methods,
+                    constructors, methods,
                     memberTypes, true, enumConstantBody);
             if (current == before) {
                 advance();
@@ -2640,8 +2625,7 @@ public final class Parser {
         if (rightBrace == null) {
             return null;
         }
-        return new AnonymousClassBody(fields, instanceInitializations, staticInitializations,
-                destructors.stream().findFirst(), methods, memberTypes,
+        return new AnonymousClassBody(fields, instanceInitializations, staticInitializations, methods, memberTypes,
                 new SourceSpan(leftBrace.span().start(), rightBrace.span().end()));
     }
 

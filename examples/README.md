@@ -77,9 +77,9 @@ feature demonstrations.
 | `exceptions` | `org.ironwood.exceptions` | `target/Exceptions` | 42 |
 | `checkedexceptions` | `org.ironwood.checkedexceptions` | `target/CheckedExceptions` | 42 |
 | `resources` | `org.ironwood.resources` | `target/DeterministicResources` | 42 |
-| [`deferredcleanup`](deferredcleanup/README.md) | `org.ironwood.deferredcleanup` | `target/DeferredCleanup` | 42 (close/free order, failures, and pool reuse) |
+| [`deferredcleanup`](deferredcleanup/README.md) | `org.ironwood.deferredcleanup` | `target/DeferredCleanup` | 42 (source close and managed lifetime order, failures, and pool reuse) |
 | `trycatchfinallyexception` | `org.ironwood.trycatchfinallyexception` | four `target/Case*` executables | 42 for Case 1; expected 1 for Cases 2–4 |
-| `reclamation` | `org.ironwood.reclamation` | `target/ExplicitReclamation` | 42 (destructor and live-count checks) |
+| `reclamation` | `org.ironwood.reclamation` | `target/ExplicitReclamation` | 42 (root survival and phase collection) |
 | `memorymanagement` | `org.ironwood.memorymanagement` | three `target/TestMemoryManagement*` executables | 0 |
 | `textreclamation` | `org.ironwood.textreclamation` | `target/TextReclamation` | 42 (caller-owned text-result checks) |
 | `echo` | `org.ironwood.echo` | `target/Echo` | 0 for valid input; 64 for usage/parse errors |
@@ -177,13 +177,12 @@ PASS: 30 object-model examples
 
 The exception example combines a cross-frame throw, superclass catch matching,
 return-through-`finally`, and normal `finally` completion. All examples link with
-`-O3`. The reclamation example repeatedly allocates an object with owned array
-storage, explicitly frees it, observes the destructor count, and verifies that
-`System.liveAllocationCount()` returns to its baseline. All example `target`
+`-O3`. The reclamation example allocates shared objects and arrays, checks root
+survival, then collects at a completed phase and checks the stable live baseline. All example `target`
 directories are ignored by Git.
 The text-reclamation example slices UTF-16 input, exports a fresh `char[]`,
-builds and snapshots decorated text, frees every caller-owned result and the
-builder, and verifies that `System.liveAllocationCount()` returns to baseline.
+builds and snapshots decorated text and verifies their contents. Collection and
+resource closure are separate operations.
 The echo example validates `String[]` arguments, parses a decimal integer,
 prints String/integer/boolean values through U1 overloads, and sends usage or
 parse diagnostics to `System.err`. Its run script checks both the successful

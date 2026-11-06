@@ -47,13 +47,13 @@ def main():
     if args.bridge_jar:
         shutil.copyfile(args.bridge_jar, jar)
     else:
-        run("bridge-build", [compiler, "--java-bridge", "--export", "arraybench", "--unfreed=off", "-O3",
+        run("bridge-build", [compiler, "--java-bridge", "--export", "arraybench", "-O3",
                              "--license", root / "LICENSE-MIT", "--license", root / "LICENSE-APACHE",
                              "-o", jar, source / "ArrayOps.iron"])
-    run("native-compile", [compiler, "--unfreed=off", "-d", output / "iron-classes",
+    run("native-compile", [compiler, "-d", output / "iron-classes",
                            source / "ArrayOps.iron", source / "NativeBench.iron"])
     executable = output / "native-bench"
-    run("native-link", [compiler, "--link", "--unfreed=off", "-O3", "-cp", output / "iron-classes",
+    run("native-link", [compiler, "--link", "-O3", "-cp", output / "iron-classes",
                         "--main-class", "arraydriver.NativeBench", "-o", executable])
     run("java-compile", [jdk / "bin/javac", "--release", "21", "-Xlint:all", "-Werror", "-d", output / "java",
                          "-cp", jar, source / "JavaBench.java"])

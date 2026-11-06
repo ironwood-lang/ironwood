@@ -34,29 +34,21 @@ class Cleanup {
         listener.bind(null);
         byte[] raw = {127, 0, 0, 1};
         InetAddress address = InetAddress.getByAddress(raw);
-        free raw;
         InetSocketAddress endpoint = new InetSocketAddress(address, listener.getLocalPort());
-        free address;
         Socket peer = new Socket();
         peer.connect(endpoint);
-        free endpoint;
         Socket.setSocketImplFactory(new FailingFactory());
         int failure = 1;
         System.out.println("@tcp:after_accept_failure");
         try {
             Socket unexpected = listener.accept();
             unexpected.close();
-            free unexpected;
         } catch (SocketException expected) {
-            if (expected.getMessage().equals("Connection reset")
-                && expected.getSecondaryExceptionCount() == 1
-                && expected.getSecondaryException(0).getMessage().equals("secondary close failure")) failure = 0;
+            if (expected.getMessage().equals("Connection reset") && expected.getSecondaryExceptionCount() == 1 && expected.getSecondaryException(0).getMessage().equals("secondary close failure")) failure = 0;
         }
         System.out.println("@tcp:end");
         peer.close();
-        free peer;
         listener.close();
-        free listener;
         return failure;
     }
 
@@ -71,14 +63,9 @@ class Cleanup {
             socket.connect(endpoint);
         } catch (SocketException expected) {
             System.out.println(expected.getMessage());
-            if (expected.getMessage().equals("primary connect failure") && socket.isClosed()
-                && expected.getSecondaryExceptionCount() == 1
-                && expected.getSecondaryException(0).getMessage().equals("secondary close failure")) failure = 0;
+            if (expected.getMessage().equals("primary connect failure") && socket.isClosed() && expected.getSecondaryExceptionCount() == 1 && expected.getSecondaryException(0).getMessage().equals("secondary close failure")) failure = 0;
         }
-        free endpoint;
         socket.close();
-        free socket;
-        free implementation;
         return failure;
     }
 }

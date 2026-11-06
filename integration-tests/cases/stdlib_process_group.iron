@@ -13,11 +13,8 @@ class Main {
     public static int main(String[] args) throws Exception {
 
         String[] command = {args[0], "sleep-pid", args[1]};
-        defer free command;
         Path output = Path.of("group.log");
-        defer free output;
         ProcessResult result = ProcessRunner.runToFile(command, null, output);
-        defer free result;
         System.out.println("waited " + result.exitValue());
         return 42;
     }

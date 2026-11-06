@@ -16,30 +16,25 @@ class Failures {
         byte[] raw = {127, 0, 0, 1};
         InetAddress address = InetAddress.getByAddress(raw);
         InetSocketAddress endpoint = new InetSocketAddress(address, listener.getLocalPort());
-        free address;
-        free raw;
         Socket warm = new Socket();
         warm.close();
-        free warm;
         int failure = 0;
         for (int cycle = 0; cycle < 32; cycle++) {
             Socket peer = new Socket();
             peer.connect(endpoint);
-            long baseline = System.liveAllocationCount();
             if (nativeFailure) {
                 boolean caught = false;
                 System.out.println("@tcp:after_accept_failure");
                 try {
                     Socket unexpected = listener.accept();
                     unexpected.close();
-                    free unexpected;
                 } catch (SocketException expected) {
                     caught = expected.getMessage().equals("Connection reset");
                 }
                 System.out.println("@tcp:end");
                 // Thrown objects and their copied messages remain alive under
                 // the existing exception policy. All acquired socket storage is gone.
-                if (!caught || System.liveAllocationCount() - baseline != 2L) failure = 1;
+                if (!caught) failure = 1;
             } else {
                 Socket accepted = listener.accept();
                 boolean caught = false;
@@ -52,15 +47,11 @@ class Failures {
                 }
                 System.out.println("@tcp:end");
                 accepted.close();
-                free accepted;
-                if (!caught || System.liveAllocationCount() != baseline) failure = 2;
+                if (!caught) failure = 2;
             }
             peer.close();
-            free peer;
         }
-        free endpoint;
         listener.close();
-        free listener;
         return failure;
     }
 }

@@ -24,11 +24,11 @@ final class BridgeCustomSnapshotSources {
         var occupied = type.callables().stream().map(BridgeApiFacts.Callable::name).collect(Collectors.toCollection(HashSet::new));
         type.fields().forEach(field -> occupied.add(field.name()));
         type.callables().forEach(method -> occupied.addAll(method.parameterNames()));
-        String data = BridgePermanentJavaSources.unique(occupied, "$ironwood$snapshot");
+        String data = BridgeFacadeSources.unique(occupied, "$ironwood$snapshot");
         text.append(indent).append(annotation).append(indent).append("@SuppressWarnings(\"serial\")\n")
                 .append(indent).append("public ").append(type.enclosingType().isPresent() ? "static " : "")
                 .append(type.abstractType() ? "abstract " : type.finalType() ? "final " : "").append("class ")
-                .append(simple).append(" extends ").append(BridgePermanentJavaSources.javaType(parent, surface)).append(" {\n")
+                .append(simple).append(" extends ").append(BridgeFacadeSources.javaType(parent, surface)).append(" {\n")
                 .append(indent).append("    private final ").append(context.dataType()).append(' ').append(data).append(";\n")
                 .append(indent).append("    ").append(type.finalType() ? "private " : "protected ").append(simple)
                 .append('(').append(context.dataType()).append(" data) {\n")
@@ -38,7 +38,7 @@ final class BridgeCustomSnapshotSources {
                 .append(indent).append("    }\n");
         for (var field : type.fields()) {
             if (BridgeExportSurface.isBuiltinThrowable(IrType.reference(field.owner()))) continue;
-            text.append(indent).append("    public static final ").append(BridgePermanentJavaSources.javaType(field.type(), surface))
+            text.append(indent).append("    public static final ").append(BridgeFacadeSources.javaType(field.type(), surface))
                     .append(' ').append(field.name()).append(" = ").append(BridgeJavaSources.literal(field.constant().orElseThrow())).append(";\n");
         }
         var properties = context.projection().types().stream().filter(value -> value.nativeName().equals(type.binaryName()))
@@ -72,11 +72,11 @@ final class BridgeCustomSnapshotSources {
                 };
             }
             var formals = new java.util.ArrayList<String>();
-            for (int index = 0; index < method.parameters().size(); index++) formals.add(BridgePermanentJavaSources.javaType(method.parameters().get(index), surface)
+            for (int index = 0; index < method.parameters().size(); index++) formals.add(BridgeFacadeSources.javaType(method.parameters().get(index), surface)
                     + " " + method.parameterNames().get(index));
             String thrown = method.thrownTypes().isEmpty() ? "" : " throws " + method.thrownTypes().stream()
-                    .map(exception -> BridgePermanentJavaSources.javaType(exception, surface)).collect(Collectors.joining(", "));
-            text.append(indent).append("    public ").append(BridgePermanentJavaSources.javaType(method.result(), surface)).append(' ')
+                    .map(exception -> BridgeFacadeSources.javaType(exception, surface)).collect(Collectors.joining(", "));
+            text.append(indent).append("    public ").append(BridgeFacadeSources.javaType(method.result(), surface)).append(' ')
                     .append(method.name()).append('(').append(String.join(", ", formals)).append(')').append(thrown)
                     .append(" { return ").append(value).append("; }\n");
         }
@@ -84,7 +84,7 @@ final class BridgeCustomSnapshotSources {
 
     private static String castThrowable(IrType type, BridgeExportSurface surface) {
         return type.equals(IrType.reference("ironwood.lang.Throwable")) ? ""
-                : "(" + BridgePermanentJavaSources.javaType(type, surface) + ") ";
+                : "(" + BridgeFacadeSources.javaType(type, surface) + ") ";
     }
 
     private static String constructor(String parent) {

@@ -19,13 +19,13 @@ BENCH_TESTING="$BENCH_ROOT/compiler/build/ironwood-testing.ironjar"
 BENCH_COMPILER="$BENCH_ROOT/compiler/build/ironwoodc.jar"
 mkdir -p "$BENCH_CLASSES"
 java -jar "$BENCH_COMPILER" --source-path stdlib/test -d "$BENCH_CLASSES" \
-    -cp "$BENCH_TESTING" --unfreed=error \
+    -cp "$BENCH_TESTING" \
     stdlib/test/ironwood/bench/BenchTests.iron \
     stdlib/test/ironwood/bench/NanoBenchTests.iron \
     integration-tests/cases/bench_native_checks.iron >/dev/null
 for suite in BenchTests NanoBenchTests; do
     java -jar "$BENCH_COMPILER" --link -cp "$BENCH_TESTING:$BENCH_CLASSES" \
-        --main-class "ironwood.bench.$suite" -o "$BENCH_TARGET/$suite" -O3 --unfreed=error >/dev/null
+        --main-class "ironwood.bench.$suite" -o "$BENCH_TARGET/$suite" -O3 >/dev/null
     if ! output=$("$BENCH_TARGET/$suite"); then
         printf '%s\n' "$output" >&2
         exit 1
@@ -38,7 +38,7 @@ for suite in BenchTests NanoBenchTests; do
     fi
 done
 java -jar "$BENCH_COMPILER" --link -cp "$BENCH_CLASSES" \
-    --main-class BenchNativeChecks -o "$BENCH_TARGET/native-checks" -O3 --unfreed=error >/dev/null
+    --main-class BenchNativeChecks -o "$BENCH_TARGET/native-checks" -O3 >/dev/null
 output=$("$BENCH_TARGET/native-checks" output)
 expected=$'\n==BenchVerbose==> Iteration 1 => 999\n\n==BenchVerbose==> Iteration 2 => 10\nMeasurements: 2 | Warm-Up: 1 | Iterations: 3\nAvg Time: 10.500 nanos | Min Time: 10.000 nanos | Max Time: 11.000 nanos\n\nMeasurements: 2 | Avg Time: 10 nanos | Min Time: 10 nanos | Max Time: 11 nanos'
 [[ "$output" == "$expected" ]] || { printf 'Unexpected benchmark output:\n%s\n' "$output" >&2; exit 1; }

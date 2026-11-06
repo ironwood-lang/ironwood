@@ -18,7 +18,7 @@ public final class TlsBackendProbe {
         var toolchain = LlvmToolchain.discover(null).toolchain().orElseThrow();
         for (String name : new String[] {"Plain", "Client"}) {
             String source = Files.readString(Path.of(args[name.equals("Plain") ? 3 : 4]));
-            var result = new CompilerPipeline(UnfreedMode.ERROR).compile(SourceFile.of(name + ".iron", source));
+            var result = new CompilerPipeline().compile(SourceFile.of(name + ".iron", source));
             if (!result.successful()) throw new AssertionError(result.diagnostics());
             var program = ClosedWorldPruner.prune(result.program().orElseThrow());
             var requirements = NativeLinkRequirements.from(program);

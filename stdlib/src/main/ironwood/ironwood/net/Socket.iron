@@ -375,7 +375,7 @@ public class Socket implements Closeable {
     /**
      * Closes the resource idempotently and marks this facade closed before delegating. Also closes
      * a caller-supplied implementation without adopting it. Managed storage and cached metadata
-     * remain until free; prior connection and binding history is preserved.
+     * remain reachable with the object; prior connection and binding history is preserved.
      *
      * @throws IOException if the implementation reports a close failure
      */

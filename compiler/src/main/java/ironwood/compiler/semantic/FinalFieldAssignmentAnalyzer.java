@@ -19,14 +19,11 @@ import ironwood.compiler.ast.EnhancedForStatement;
 import ironwood.compiler.ast.Expression;
 import ironwood.compiler.ast.ExpressionStatement;
 import ironwood.compiler.ast.DeferStatement;
-import ironwood.compiler.ast.DeferredFreeStatement;
 import ironwood.compiler.ast.FieldDeclaration;
 import ironwood.compiler.ast.FieldAccessExpression;
 import ironwood.compiler.ast.ForStatement;
-import ironwood.compiler.ast.FreeStatement;
 import ironwood.compiler.ast.IfStatement;
 import ironwood.compiler.ast.InstanceOfExpression;
-import ironwood.compiler.ast.InstanceInitialization;
 import ironwood.compiler.ast.InterfaceDeclaration;
 import ironwood.compiler.ast.LocalVariableDeclaration;
 import ironwood.compiler.ast.LabeledStatement;
@@ -210,18 +207,12 @@ final class FinalFieldAssignmentAnalyzer {
             scanExpression(deferred.call(), fields, inLoop);
             return new Flow(fields, true);
         }
-        if (statement instanceof DeferredFreeStatement deferred) {
-            scanExpression(deferred.target(), fields, inLoop);
-            return new Flow(fields, true);
-        }
+
         if (statement instanceof ExpressionStatement expression) {
             scanExpression(expression.expression(), fields, inLoop);
             return new Flow(fields, true);
         }
-        if (statement instanceof FreeStatement free) {
-            scanExpression(free.value(), fields, inLoop);
-            return new Flow(fields, true);
-        }
+
         if (statement instanceof ReturnStatement returned) {
             returned.value().ifPresent(value -> scanExpression(value, fields, inLoop));
             return new Flow(fields, false, List.of(copy(fields)), List.of());

@@ -39,10 +39,6 @@ class EncapsulatedBacklinkOwner {
         return this.helper.read();
     }
 
-    destructor {
-
-        free this.helper;
-    }
 }
 
 // Expected: compile, link, and exit 42. The owner destroys its encapsulated helper.
@@ -52,7 +48,6 @@ public class EncapsulatedBacklink {
 
         EncapsulatedBacklinkOwner owner = new EncapsulatedBacklinkOwner(42);
         int result = owner.readThroughHelper();
-        free owner; // Valid: the helper's owner backlink never escaped.
         return result;
     }
 }

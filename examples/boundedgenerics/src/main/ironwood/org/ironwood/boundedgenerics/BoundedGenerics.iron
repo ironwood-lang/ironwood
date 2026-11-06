@@ -93,10 +93,6 @@ public class BoundedGenerics {
                 new DependentBound<GenericBase, GenericDerived>(first);
 
         // Reclaim the local wrappers even when a behavior check returns early.
-        defer free second;
-        defer free box;
-        defer free ordered;
-        defer free dependent;
         if (ordered.compare(first, second) != 1 || dependent.value() != first) return 1;
         return box.sum();
     }

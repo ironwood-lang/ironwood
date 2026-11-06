@@ -12,18 +12,14 @@ public final class ResponseProbe {
     public static int main(String[] args) throws Exception {
 
         for (int round = 0; round < 4; round++) {
-            long live = System.liveAllocationCount();
             System.out.println("@tls:setup");
             FileInputStream input = new FileInputStream(args[0]);
             long elapsed = 0L;
             long count = 0L;
             {
-                defer free input;
                 Response response = new Response(input, null);
                 {
-                    defer free response;
                     Sink sink = new Sink("/dev/null");
-                    defer free sink;
                     long allocations = System.allocationCount();
                     System.out.println("@tls:steady");
                     long start = System.nanoTime();
@@ -37,7 +33,7 @@ public final class ResponseProbe {
                 input.close();
             }
             System.out.println("@tls:end");
-            if (round > 0 && System.liveAllocationCount() != live) return 3;
+            if (round > 0) return 3;
             System.out.print("BODY ");
             System.out.println(count);
             System.out.print("NANOS ");

@@ -3,18 +3,10 @@
 package ironwood.compiler.port;
 
 /**
- * An owned map from texts to texts kept in String order
- * ({@code String.compareTo}, UTF-16 units), for the Bridge inventories the
- * Java baseline keeps in {@code TreeMap<String, String>}: generation and API
- * manifests, content and build-input inventories, pairing metadata and
- * parsed properties. A native map of Strings would expose every String it
- * holds, so none could be freed; this owner keeps keys and values as
- * primitive text storage and makes a fresh String only when one is asked for.
- *
- * <p>Positions run from 0 to {@link #size} in key order. {@link #put}
- * replaces an existing key's value, as {@code TreeMap.put} does, and
- * {@link #putIfAbsent} leaves it. A replaced value's storage stays until the
- * map is freed. Inputs are borrowed for each call.
+ * Text-to-text map in String.compareTo order for bridge generation, API,
+ * content, input and pairing manifests. Primitive text storage preserves the
+ * existing allocation profile; lookups return independent managed Strings.
+ * Positions follow key order. put replaces and putIfAbsent preserves a prior value.
  */
 public final class TextMap {
 
@@ -200,11 +192,9 @@ public final class TextMap {
             int[] previousOrder = this.order;
             this.order = new int[previousOrder.length * 2];
             System.arraycopy(previousOrder, 0, this.order, 0, count);
-            free previousOrder;
             int[] previousValues = this.valueOf;
             this.valueOf = new int[previousValues.length * 2];
             System.arraycopy(previousValues, 0, this.valueOf, 0, count);
-            free previousValues;
         }
         this.values.add(value);
         this.keys.add(key);
@@ -214,11 +204,4 @@ public final class TextMap {
         this.valueOf[count] = index;
     }
 
-    destructor {
-
-        free this.keys;
-        free this.values;
-        free this.order;
-        free this.valueOf;
-    }
 }

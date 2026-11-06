@@ -18,7 +18,6 @@ class Literals {
                     try {
                         System.out.print(text);
                     } finally {
-                        free text;
                     }
                     System.out.print("|");
                     System.out.print(address.hashCode());
@@ -41,7 +40,6 @@ class Literals {
                     }
                     System.out.println();
                 } finally {
-                    free address;
                 }
             } catch (UnknownHostException failure) {
                 System.out.println("unknown");

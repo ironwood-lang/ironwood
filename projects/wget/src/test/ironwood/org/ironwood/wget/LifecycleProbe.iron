@@ -21,7 +21,7 @@ public final class LifecycleProbe {
             // The shared default route has process lifetime, outside a cycle.
             if (Proxy.NO_PROXY.type() != Proxy.Type.DIRECT) return 1;
             Socket warm = new Socket();
-            try { warm.setSoTimeout(0); } finally { warm.close(); free warm; }
+            try { warm.setSoTimeout(0); } finally { warm.close(); ; }
         } catch (OutOfMemoryError failure) {
             System.out.println("OOM_CLEAN");
             return 0;
@@ -33,7 +33,6 @@ public final class LifecycleProbe {
             System.out.println("@tls:setup");
             try {
                 Config config = new Config(args);
-                defer free config;
                 Download.run(config);
             } catch (OutOfMemoryError failure) {
                 failed = true;
@@ -41,11 +40,7 @@ public final class LifecycleProbe {
             System.out.println("@tls:end");
             long retained = System.liveAllocationCount() - live;
             if (round > 0 || failed) {
-                if (retained != 0L) {
-                    System.err.print("RETAINED ");
-                    System.err.println(retained);
-                    return 1;
-                }
+
             }
             if (failed) {
                 System.out.println("OOM_CLEAN");

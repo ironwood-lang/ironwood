@@ -18,7 +18,7 @@ import ironwood.nio.file.Path;
  * the source-only route; the archive and class roots (M5.3) are the S6
  * facilities, so that route still never prefers an installed archive.
  *
- * <p>Inputs are borrowed. Every intermediate Path is freed on every exit,
+ * <p>Inputs and intermediate Paths have ordinary managed lifetime,
  * including allocation failure.
  */
 public final class Installation {
@@ -38,26 +38,21 @@ public final class Installation {
 
         String explicit = System.getenv("IRONWOOD_RUNTIME_HOME");
         if (explicit != null && !explicit.isBlank()) {
-            defer free explicit;
             Path home = absolute(explicit);
-            defer free home;
             Path source = child(home, RUNTIME_SOURCE);
             if (Files.isRegularFile(source)) return source;
-            free source;
             error.append("IRONWOOD_RUNTIME_HOME does not contain ").append(RUNTIME_SOURCE).append(": ")
                     .append(home.toString());
             return null;
         }
-        if (explicit != null) free explicit;
+        if (explicit != null) ;
         Path found = null;
         Path code = codeRoot(location);
         if (code != null) {
-            defer free code;
             found = ancestorFile(code, RUNTIME_SOURCE);
         }
         if (found == null) {
             Path current = absolute("");
-            defer free current;
             found = ancestorFile(current, RUNTIME_SOURCE);
         }
         if (found == null) {
@@ -78,20 +73,16 @@ public final class Installation {
 
         String explicit = System.getenv("IRONWOOD_STDLIB_HOME");
         if (explicit != null && !explicit.isBlank()) {
-            defer free explicit;
             Path home = absolute(explicit);
-            defer free home;
             roots.addDirectories(home);
             return;
         }
-        if (explicit != null) free explicit;
+        if (explicit != null) ;
         Path code = codeRoot(location);
         if (code != null) {
-            defer free code;
             roots.addDirectories(code);
         }
         Path current = absolute("");
-        defer free current;
         roots.addDirectories(current);
     }
 
@@ -120,20 +111,16 @@ public final class Installation {
 
         String explicit = System.getenv("IRONWOOD_STDLIB_HOME");
         if (explicit != null && !explicit.isBlank()) {
-            defer free explicit;
             Path home = absolute(explicit);
-            defer free home;
             roots.addEach(home, first, second, files);
             return;
         }
-        if (explicit != null) free explicit;
+        if (explicit != null) ;
         Path code = codeRoot(location);
         if (code != null) {
-            defer free code;
             roots.addEach(code, first, second, files);
         }
         Path current = absolute("");
-        defer free current;
         roots.addEach(current, first, second, files);
     }
 
@@ -142,10 +129,8 @@ public final class Installation {
 
         if (location == null) return null;
         Path code = location.toAbsolutePath();
-        defer free code;
         Path normalized = code.normalize();
         if (Files.isDirectory(normalized)) return normalized;
-        defer free normalized;
         return normalized.getParent();
     }
 
@@ -154,11 +139,9 @@ public final class Installation {
 
         Path file = child(root, relative);
         if (Files.isRegularFile(file)) return file;
-        free file;
         Path found = null;
         Path parent = root.getParent();
         if (parent != null) {
-            defer free parent;
             found = ancestorFile(parent, relative);
         }
         return found;
@@ -168,9 +151,7 @@ public final class Installation {
     static Path child(Path base, String relative) {
 
         Path resolved = base.resolve(relative);
-        defer free resolved;
         Path absolute = resolved.toAbsolutePath();
-        defer free absolute;
         return absolute.normalize();
     }
 
@@ -178,9 +159,7 @@ public final class Installation {
     private static Path absolute(String text) {
 
         Path path = Path.of(text);
-        defer free path;
         Path absolute = path.toAbsolutePath();
-        defer free absolute;
         return absolute.normalize();
     }
 }

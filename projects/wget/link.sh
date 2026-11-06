@@ -4,7 +4,7 @@ set -euo pipefail
 PROJECT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$PROJECT_DIR"
 COMMAND=(ironwoodc --link -cp target/classes --main-class org.ironwood.wget.Wget
-    -o target/wget -O3 --unfreed=error)
+    -o target/wget -O3 )
 printf '+ %q ' "${COMMAND[@]}" >&2
 printf '\n' >&2
 "${COMMAND[@]}" >&2

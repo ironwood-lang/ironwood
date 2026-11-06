@@ -77,9 +77,4 @@ final class Sink {
         if (count > 0) this.direct(this.pending, 0, count);
     }
 
-    destructor {
-
-        free this.file;
-        free this.pending;
-    }
 }

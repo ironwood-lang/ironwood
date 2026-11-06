@@ -108,15 +108,13 @@ def build():
     source = PROJECT / 'src/main/ironwood'
     tests = PROJECT / 'src/test/ironwood'
     classes = PROJECT / 'target/classes'
-    run('compile', [CLI, '--source-path', source, '-d', classes, '--unfreed=error',
-                    source / 'org/ironwood/wget/Wget.iron'], announce=True)
+    run('compile', [CLI, '--source-path', source, '-d', classes, source / 'org/ironwood/wget/Wget.iron'], announce=True)
     for name in ('Wget', 'UrlTests', 'ResponseProbe', 'LifecycleProbe', 'TransferProbe', 'OomProbe'):
         if name != 'Wget':
             run('compile-' + name, [CLI, '--source-path', str(source) + os.pathsep + str(tests),
-                '-d', classes, '--unfreed=error', tests / ('org/ironwood/wget/' + name + '.iron')], announce=True)
+                '-d', classes, tests / ('org/ironwood/wget/' + name + '.iron')], announce=True)
         run('link-' + name, [CLI, '--link', '-cp', classes, '--main-class', 'org.ironwood.wget.' + name,
-            '-o', PROJECT / ('target/' + ('wget' if name == 'Wget' else name)), '-O3', '--unfreed=error',
-            '--emit-llvm', OUT / (name + '.ll')], announce=True)
+            '-o', PROJECT / ('target/' + ('wget' if name == 'Wget' else name)), '-O3', '--emit-llvm', OUT / (name + '.ll')], announce=True)
 
 
 def certificates():

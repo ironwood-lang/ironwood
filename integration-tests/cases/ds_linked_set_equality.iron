@@ -1,9 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-// Equal linked sets use one hash lookup per element regardless of insertion
-// order. Count key operations instead of timing, check collision handling, and
-// preserve an in-progress iterator on the set being searched. Caller-owned keys
-// deliberately live to process end. Expected exit: 42 with no output.
 import ironwood.ds.LinkedHashSet;
 import ironwood.util.Iterator;
 
@@ -74,14 +70,11 @@ class Main {
 
         right.remove(new Key(size, collide));
         resetCounts();
-        if (left.equals(right) || !left.equals(left)
-                || left.equals(null) || left.equals("not a set")) {
+        if (left.equals(right) || !left.equals(left) || left.equals(null) || left.equals("not a set")) {
 
                     return 10;
                 }
         if (Key.hashes != 0 || Key.comparisons != 0) return 11;
-        free left;
-        free right;
         return 0;
     }
 
@@ -94,14 +87,10 @@ class Main {
         LinkedHashSet<Object> otherEmpty = new LinkedHashSet<Object>(2);
         resetCounts();
         long allocations = System.allocationCount();
-        if (!empty.equals(otherEmpty) || !otherEmpty.equals(empty)
-                || Key.hashes != 0 || Key.comparisons != 0
-                || System.allocationCount() != allocations) {
+        if (!empty.equals(otherEmpty) || !otherEmpty.equals(empty) || Key.hashes != 0 || Key.comparisons != 0 || System.allocationCount() != allocations) {
 
                     return 4;
                 }
-        free empty;
-        free otherEmpty;
         return 42;
     }
 }

@@ -37,9 +37,7 @@ public final class SourceFiles {
         this.rootLength = spelling.length();
         if (!spelling.endsWith("/")) this.rootLength++;
         FileCollector sources = new FileCollector(root, ".c");
-        defer free sources;
         FileCollector headers = new FileCollector(root, ".h");
-        defer free headers;
         this.add(sources);
         this.add(headers);
         this.paths.sortCodePoints();
@@ -61,7 +59,6 @@ public final class SourceFiles {
     public String relative(int index) {
 
         String file = this.paths.get(index);
-        defer free file;
         return file.substring(this.rootLength);
     }
 
@@ -69,13 +66,8 @@ public final class SourceFiles {
 
         for (int index = 0; index < collector.size(); index++) {
             String file = collector.file(index);
-            defer free file;
             this.paths.add(file);
         }
     }
 
-    destructor {
-
-        free this.paths;
-    }
 }

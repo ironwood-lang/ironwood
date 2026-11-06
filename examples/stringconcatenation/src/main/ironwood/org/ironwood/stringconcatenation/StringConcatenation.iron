@@ -14,7 +14,6 @@ public class StringConcatenation {
         String disposable = "temporary=";
         disposable += answer;
         boolean compoundAllocatedOne = System.allocationCount() == allocations + 1L;
-        free disposable;
 
         allocations = System.allocationCount();
 
@@ -22,7 +21,6 @@ public class StringConcatenation {
                 + ", missing=" + missing;
         boolean chainAllocatedOne = System.allocationCount() == allocations + 1L;
         System.out.println(text);
-        free text;
 
         return compoundAllocatedOne && chainAllocatedOne ? 42 : 1;
     }

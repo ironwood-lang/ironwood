@@ -13,19 +13,19 @@ public final class LocalVariableDeclaration implements Statement {
 
     private final TypeName type;
     private final boolean isFinal;
-    private final boolean hasSuppressUnfreedDirective;
+
     private final String name;
     private final SourceSpan nameSpan;
     private final Expression initializer;
     private final SourceSpan span;
 
     /** Creates the node from its components in record order. */
-    public LocalVariableDeclaration(TypeName type, boolean isFinal, boolean hasSuppressUnfreedDirective, String name,
+    public LocalVariableDeclaration(TypeName type, boolean isFinal, String name,
                                     SourceSpan nameSpan, Expression initializer, SourceSpan span) {
 
         this.type = type;
         this.isFinal = isFinal;
-        this.hasSuppressUnfreedDirective = hasSuppressUnfreedDirective;
+
         this.name = name;
         this.nameSpan = nameSpan;
         this.initializer = initializer;
@@ -44,11 +44,7 @@ public final class LocalVariableDeclaration implements Statement {
         return this.isFinal;
     }
 
-    /** @return the {@code hasSuppressUnfreedDirective} component */
-    public boolean hasSuppressUnfreedDirective() {
 
-        return this.hasSuppressUnfreedDirective;
-    }
 
     /** @return the {@code name} component */
     public String name() {

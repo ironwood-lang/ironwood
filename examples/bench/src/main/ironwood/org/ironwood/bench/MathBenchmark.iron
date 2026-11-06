@@ -34,7 +34,6 @@ public class MathBenchmark {
         long total = (long) warmup + measurements;
         if (total > Integer.MAX_VALUE) throw new IllegalArgumentException("too many iterations");
         Bench bench = new Bench(warmup);
-        defer free bench;
         long value = 0;
         for (int index = 0; index < total; index++) {
             bench.mark();

@@ -4,7 +4,6 @@ package bytebench;
 import ironwood.bridge.ByteView;
 
 // Compare synchronous borrowed views with copied arrays using the same kernels.
-// Java owns each view's storage. No native allocation, retention or free occurs.
 public final class ByteOps {
 
     private ByteOps() {

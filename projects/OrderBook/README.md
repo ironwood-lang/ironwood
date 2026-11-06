@@ -360,7 +360,7 @@ Orders and price levels store enum pointers in the original field order, with
 null initial values and null resets when returned to their pools. Enum access
 does not allocate.
 
-The native latency driver frees its raw sample array and report accumulator after use.
+The native latency driver leaves its completed sample/report phase eligible for explicit collection.
 
 The public hot-path methods assume positive unique IDs, positive sizes and
 prices, sufficient configured capacity, and active order handles. Those caller

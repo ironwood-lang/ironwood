@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Base construction dispatches to a publishing override before subclass fields
+// are initialized. Exact zeroed layouts protect the published partial graph.
+class Registry { static Child saved; static int defaults; }
+class Base {
+    Base() { hook(); }
+    void hook() {}
+}
+class Child extends Base {
+    final int[] values;
+    Child() { values = new int[1]; values[0] = 42; }
+    @Override void hook() {
+        Registry.saved = this;
+        ironwood.lang.Memory.collect();
+        if (values == null) Registry.defaults++;
+    }
+}
+class Main {
+    public static int main(String[] args) {
+        Child child = new Child();
+        ironwood.lang.Memory.collect();
+        if (Registry.saved != child || Registry.defaults != 1) return 1;
+        return Registry.saved.values[0] == 42 ? 42 : 2;
+    }
+}

@@ -61,7 +61,7 @@ public final class BridgeLoaderSources {
                 throw new IllegalArgumentException("loader payload generation mismatch");
             }
             if (targets.putIfAbsent(payload.build().target(), payload) != null) throw new IllegalArgumentException("duplicate loader target");
-            if (generation.managedHeap()) BridgeGeneration.validateManagedBuild(payload.build().target(), payload.build().inputs());
+            BridgeGeneration.validateManagedBuild(payload.build().target(), payload.build().inputs());
         }
         if (targets.isEmpty()) throw new IllegalArgumentException("loader requires a payload");
         if (!generatedTypes.contains(generation.supportPackage() + ".Support")) {
@@ -88,10 +88,10 @@ public final class BridgeLoaderSources {
                 .replace("@GENERATION@", generation.identity()).replace("@API@", generation.apiIdentity())
                 .replace("@SCHEMA@", BridgeGeneration.SCHEMA).replace("@PAYLOADS@", inventory).replace("@FILES@", String.join(",\n            ", files))
                 .replace("@VIEW_HELPERS@", views ? VIEW_HELPERS : "").replace("@VIEW_VERIFY@", views ? "verifyByteView(loader);" : "")
-                .replace("@PAIRING_HELPERS@", generation.managedHeap() ? PAIRING_HELPERS
+                .replace("@PAIRING_HELPERS@", PAIRING_HELPERS
                         .replace("@CONTRACT@", contract.entrySet().stream().map(entry -> row(entry.getKey(), entry.getValue())).collect(java.util.stream.Collectors.joining(", ")))
-                        .replace("@NATIVE_INPUTS@", String.join(", ", nativeInputs)) : "")
-                .replace("@PAIRING_VERIFY@", generation.managedHeap() ? "verifyPairing(payload);" : "")
+                        .replace("@NATIVE_INPUTS@", String.join(", ", nativeInputs)))
+                .replace("@PAIRING_VERIFY@", "verifyPairing(payload);")
                 .replace("@TYPES@", classes).replace("@BINDINGS@", bindings).replace("@ENSURE@", ensureMethod);
     }
 

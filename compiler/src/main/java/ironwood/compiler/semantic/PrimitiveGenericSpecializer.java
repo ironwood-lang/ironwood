@@ -56,8 +56,7 @@ final class PrimitiveGenericSpecializer {
             type.staticInitializer().ifPresent(callable -> callables.put(
                     callable.linkageName(), callable));
             type.constructors().forEach(callable -> callables.put(callable.linkageName(), callable));
-            type.destructor().ifPresent(callable -> callables.put(
-                    callable.linkageName(), callable));
+
             type.declaredMethods().values().forEach(callable -> callables.put(
                     callable.linkageName(), callable));
         }
@@ -194,14 +193,8 @@ final class PrimitiveGenericSpecializer {
                     context.exactType(), callableSubstitution);
             entries.add(new IrDispatchEntry(specialized.getValue(), linkage));
         }
-        Optional<String> destructor = original.destructorChain().map(linkage ->
-                specializeDispatchTarget(linkage, context.exactType(), Map.of()));
-        Optional<String> rollback = original.constructorRollback().map(linkage ->
-                requestFunction(linkage, primitiveOwnerSubstitution(
-                        context.exactType(), original.name())));
         return new IrClass(context.outputName(), original.kind(), superclass, interfaces,
-                fields, context.typeId(), List.copyOf(membership), entries, destructor, rollback,
-                original.toStringReturnsOwnedFresh(), original.localizedMessageReturnsOwnedFresh(),
+                fields, context.typeId(), List.copyOf(membership), entries,
                 original.sourceSpan());
     }
 
@@ -440,18 +433,7 @@ final class PrimitiveGenericSpecializer {
             return new IrFloatingParseInstruction(value(value.result(), substitutions),
                     operand(value.text(), substitutions, function), value.sourceSpan());
         }
-        if (instruction instanceof IrDestroyArrayElementsInstruction value) {
-            return new IrDestroyArrayElementsInstruction(
-                    operand(value.array(), substitutions, function), value.sourceSpan());
-        }
-        if (instruction instanceof IrFreeInstruction value) {
-            IrOperand allocation = operand(value.allocation(), substitutions, function);
-            if (allocation.type().isPrimitive()) {
-                invalid(function, value.sourceSpan(), "primitive specialization cannot free a value");
-                return instruction;
-            }
-            return new IrFreeInstruction(allocation, value.sourceSpan());
-        }
+
         if (instruction instanceof IrIdentityHashCodeInstruction value) {
             IrOperand object = operand(value.object(), substitutions, function);
             if (object.type().isPrimitive()) {
@@ -512,11 +494,7 @@ final class PrimitiveGenericSpecializer {
                     operand(value.throwable(), substitutions, function),
                     operand(value.message(), substitutions, function), value.sourceSpan());
         }
-        if (instruction instanceof IrReleaseOwnedThrowableMessageInstruction value) {
-            return new IrReleaseOwnedThrowableMessageInstruction(
-                    operand(value.throwable(), substitutions, function),
-                    operand(value.message(), substitutions, function), value.sourceSpan());
-        }
+
         if (instruction instanceof IrObjectToStringInstruction value) {
             return referenceIntrinsic(value.object(), value.sourceSpan(), function, substitutions,
                     object -> new IrObjectToStringInstruction(value(value.result(), substitutions),
@@ -565,19 +543,7 @@ final class PrimitiveGenericSpecializer {
             }
             return new IrReferenceConversionInstruction(result, input, value.sourceSpan());
         }
-        if (instruction instanceof IrRawDeallocateInstruction value) {
-            return new IrRawDeallocateInstruction(
-                    operand(value.allocation(), substitutions, function), value.sourceSpan());
-        }
-        if (instruction instanceof IrReleaseOwnedToStringResultInstruction value) {
-            return new IrReleaseOwnedToStringResultInstruction(
-                    operand(value.object(), substitutions, function),
-                    operand(value.result(), substitutions, function), value.sourceSpan());
-        }
-        if (instruction instanceof IrRollbackInstruction value) {
-            return new IrRollbackInstruction(
-                    operand(value.allocation(), substitutions, function), value.sourceSpan());
-        }
+
         if (instruction instanceof IrSecondaryExceptionAtInstruction value) {
             return new IrSecondaryExceptionAtInstruction(value(value.result(), substitutions),
                     operand(value.primary(), substitutions, function),

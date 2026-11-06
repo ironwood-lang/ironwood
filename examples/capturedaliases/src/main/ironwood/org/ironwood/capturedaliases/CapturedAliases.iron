@@ -37,12 +37,8 @@ public class CapturedAliases {
         };
 
         CapturedToken unretained = new CapturedToken(1);
-        free unretained;
 
-        // Invalid and covered by the safe-free compiler tests:
-        // free captured;
         int result = reader.read();
-        free reader;
         // Capture analysis still rejects reclaiming captured; it remains process-lived.
         return result;
     }

@@ -20,8 +20,9 @@ from source.
 
 The [Java Bridge producer](JAVA_BRIDGE_USAGE.md) additionally
 supports a complete JDK 21 to 25 with compiler/Javadoc tools and JNI headers and
-produces macOS ARM64, Linux ARM64 and Linux x86-64 jars with the corresponding
-pinned native toolchain/support SDK. Generated consumers need supported Java and
+produces managed macOS arm64 and Linux x86-64 jars with the corresponding
+pinned native toolchain/support SDK. Linux arm64 and arm64e stay refused pending
+qualification. Generated consumers need supported Java and
 the paired jar. Byte-view APIs also require the shared
 `lib/ironwood-bridge-values.jar`, included by IDK packaging with source and
 licenses inside the jar. The producer emits a matching companion automatically;
@@ -183,19 +184,19 @@ enum example prints and verifies constructor-backed immortal constants,
 constant-specific initialization and interface behavior, allocation-free
 lookup, and ordinal enum-switch dispatch. The
 multidimensional-array example verifies exact invariant array tests and casts,
-then explicitly detaches and reclaims separately allocated child arrays. The
-reclamation example repeatedly allocates an object with owned child storage,
-observes it, explicitly frees it, verifies its destructor count, and proves with
-`System.liveAllocationCount()` that each iteration returns to the same live
-baseline. Type descriptors, membership/dispatch/destructor/rollback tables, and
-exception landing tables are emitted into the native program; they
-do not require a JVM, class loader, or reflection runtime.
+then preserves shared child arrays across explicit collection. The reclamation
+example allocates an object with child storage in a bounded phase, verifies that
+allocation never collects, and explicitly collects after the phase returns.
+Exact type layouts, membership/dispatch and exception metadata are native image
+data and require no JVM, class loader or reflection runtime.
+
+
 The text-reclamation example receives one UTF-16 argument, returns fresh
-caller-owned substring, character-array, and builder-snapshot results, frees
-them and the builder explicitly, and verifies the live-allocation baseline.
+managed substring, character-array and builder-snapshot results, preserving
+value and allocation behavior. Reclamation controls use deliberate phase boundaries.
 The foundations example uses primitive/reference arrays, pooled UTF-16-tail
-string literals, `String.length()`/`byteLength()`, native UTF-8 standard output, and explicit
-array-container reclamation. The compiler locates the packaged standard library
+string literals, `String.length()`/`byteLength()`, native UTF-8 standard output, and managed
+array reachability. The compiler locates the packaged standard library
 relative to the IDK root; applications do not add it to `-cp` manually.
 The collections example uses `ironwood.pool` and `ironwood.ds` directly through
 the bundled deterministic standard-library archive.
@@ -209,8 +210,8 @@ the executable name and are exposed as immutable UTF-16
 The packaged `projects/streaming` scripts build cat/wc/cp/prompt with the bundled
 compiler and stream library. The IDK smoke test exercises piped stdin and a binary
 copy containing NUL and invalid UTF-8 using the packaged executable. Standard
-streams are immortal; managed wrappers and buffers are reclaimed after explicit
-resource close. API/provenance choices ship in STDLIB_U3_SOURCE_REVIEW.md and the
+streams are immortal; resource close releases native handles. Managed wrappers
+and buffers become reclaimable by later explicit collection. API/provenance choices ship in STDLIB_U3_SOURCE_REVIEW.md and the
 standard-library archive's license metadata. The accepted networking design and
 socket/address contract review ship as NETWORKING_MIGRATION_PLAN.md and
 STDLIB_N1_SOURCE_REVIEW.md, with STDLIB_N1_VERIFICATION.md,

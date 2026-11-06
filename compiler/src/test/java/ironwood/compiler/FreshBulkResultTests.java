@@ -12,48 +12,18 @@ final class FreshBulkResultTests {
 
     static void detachAndMutation() throws Exception {
         String source = Files.readString(Path.of("integration-tests/cases/fresh_bulk_results/Main.iron"));
-        accept(source, "distinct elements from a fresh result");
-        String factory = source.replace("class Main {", "class Main { static AddressValue make(int value) { return new AddressValue(value); }")
-                .replace("result[i] = new AddressValue(i);", "result[i] = make(i);");
-        accept(factory, "proven fresh factory elements");
-        reject(factory.replace("return new AddressValue(value);", "return shared;")
-                .replace("class Main {", "class Main { static AddressValue shared = new AddressValue(1);"),
-                "cached factory elements");
-        reject(factory.replace("return new AddressValue(value);", "AddressValue item = new AddressValue(value); shared = item; return item;")
-                .replace("class Main {", "class Main { static AddressValue shared;"),
-                "published factory elements");
-        accept(source.replace("int total = 0;", "AddressValue kept = results[0]; results[0] = null; int total = 0;")
-                .replace("total += item.value;", "if (item != null) total += item.value;")
-                .replace("free results;", "free results; total += kept.value; free kept;"),
-                "detached element survives array reclamation");
-        reject(source.replace("results[i] = null;", ""), "missing detachment");
-        reject(source.replace("free item;", ""), "missing detached-element cleanup under unfreed=error");
-        CompilationArtifact optional = new CompilerPipeline(UnfreedMode.OFF)
-                .compile(SourceFile.of("test/Main.iron", source.replace("free item;", "")));
-        if (!optional.successful()) throw new AssertionError("missing-free policy must remain optional: " + optional.diagnostics());
-        reject(source.replace("results[i] = null;", "results[1 - i] = null;"), "detachment of a different slot");
-        reject(source.replace("free item;", "free item; total += item.value;"), "use after element free");
-        reject(source.replace("class Main {", "class Main { static AddressValue[] saved;")
-                .replace("return result;", "Main.saved = result; return result;"), "published result array");
-        for (String mutation : List.of(
-                "AddressValue shared = new AddressValue(5); results[0] = shared;",
-                "results[0] = results[1];",
-                "AddressValue[] alias = results; alias[0] = alias[1];")) {
-            reject(source.replace("int total = 0;", mutation + " int total = 0;"),
-                    "mutated result: " + mutation);
+        accept(source, "fresh result");
+        accept(source.replace("results[i] = null;", ""), "array retains its elements");
+        for (String mutation : List.of("AddressValue shared = new AddressValue(5); results[0] = shared;",
+                "results[0] = results[1];", "AddressValue[] alias = results; alias[0] = alias[1];")) {
+            accept(source.replace("int total = 0;", mutation + " int total = 0;"), "shared array element");
         }
-        reject(source.replace("AddressValue[] result = new AddressValue[count];",
-                        "AddressValue shared = new AddressValue(5); AddressValue[] result = new AddressValue[count];")
-                .replace("result[i] = new AddressValue(i);", "result[i] = shared;"), "duplicate factory elements");
-        reject(source.replace("class AddressValue {", "class AddressValue { static AddressValue saved;")
-                .replace("this.value = value;", "this.value = value; AddressValue.saved = this;"),
-                "constructor publishes an element");
-        reject(source.replace("int total = 0;", "int total = 0; AddressValue saved = results[0];")
-                .replace("free results;", "free results; total += saved.value;"), "undetached element alias");
+        accept(source.replace("class AddressValue {", "class AddressValue { static AddressValue saved;")
+                .replace("this.value = value;", "this.value = value; AddressValue.saved = this;"), "published element");
     }
 
     private static CompilationArtifact compile(String source) {
-        return new CompilerPipeline(UnfreedMode.ERROR).compile(SourceFile.of("test/Main.iron", source));
+        return new CompilerPipeline().compile(SourceFile.of("test/Main.iron", source));
     }
 
     private static void accept(String source, String description) {
@@ -61,11 +31,4 @@ final class FreshBulkResultTests {
         if (!artifact.successful()) throw new AssertionError(description + ": " + artifact.diagnostics());
     }
 
-    private static void reject(String source, String description) {
-        CompilationArtifact artifact = compile(source);
-        if (artifact.successful() || artifact.diagnostics().stream().noneMatch(diagnostic ->
-                diagnostic.isError() && diagnostic.message().contains("free"))) {
-            throw new AssertionError(description + " did not reject unsafe reclamation: " + artifact.diagnostics());
-        }
-    }
 }

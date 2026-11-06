@@ -144,7 +144,7 @@ public final class GcEffects {
                 || instruction instanceof IrTlsInstruction
                 || instruction instanceof IrProcessInstruction
                 || instruction instanceof IrThrowableTraceInstruction trace
-                && trace.operation() != IrThrowableTraceInstruction.Operation.RELEASE)) return LEAF;
+               )) return LEAF;
         // Native calls and every new operation require an explicit compiler review.
         // In particular foreign callbacks, destruction and exception transport are
         // not silently treated as leaves because their bodies are absent here.

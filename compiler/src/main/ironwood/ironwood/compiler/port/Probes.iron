@@ -23,7 +23,7 @@ import ironwood.process.ProcessResult;
  * constructor runs the probe and owns its key and output, so no allocation
  * failure can strand either. A failed record is kept but never reused; an
  * output is lent through {@link #output(Command, StringBuilder)} until this
- * context is freed. Probes run with the invocation's working directory.
+ * context becomes unreachable. Probes run with the invocation's working directory.
  */
 public final class Probes {
 
@@ -67,7 +67,6 @@ public final class Probes {
     public String output(Command command, StringBuilder failure) {
 
         String key = keyOf(command);
-        defer free key;
         for (int index = 0; index < this.count; index++) {
             ProbeRecord kept = record(index);
             if (kept.output() != null && kept.key().equals(key)) return kept.output();
@@ -98,11 +97,9 @@ public final class Probes {
     private String capture(Command command) throws IOException {
 
         Path log = Files.createTempFile(scratchDirectory(), "probe-", ".log");
-        defer free log;
         this.logsCreated++;
         try {
             ProcessResult result = command.run(null, log);
-            defer free result;
             this.launches++;
             long size = Files.size(log);
             if (size > OUTPUT_LIMIT) {
@@ -111,14 +108,11 @@ public final class Probes {
                 return null;
             }
             byte[] bytes = Files.readAllBytes(log);
-            defer free bytes;
             this.bytesRead += bytes.length;
             // Java decodes tool output with replacement, never failing on bytes.
             String text = new String(bytes);
-            defer free text;
             String stripped = text.strip();
             if (result.exitValue() == 0) return stripped;
-            defer free stripped;
             this.reason.append(stripped);
             return null;
         } finally {
@@ -151,7 +145,6 @@ public final class Probes {
     static String keyOf(Command command) {
 
         StringBuilder key = new StringBuilder();
-        defer free key;
         for (int index = 0; index < command.size(); index++) key.append(command.argument(index)).append((char) 0);
         appendVariable(key, "PATH");
         appendVariable(key, "SDKROOT");
@@ -164,7 +157,6 @@ public final class Probes {
         key.append(name).append('=');
         String value = System.getenv(name);
         if (value != null) {
-            defer free value;
             key.append(value);
         }
         key.append((char) 0);
@@ -181,7 +173,6 @@ public final class Probes {
         ProbeRecord[] previous = this.records;
         this.records = new ProbeRecord[previous.length * 2];
         System.arraycopy(previous, 0, this.records, 0, previous.length);
-        free previous;
     }
 
     /** @return the number of probes launched */
@@ -236,17 +227,4 @@ public final class Probes {
         }
     }
 
-    destructor {
-
-        for (int index = 0; index < this.records.length; index++) {
-            free this.records[index];
-        }
-        free this.records;
-        for (int index = 0; index < this.scratch.length; index++) {
-            free this.scratch[index];
-        }
-        free this.scratch;
-        free this.parent;
-        free this.reason;
-    }
 }

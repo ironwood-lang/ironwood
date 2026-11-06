@@ -6,7 +6,7 @@ import java.util.*;
 
 /** Explicit registration tokens and prepared, rooted final-slot reconciliation. */
 final class BridgeGcRegistrationSources {
-    record Sources(String source, List<BridgePermanentNativeSources.Adapter> adapters) {}
+    record Sources(String source, List<BridgeFacadeNativeSources.Adapter> adapters) {}
     private BridgeGcRegistrationSources() {}
 
     static void declarations(StringBuilder text, BridgeObjectAdmission admission, BridgeCallableId id) {
@@ -65,7 +65,7 @@ final class BridgeGcRegistrationSources {
         if (retaining) text.append("    if (registration.owner->closed) iw_gc_registration_clear(env, registration.owner);\n");
     }
 
-    static Sources generate(BridgeGcCallbacks proof, BridgePermanentJavaSources.Sources java, BridgeGeneration generation) {
+    static Sources generate(BridgeGcCallbacks proof, BridgeFacadeSources.Sources java, BridgeGeneration generation) {
 
         var text = new StringBuilder();
         var fields = proof.fields();
@@ -86,9 +86,9 @@ final class BridgeGcRegistrationSources {
                 .append("    if (iw_gc_registration_type != NULL) (*env)->DeleteGlobalRef(env, iw_gc_registration_type);\n")
                 .append("    iw_gc_registration_type = NULL;\n}\n");
         return new Sources(text.toString(), List.of(
-                new BridgePermanentNativeSources.Adapter(new BridgeJavaSources.NativeDeclaration(generation.supportPackage() + ".Listeners", "$open",
+                new BridgeFacadeNativeSources.Adapter(new BridgeJavaSources.NativeDeclaration(generation.supportPackage() + ".Listeners", "$open",
                         "()L" + generation.supportPackage().replace('.', '/') + "/ListenerRegistration;"), "iw_gc_registration_open"),
-                new BridgePermanentNativeSources.Adapter(new BridgeJavaSources.NativeDeclaration(generation.supportPackage() + ".ListenerRegistration", "$close", "(J)V"),
+                new BridgeFacadeNativeSources.Adapter(new BridgeJavaSources.NativeDeclaration(generation.supportPackage() + ".ListenerRegistration", "$close", "(J)V"),
                         "iw_gc_registration_close_native")));
     }
 

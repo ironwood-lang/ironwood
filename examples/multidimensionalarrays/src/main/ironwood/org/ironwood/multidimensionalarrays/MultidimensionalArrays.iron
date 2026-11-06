@@ -32,9 +32,6 @@ public class MultidimensionalArrays {
 
         grid[0] = null;
         grid[1] = null;
-        free first;
-        free second;
-        free grid;
 
         System.out.println("multidimensional array result: 42");
         return result;

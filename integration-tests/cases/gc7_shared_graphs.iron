@@ -1,0 +1,129 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.lang.Memory;
+
+// Exit 42 checks shared cycles, partial construction, pending returns and defer
+// captures. Reclamation is checked after whole phases, outside all workloads.
+class Node {
+
+    Node next;
+    Node shared;
+    int value;
+
+    Node(int value) {
+
+        this.value = value;
+    }
+
+    int free() {
+
+        return this.value;
+    }
+
+    int destructor() {
+
+        return this.value;
+    }
+}
+
+class Partial {
+
+    static Partial published;
+    Node child;
+
+    Partial() {
+
+        published = this;
+        Memory.collect();
+        this.child = new Node(42);
+        throw new IllegalStateException("partial construction");
+    }
+}
+
+class Main {
+
+    static Node captured;
+
+    static void remember(Node value) {
+
+        Memory.collect();
+        captured = value;
+    }
+
+    static Node pending() {
+
+        Node value = new Node(42);
+        defer Memory.collect();
+        return value;
+    }
+
+    static void capture() {
+
+        Node value = new Node(42);
+        defer remember(value);
+        value = new Node(7);
+        Memory.collect();
+        if (value.value != 7) throw new IllegalStateException();
+    }
+
+    static int joinedGraph(Node first, Node second) {
+
+        Node[] values = {first, second, first};
+        Node current = first;
+        for (int index = 0; index < 6; index++) {
+            current = values[index % values.length];
+            Memory.collect(); // Deliberate root/phi regression, outside any workload.
+            if (current.value != 20 && current.value != 22) return 1;
+        }
+        return current.value;
+    }
+
+    static int graphs() {
+
+        Node first = new Node(20);
+        Node second = new Node(22);
+        Node child = new Node(42);
+        first.next = second;
+        second.next = first;
+        first.shared = child;
+        second.shared = child;
+        first = null;
+        Memory.collect();
+        if (second.next.next != second || second.shared != second.next.shared) return 1;
+        if (second.shared.free() != 42 || second.shared.destructor() != 42) return 2;
+        if (joinedGraph(second.next, second) != 20) return 5;
+        Node returned = pending();
+        Memory.collect();
+        if (returned.value != 42) return 3;
+        capture();
+        Memory.collect();
+        if (captured.value != 42) return 4;
+        captured = null;
+        return second.value + second.next.value;
+    }
+
+    static int construction() {
+
+        try {
+            new Partial();
+            return 1;
+        } catch (IllegalStateException expected) {
+            Memory.collect();
+            if (Partial.published.child.value != 42) return 2;
+        }
+        Partial.published = null;
+        return 42;
+    }
+
+    public static int main(String[] args) {
+
+        // Initialize exception and collector support before taking the baseline.
+        if (construction() != 42 || graphs() != 42) return 1;
+        Memory.collect();
+        long baseline = System.liveAllocationCount();
+        if (graphs() != 42 || construction() != 42) return 2;
+        if (System.liveAllocationCount() <= baseline) return 3;
+        Memory.collect();
+        return System.liveAllocationCount() == baseline ? 42 : 4;
+    }
+}

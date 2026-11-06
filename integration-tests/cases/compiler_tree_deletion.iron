@@ -14,7 +14,6 @@ class Main {
     public static int main(String[] args) {
 
         Path root = Path.of(args[1]);
-        defer free root;
         if (args[0].equals("quiet")) {
             TreeDeletion.deleteQuietly(root);
             System.out.println("ok");

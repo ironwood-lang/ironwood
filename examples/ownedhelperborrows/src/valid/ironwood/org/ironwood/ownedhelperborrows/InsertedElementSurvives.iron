@@ -14,7 +14,6 @@ class SurvivingElement {
     }
 }
 
-// Expected: compile, link, and exit 42. Collection destruction never destroys elements.
 public class InsertedElementSurvives {
 
     public static int main(String[] args) {
@@ -22,10 +21,7 @@ public class InsertedElementSurvives {
         SurvivingElement element = new SurvivingElement(42);
         ArrayList<SurvivingElement> list = new ArrayList<SurvivingElement>();
         list.add(element); // The list retains a non-owning alias.
-        free list;
         int result = element.value; // Valid: element was not owned by the list.
-        // Observe survival after list destruction, then reclaim the caller-owned element.
-        free element;
         return result;
     }
 }

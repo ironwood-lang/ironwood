@@ -98,8 +98,7 @@ public final class Md5 {
             } else if (unit < 0x800) {
                 update(0xC0 | (unit >> 6));
                 update(0x80 | (unit & 0x3F));
-            } else if (unit >= 0xD800 && unit <= 0xDBFF && index < length
-                    && text.charAt(index) >= 0xDC00 && text.charAt(index) <= 0xDFFF) {
+            } else if (unit >= 0xD800 && unit <= 0xDBFF && index < length && text.charAt(index) >= 0xDC00 && text.charAt(index) <= 0xDFFF) {
                 int point = 0x10000 + ((unit - 0xD800) << 10) + (text.charAt(index) - 0xDC00);
                 index++;
                 update(0xF0 | (point >> 18));
@@ -214,10 +213,4 @@ public final class Md5 {
         this.buffered = 0;
     }
 
-    destructor {
-
-        free this.block;
-        free this.words;
-        free this.state;
-    }
 }

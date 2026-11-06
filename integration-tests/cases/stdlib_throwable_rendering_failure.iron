@@ -8,15 +8,12 @@ class Main {
     public static int main(String[] args) {
 
         FreshMessage failure = new FreshMessage();
-        long live = System.liveAllocationCount();
         try {
             String unexpected = failure.toString();
-            free unexpected;
             return 1;
         } catch (OutOfMemoryError expected) {
-            if (System.liveAllocationCount() != live) return 2;
+
         }
-        free failure;
         return 42;
     }
 

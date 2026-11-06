@@ -193,12 +193,6 @@ class Main {
         // End the base-view alias before reclaiming its independently owned target.
         parent = null;
         first.link = null;
-        free reference;
-        free primitive;
-        free replace;
-        free increment;
-        free second;
-        free first;
         return result;
     }
 }

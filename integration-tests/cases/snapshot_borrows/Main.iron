@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // The flat snapshot owns both views. Navigation returns borrows of that root;
-// an independent cursor can be freed before the borrowed view is consumed.
 import ironwood.ds.ArrayList;
 
 class Snapshot {
@@ -26,11 +25,6 @@ class Snapshot {
         return new Cursor(this);
     }
 
-    destructor {
-
-        free this.child;
-        free this.parent;
-    }
 }
 
 interface CursorSource {
@@ -109,10 +103,8 @@ class Main {
             result.add(second);
             return result;
         } catch (RuntimeException failure) {
-            free result;
             throw failure;
         } catch (Error failure) {
-            free result;
             throw failure;
         }
     }
@@ -135,28 +127,22 @@ class Main {
         Cursor cursor = traversal(child);
         Cursor other = child.cursor();
         if (other.next().index() != 0 || other.next().index() != 1) value += 100;
-        free other;
         View retained = cursor.next();
         while (cursor.hasMore()) {
             value += cursor.next().index();
         }
-        free cursor;
         value += retained.child().index();
         ArrayList<View> entries = child.entries();
         View listed = entries.get(0);
         entries.add(child);
-        free entries;
         value += listed.parent().index();
-        free snapshot;
         // An owning enumeration is a distinct root shape. Its returned views
         // and independent nested cursors remain tied to the captured snapshot.
         SnapshotEnumeration enumeration = new SnapshotEnumeration();
         View first = enumeration.next();
         Cursor nested = enumeration.cursor();
         value += nested.next().child().index();
-        free nested;
         value += first.child().parent().index();
-        free enumeration;
         return value == 3 ? 0 : 1;
     }
 }
@@ -182,8 +168,4 @@ class SnapshotEnumeration {
         return new Cursor(this.snapshot);
     }
 
-    destructor {
-
-        free this.snapshot;
-    }
 }

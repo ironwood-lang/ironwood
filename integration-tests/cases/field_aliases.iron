@@ -91,10 +91,6 @@ class FinalArray {
         return this.values[0];
     }
 
-    destructor {
-
-        free this.values;
-    }
 }
 
 enum AliasMode {
@@ -190,9 +186,7 @@ class Main {
         // carry field values or initialization facts across object lifetimes.
         AliasBase first = new AliasBase();
         first.value = value;
-        free first;
         AliasChild second = new AliasChild();
-        defer free second;
         return second.other;
     }
 
@@ -200,27 +194,20 @@ class Main {
 
         int seed = args.length + 17;
         AliasChild child = new AliasChild();
-        defer free child;
         AliasBase other = new AliasBase();
-        defer free other;
         if (sameField(child, child, seed) != seed) return 1;
         if (sameField(child, other, seed + 1) != 0) return 2;
         if (distinctFields(child, child, seed + 2) != 0) return 3;
         if (inherited(child, child, seed + 3) != seed + 3) return 4;
         AliasIntBox integers = new AliasIntBox(0);
-        defer free integers;
         if (primitiveShape(integers, integers, seed) != seed + 1) return 5;
         AliasTextBox texts = new AliasTextBox("initial");
-        defer free texts;
         if (!referenceShape(texts, texts)) return 6;
         FinalChild finalChild = new FinalChild(seed);
-        defer free finalChild;
         if (finalChild.observed != 0 || finalChild.read() != seed) return 7;
         FinalArray finalArray = new FinalArray();
-        defer free finalArray;
         if (finalArray.update(seed) != seed + 1) return 8;
         String[] strings = new String[1];
-        defer free strings;
         if (!arrayAlias(strings, strings)) return 9;
         if (AliasMode.FIRST.before != 0 || AliasMode.FIRST.value != 7) return 10;
         if (AliasMode.SECOND.before != 0 || AliasMode.SECOND.value != 9) return 11;

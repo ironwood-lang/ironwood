@@ -13,23 +13,16 @@ class Main {
     public static int main(String[] args) {
 
         Path home = Path.of(args[0]);
-        defer free home;
         Path runtime = Path.of(args[1]);
-        defer free runtime;
         Path module = Path.of(args[2]);
-        defer free module;
         Path finalizer = Path.of(args[3]);
-        defer free finalizer;
         Path output = Path.of(args[4]);
-        defer free output;
         Probes probes = new Probes(null);
-        defer free probes;
         String failure = LlvmPipeline.link(probes, home, runtime, module, finalizer, output);
         if (failure == null) {
             System.out.println("linked");
         } else {
             System.out.println(failure);
-            free failure;
         }
         probes.close();
         System.out.println("probes " + probes.launches() + " logs " + probes.logsCreated() + "/" + probes.logsDeleted());

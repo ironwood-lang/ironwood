@@ -44,8 +44,7 @@ final class PortFixtures {
     static List<Path> links(Path root, String fixture, List<String> sources) throws Exception {
         Path classes = root.resolve(fixture);
         List<String> arguments = new ArrayList<>(sources);
-        arguments.addAll(List.of("integration-tests/cases/" + fixture + ".iron", "--unfreed=warn",
-                "-d", classes.toString()));
+        arguments.addAll(List.of("integration-tests/cases/" + fixture + ".iron", "-d", classes.toString()));
         compile(arguments);
         Path archive = root.resolve(fixture + ".ironjar");
         ByteArrayOutputStream ignored = new ByteArrayOutputStream();
@@ -56,8 +55,7 @@ final class PortFixtures {
         List<Path> executables = new ArrayList<>();
         for (Path input : List.of(classes, archive)) {
             Path executable = root.resolve(input.getFileName() + "-program");
-            compile(List.of("--link", "-cp", input.toString(), "--main-class", "Main", "--unfreed=warn",
-                    "-O3", "-o", executable.toString()));
+            compile(List.of("--link", "-cp", input.toString(), "--main-class", "Main", "-O3", "-o", executable.toString()));
             executables.add(executable);
         }
         return executables;
@@ -159,14 +157,14 @@ final class PortFixtures {
     }
 
     /** Compiles a control with helper sources: accepted when rejection is null, else rejected with that text. */
-    static void require(UnfreedMode mode, List<SourceFile> helpers, String source, String rejection) {
+    static void require(List<SourceFile> helpers, String source, String rejection) {
         List<SourceFile> sources = new ArrayList<>(helpers);
         sources.add(SourceFile.of("test/Main.iron", source));
-        CompilationArtifact artifact = new CompilerPipeline(mode).compile(sources);
+        CompilationArtifact artifact = new CompilerPipeline().compile(sources);
         String messages = String.join("; ", artifact.diagnostics().stream()
                 .map(diagnostic -> diagnostic.message()).toList());
         if (rejection == null ? !artifact.successful() : artifact.successful() || !messages.contains(rejection)) {
-            throw new AssertionError("ownership control under " + mode + ": " + messages + "\n" + source);
+            throw new AssertionError("ownership control under " + "GC" + ": " + messages + "\n" + source);
         }
     }
 

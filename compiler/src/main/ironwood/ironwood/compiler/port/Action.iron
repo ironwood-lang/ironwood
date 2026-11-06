@@ -4,8 +4,7 @@ package ironwood.compiler.port;
 
 /**
  * Compiler-local replacement for {@code Consumer} (API0610), as in
- * FunctionAnalyzer.reclaimInOrder, which runs the action only after a proof
- * accepts the value. The action may retain its argument.
+ * mutable lvalue writers. The action may retain its argument.
  *
  * @param <T> the reference argument type
  */

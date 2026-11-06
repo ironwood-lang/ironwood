@@ -289,13 +289,13 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     if not args.skip_build:
         classes = OUT / 'classes'
-        run('compile', [CLI, ROOT / 'integration-tests/cases/tls_client/Probe.iron', '-d', classes, '--unfreed=error'])
+        run('compile', [CLI, ROOT / 'integration-tests/cases/tls_client/Probe.iron', '-d', classes])
         run('link', [CLI, '--link', '-cp', classes, '--main-class', 'TlsProbe', '-o', OUT / 'TlsProbe', '-O3',
-                     '--unfreed=error', '--emit-llvm', OUT / 'TlsProbe.ll'])
+                     '--emit-llvm', OUT / 'TlsProbe.ll'])
     if not args.skip_build:
         owned_classes = OUT / 'owned-classes'
-        run('owned-compile', [CLI, ROOT / 'integration-tests/cases/tls_client/Owned.iron', '-d', owned_classes, '--unfreed=error'])
-        run('owned-link', [CLI, '--link', '-cp', owned_classes, '--main-class', 'TlsOwned', '-o', OUT / 'TlsOwned', '-O3', '--unfreed=error'])
+        run('owned-compile', [CLI, ROOT / 'integration-tests/cases/tls_client/Owned.iron', '-d', owned_classes])
+        run('owned-link', [CLI, '--link', '-cp', owned_classes, '--main-class', 'TlsOwned', '-o', OUT / 'TlsOwned', '-O3'])
     # A real listener appears in signed CRL/OCSP URLs. Any fetch makes it readable.
     revocation = socket.socket(); revocation.bind(('127.0.0.1', 0)); revocation.listen()
     certs = certificates(revocation.getsockname()[1])

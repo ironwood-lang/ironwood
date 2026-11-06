@@ -36,9 +36,6 @@ class Main {
         boolean zeroInt = values[0] == 0;
         boolean zeroBoolean = flags[1] == false;
         boolean zeroReference = cells[1] == null;
-        free cells;
-        free flags;
-        free values;
         if (!zeroInt) return 1;
         if (!zeroBoolean) return 2;
         if (!zeroReference) return 3;

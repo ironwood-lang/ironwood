@@ -12,10 +12,10 @@ import ironwood.ds.IntArrayList;
  * Frozen AST child lists. Java record constructors copy each list with
  * {@code List.copyOf}, which returns one shared empty list for empty input.
  * Natively the parser freezes each builder here: an empty builder yields the
- * element type's process-lived empty constant, which is never freed (D258),
+ * element type's static-rooted empty constant (D258),
  * and any other builder yields a fresh independent copy. Nodes borrow the
  * frozen lists, which live for the invocation with the AST; the parser still
- * owns and frees every builder.
+ * uses ordinary managed builders.
  */
 public final class AstLists {
 

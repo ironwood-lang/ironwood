@@ -26,7 +26,7 @@ public final class GcRootTests {
     }
 
     private static IrProgram source(SourceFile source) {
-        var artifact = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(List.of(source));
+        var artifact = new CompilerPipeline().analyzeForBridge(List.of(source));
         check(artifact.valid(), artifact.diagnostics().toString());
         return artifact.program().orElseThrow();
     }
@@ -127,7 +127,7 @@ public final class GcRootTests {
         check(!output.contains("ironwood_deallocate") && !output.contains("@ironwood_allocate("), "legacy allocation domain leaked");
         // Nearby unsafe controls are introduced after frontend proof, so admission
         // must independently reject them rather than relying on source diagnostics.
-        for (var instruction : List.<IrInstruction>of(new IrRawDeallocateInstruction(value(0, NODE), SPAN),
+        for (var instruction : List.<IrInstruction>of(new IrCallInstruction(Optional.empty(), "ironwood_deallocate", IrType.VOID, List.of(value(0, NODE)), SPAN),
                 new IrCallInstruction(Optional.empty(), "unknown", IrType.VOID, List.of(), SPAN))) {
             var unsafe = function("unsafe", IrType.VOID, List.of(value(0, NODE)), List.of(instruction), null);
             var functions = new ArrayList<>(program.functions()); functions.add(unsafe);
@@ -141,7 +141,7 @@ public final class GcRootTests {
     }
 
     private static void closureEffects() {
-        var artifact = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(List.of(SourceFile.of("gc3-capture-effects.iron", """
+        var artifact = new CompilerPipeline().analyzeForBridge(List.of(SourceFile.of("gc3-capture-effects.iron", """
                 class ClosureEffects {
 
                     static void phase() {
@@ -182,7 +182,7 @@ public final class GcRootTests {
     }
 
     private static void cloneEffects() throws Exception {
-        var input = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(List.of(SourceFile.of("enum_argument_specialization.iron",
+        var input = new CompilerPipeline().analyzeForBridge(List.of(SourceFile.of("enum_argument_specialization.iron",
                 Files.readString(Path.of("integration-tests/cases/enum_argument_specialization.iron"))))).program().orElseThrow();
         var functions = input.functions().stream().map(function -> {
             if (!function.ownerClass().equals("Main") || !function.sourceName().equals("score")) return function;

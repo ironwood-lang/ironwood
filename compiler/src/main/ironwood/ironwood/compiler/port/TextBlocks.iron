@@ -34,7 +34,6 @@ public final class TextBlocks {
         int outdent = terminated ? 0 : outdent(text);
         StringBuilder result = new StringBuilder(length);
         // Retires the builder on every exit, including allocation failure.
-        defer free result;
         int start = 0;
         boolean first = true;
         while (start < length) {

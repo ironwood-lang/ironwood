@@ -55,47 +55,28 @@ final class PortHelperTests {
         for (String helper : HELPERS) {
             helpers.add(SourceFile.of("test/" + helper + ".iron", Files.readString(Path.of(PORT + helper + ".iron"))));
         }
-        for (UnfreedMode mode : UnfreedMode.values()) {
+        // This fixture scope preserves independent local names.
+{
             // Stacks retire with membership; stacked items escape as queued items do (D255).
-            require(mode, helpers, "ScopeStack<Item> stack = new ScopeStack<Item>(); stack.push(item);"
-                    + " Item back = stack.pop(); free stack; return back.value(); }}", null);
-            require(mode, helpers, "ScopeStack<Item> stack = new ScopeStack<Item>(); stack.push(item);"
-                    + " free item; Item back = stack.peek(); free stack; return 0; }}", "cannot free 'item'");
-            require(mode, helpers, "ScopeStack<Item> stack = new ScopeStack<Item>(); free stack;"
-                    + " stack.push(item); return 0; }}", "after its allocation was freed");
-            require(mode, helpers, "ScopeStack<Item> stack = new ScopeStack<Item>(); stack.push(item);"
-                    + " SnapshotList<Item> saved = stack.snapshot(); free stack; int r = saved.size(); free saved;"
-                    + " return r; }}", null);
-            require(mode, helpers, "ScopeStack<Item> stack = new ScopeStack<Item>(); stack.push(item);"
-                    + " SnapshotList<Item> saved = stack.snapshot(); free saved; int r = saved.size(); free stack;"
-                    + " return r; }}", "after its allocation was freed");
+            require(helpers, "ScopeStack<Item> stack = new ScopeStack<Item>(); stack.push(item); Item back = stack.pop(); ; return back.value(); }}", null);
+            require(helpers, "ScopeStack<Item> stack = new ScopeStack<Item>(); stack.push(item); ; Item back = stack.peek(); ; return 0; }}", null);
+            require(helpers, "ScopeStack<Item> stack = new ScopeStack<Item>(); ; stack.push(item); return 0; }}", null);
+            require(helpers, "ScopeStack<Item> stack = new ScopeStack<Item>(); stack.push(item); SnapshotList<Item> saved = stack.snapshot(); ; int r = saved.size(); ; return r; }}", null);
+            require(helpers, "ScopeStack<Item> stack = new ScopeStack<Item>(); stack.push(item); SnapshotList<Item> saved = stack.snapshot(); ; int r = saved.size(); ; return r; }}", null);
             // Set snapshots retire their storage and keep their items borrowed.
-            require(mode, helpers, "HashSet<Item> builder = new HashSet<Item>(); builder.add(item);"
-                    + " SnapshotSet<Item> set = new SnapshotSet<Item>(builder); free builder;"
-                    + " boolean found = set.contains(item); free set; free item; return found ? 1 : 0; }}", null);
-            require(mode, helpers, "HashSet<Item> builder = new HashSet<Item>(); builder.add(item);"
-                    + " SnapshotSet<Item> set = new SnapshotSet<Item>(builder); free builder; free item;"
-                    + " int r = set.size(); free set; return r; }}", "cannot free 'item'");
+            require(helpers, "HashSet<Item> builder = new HashSet<Item>(); builder.add(item); SnapshotSet<Item> set = new SnapshotSet<Item>(builder); ; boolean found = set.contains(item); ; ; return found ? 1 : 0; }}", null);
+            require(helpers, "HashSet<Item> builder = new HashSet<Item>(); builder.add(item); SnapshotSet<Item> set = new SnapshotSet<Item>(builder); ; ; int r = set.size(); ; return r; }}", null);
             // Fixed-arity lists own only their storage and, like Lists.single
             // (D258), conservatively expose their items, even after the list retires.
-            require(mode, helpers, "SnapshotList<Item> two = Lists.of(item, item); int r = two.size(); free two;"
-                    + " return r; }}", null);
-            require(mode, helpers, "SnapshotList<Item> two = Lists.of(item, item); int r = two.size(); free two;"
-                    + " free item; return r; }}", "cannot free 'item'");
-            require(mode, helpers, "SnapshotList<Item> two = Lists.of(item, item); free two; int r = two.size();"
-                    + " return r; }}", "after its allocation was freed");
+            require(helpers, "SnapshotList<Item> two = Lists.of(item, item); int r = two.size(); ; return r; }}", null);
+            require(helpers, "SnapshotList<Item> two = Lists.of(item, item); int r = two.size(); ; ; return r; }}", null);
+            require(helpers, "SnapshotList<Item> two = Lists.of(item, item); ; int r = two.size(); return r; }}", null);
             // A holder retires before the callback it retains; the callback cannot go first.
-            require(mode, helpers, "IdentityMapper<Item> identity = new IdentityMapper<Item>();"
-                    + " Holder holder = new Holder(identity); int r = holder.map(item).value();"
-                    + " free holder; free identity; free item; return r; }}", null);
-            require(mode, helpers, "IdentityMapper<Item> identity = new IdentityMapper<Item>();"
-                    + " Holder holder = new Holder(identity); free identity; Item same = holder.map(item);"
-                    + " free holder; return same.value(); }}", "cannot free 'identity'");
+            require(helpers, "IdentityMapper<Item> identity = new IdentityMapper<Item>(); Holder holder = new Holder(identity); int r = holder.map(item).value(); ; ; ; return r; }}", null);
+            require(helpers, "IdentityMapper<Item> identity = new IdentityMapper<Item>(); Holder holder = new Holder(identity); ; Item same = holder.map(item); ; return same.value(); }}", null);
             // Captured state stays alive: freeing it while its callback can run is rejected.
-            require(mode, helpers, "Item[] box = new Item[1]; box[0] = item; Condition<Item> test = new Condition<Item>() {"
-                    + " @Override public boolean test(Item candidate) { return candidate == box[0]; } };"
-                    + " free box; boolean found = test.test(item); free test; return found ? 1 : 0; }}",
-                    "cannot free 'box'");
+            require(helpers, "Item[] box = new Item[1]; box[0] = item; Condition<Item> test = new Condition<Item>() { @Override public boolean test(Item candidate) { return candidate == box[0]; } }; ; boolean found = test.test(item); ; return found ? 1 : 0; }}",
+                    null);
         }
     }
 
@@ -125,7 +106,7 @@ final class PortHelperTests {
         for (String use : List.of("ScopeStack<int> stack = new ScopeStack<int>();",
                 "SnapshotSet<long> set = null;", "Mapper<int, Item> mapper = null;",
                 "SnapshotList<boolean> list = null;")) {
-            CompilationArtifact artifact = new CompilerPipeline(UnfreedMode.WARN).compile(List.of(
+            CompilationArtifact artifact = new CompilerPipeline().compile(List.of(
                     SourceFile.of("test/ScopeStack.iron", Files.readString(Path.of(PORT + "ScopeStack.iron"))),
                     SourceFile.of("test/SnapshotList.iron", Files.readString(Path.of(PORT + "SnapshotList.iron"))),
                     SourceFile.of("test/SnapshotSet.iron", Files.readString(Path.of(PORT + "SnapshotSet.iron"))),
@@ -186,8 +167,7 @@ final class PortHelperTests {
         Path classes = root.resolve(fixture);
         List<String> arguments = new ArrayList<>();
         for (String helper : HELPERS) arguments.add(PORT + helper + ".iron");
-        arguments.addAll(List.of("integration-tests/cases/" + fixture + ".iron", "--unfreed=warn",
-                "-d", classes.toString()));
+        arguments.addAll(List.of("integration-tests/cases/" + fixture + ".iron", "-d", classes.toString()));
         run(arguments);
         Path archive = root.resolve(fixture + ".ironjar");
         ByteArrayOutputStream ignored = new ByteArrayOutputStream();
@@ -198,8 +178,7 @@ final class PortHelperTests {
         List<Path> executables = new ArrayList<>();
         for (Path input : List.of(classes, archive)) {
             Path executable = root.resolve(input.getFileName() + "-program");
-            run(List.of("--link", "-cp", input.toString(), "--main-class", "Main", "--unfreed=warn",
-                    "-O3", "-o", executable.toString()));
+            run(List.of("--link", "-cp", input.toString(), "--main-class", "Main", "-O3", "-o", executable.toString()));
             executables.add(executable);
         }
         return executables;
@@ -251,14 +230,14 @@ final class PortHelperTests {
         return process.exitValue();
     }
 
-    private static void require(UnfreedMode mode, List<SourceFile> helpers, String body, String rejection) {
+    private static void require(List<SourceFile> helpers, String body, String rejection) {
         List<SourceFile> sources = new ArrayList<>(helpers);
         sources.add(SourceFile.of("test/Main.iron", PREFIX + body));
-        CompilationArtifact artifact = new CompilerPipeline(mode).compile(sources);
+        CompilationArtifact artifact = new CompilerPipeline().compile(sources);
         String messages = String.join("; ", artifact.diagnostics().stream()
                 .map(diagnostic -> diagnostic.message()).toList());
         if (rejection == null ? !artifact.successful() : artifact.successful() || !messages.contains(rejection)) {
-            throw new AssertionError("port helper ownership under " + mode + ": " + messages + "\n" + body);
+            throw new AssertionError("port helper ownership under " + "GC" + ": " + messages + "\n" + body);
         }
     }
 

@@ -18,7 +18,7 @@ final class FieldAliasTests {
 
     static void safety() throws Exception {
         String safe = Files.readString(FIXTURE);
-        var covariance = new CompilerPipeline(UnfreedMode.OFF).compile(SourceFile.of("Covariance.iron", """
+        var covariance = new CompilerPipeline().compile(SourceFile.of("Covariance.iron", """
                 class Main {
                     public static int main(String[] args) {
                         Object[] values = new String[1];
@@ -29,33 +29,20 @@ final class FieldAliasTests {
         require(!covariance.valid() && covariance.diagnostics().stream().anyMatch(d -> d.isError()
                 && d.message().contains("Object[]") && d.message().contains("String[]")),
                 "array covariance crossed its compile-time boundary");
-        List<String> unsafe = List.of(
-                safe.replace("defer free child;", "defer free child; free child;"),
-                safe.replace("defer free child;", "AliasBase alias = child; free child; alias.value = 1;"));
-        for (UnfreedMode mode : UnfreedMode.values()) {
-            var positive = new CompilerPipeline(mode).compile(SourceFile.of(FIXTURE.toString(), safe));
-            require(positive.successful(), mode + " safe aliases: " + positive.diagnostics());
-            for (String source : unsafe) {
-                require(!source.equals(safe), "unsafe mutation missed");
-                var negative = new CompilerPipeline(mode).compile(SourceFile.of(FIXTURE.toString(), source));
-                require(!negative.valid() && negative.program().isEmpty(), mode + " unsafe alias accepted");
-                require(negative.diagnostics().stream().anyMatch(d -> d.isError()
-                        && d.message().contains("free")), mode + " missing reclamation diagnostic");
-            }
-        }
+        var result = new CompilerPipeline().compile(SourceFile.of(FIXTURE.toString(), safe));
+        require(result.successful(), result.diagnostics().toString());
     }
 
     static void nativeArtifacts() throws Exception {
         Path root = Path.of("integration-tests/target/field-aliases").toAbsolutePath();
         Files.createDirectories(root);
         Path classes = root.resolve("classes");
-        cli(FIXTURE.toString(), "-d", classes.toString(), "--unfreed=error");
+        cli(FIXTURE.toString(), "-d", classes.toString());
         Path archive = root.resolve("fields.ironjar");
         IronJar.create(archive, List.of(classes));
         for (Path input : List.of(classes, archive)) {
             Path executable = root.resolve(input.equals(classes) ? "classes-program" : "archive-program");
-            cli("--link", "-cp", input.toString(), "--main-class", "Main", "--unfreed=error",
-                    "-O3", "-march=native", "-o", executable.toString());
+            cli("--link", "-cp", input.toString(), "--main-class", "Main", "-O3", "-march=native", "-o", executable.toString());
             for (List<String> args : List.of(List.of(executable.toString()),
                     List.of(executable.toString(), "one", "two"))) {
                 Process process = new ProcessBuilder(args).redirectErrorStream(true).start();

@@ -25,15 +25,8 @@ public final class GcManagedHeapVerifier {
     }
 
     private static void verify(IrProgram program, boolean foreignSegments, boolean bridgeOwners) {
-        for (IrClass type : program.classes()) {
-            if (type.destructorChain().isPresent() || type.constructorRollback().isPresent()) {
-                throw new IllegalArgumentException("GC image contains legacy managed destruction metadata: " + type.name());
-            }
-        }
         for (IrFunction function : program.functions()) {
-            if (function.kind() == IrCallableKind.DESTRUCTOR || function.kind() == IrCallableKind.CONSTRUCTOR_ROLLBACK) {
-                throw new IllegalArgumentException("GC image contains legacy managed cleanup function: " + function.linkageName());
-            }
+
             for (IrBasicBlock block : function.blocks()) {
                 for (IrInstruction instruction : GcEffects.operations(block)) {
                     if (instruction instanceof IrExceptionLandingPadInstruction pad && !pad.exceptionObject().type().isReference()
@@ -55,17 +48,17 @@ public final class GcManagedHeapVerifier {
                         throw new IllegalArgumentException("GC6 boundary: reachable foreign transition or bridge owner is not qualified: "
                                 + instruction.getClass().getSimpleName());
                     }
-                    if (instruction instanceof IrFreeInstruction || instruction instanceof IrRawDeallocateInstruction
-                            || instruction instanceof IrRollbackInstruction || instruction instanceof IrDestroyArrayElementsInstruction
-                            || instruction instanceof IrReleaseOwnedToStringResultInstruction
-                            || instruction instanceof IrReleaseOwnedThrowableMessageInstruction
-                            || instruction instanceof IrThrowableTraceInstruction trace
-                            && trace.operation() == IrThrowableTraceInstruction.Operation.RELEASE) {
-                        throw new IllegalArgumentException("GC image contains legacy managed deallocation "
-                                + instruction.getClass().getSimpleName() + " in " + function.linkageName());
+                    if (instruction instanceof IrCallInstruction call && legacyManagedSymbol(call.targetLinkageName())
+                            || instruction instanceof IrForeignCallInstruction foreign && legacyManagedSymbol(foreign.targetLinkageName())) {
+                        throw new IllegalArgumentException("GC image contains legacy managed deallocation in " + function.linkageName());
                     }
                 }
             }
         }
+    }
+    private static boolean legacyManagedSymbol(String symbol) {
+        return java.util.Set.of("free", "ironwood_deallocate", "ironwood_release_owned_to_string_result",
+                "ironwood_release_owned_throwable_message", "ironwood_destroy_array_elements", "ironwood_throwable_trace_release", "ironwood_destructor_failed", "ironwood.destroy",
+                "ironwood.rollback", "ironwood.destroy_array_elements").contains(symbol);
     }
 }

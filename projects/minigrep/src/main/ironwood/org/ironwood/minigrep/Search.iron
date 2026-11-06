@@ -5,7 +5,6 @@ package org.ironwood.minigrep;
 // The search engine scans line boundaries without allocating. It recognizes
 // LF and CRLF, includes a final unterminated line, and does not invent an empty
 // line after a trailing terminator. Only a matching line is sliced for output,
-// and that caller-owned slice is freed immediately after printing.
 final class Search {
 
     static int printMatchingLines(String contents, String query, boolean ignoreCase) {

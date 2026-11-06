@@ -190,7 +190,6 @@ final class FunctionAnalyzer {
     private final CallableSymbol function;
     private final ClassHierarchy hierarchy;
     private final EscapeSummaryAnalyzer escapeSummaries;
-    private final OwnedArrayFieldAnalyzer ownedArrayFields;
     private final StringPool stringPool;
     private final TypeSymbol currentClass;
     private final StaticImportResolver staticImports;
@@ -227,27 +226,27 @@ final class FunctionAnalyzer {
     private int nextSyntheticLocalId;
     private boolean evaluatingConstructorArguments;
     private boolean loweringInstanceInitializer;
-    private final List<AllocationInfo> pendingYieldAllocations = new ArrayList<>();
 
-    private final Map<IrOperand, AllocationInfo> allocationsByOperand = new LinkedHashMap<>();
-    private final Set<IrOperand> ownedHelperBorrows = new LinkedHashSet<>();
-    private final Map<IrOperand, String> ownedHelperBorrowTypes = new LinkedHashMap<>();
-    private final List<AllocationInfo> allocations = new ArrayList<>();
-    private final Map<ArraySlot, AllocationInfo> knownArraySlots = new LinkedHashMap<>();
+    private final Map<IrOperand, ReferenceIdentity> allocationsByOperand = new LinkedHashMap<>();
+    private final Set<IrOperand> helperBorrows = new LinkedHashSet<>();
+    private final Map<IrOperand, String> helperBorrowTypes = new LinkedHashMap<>();
+    private final List<ReferenceIdentity> allocations = new ArrayList<>();
+    private final Map<ArraySlot, ReferenceIdentity> knownArraySlots = new LinkedHashMap<>();
+    // A constant slot can preserve a checkout's exact originating pool independently of managed ownership.
+    private final Map<ArraySlot, ReferenceIdentity> arrayPoolOrigins = new LinkedHashMap<>();
     // Receiver-to-child borrow edges created by constructors, audited containers,
     // and ordinary methods proven to retain an argument only in their receiver.
-    private final Map<AllocationInfo, Set<AllocationInfo>> retainedBorrows = new IdentityHashMap<>();
-    private final Set<AllocationInfo> exposedContainerContents = new LinkedHashSet<>();
-    private AllocationInfo pendingContainerClear;
+    private final Map<ReferenceIdentity, Set<ReferenceIdentity>> retainedBorrows = new IdentityHashMap<>();
+    private final Set<ReferenceIdentity> exposedContainerContents = new LinkedHashSet<>();
+    private ReferenceIdentity pendingContainerClear;
     private WrapperBorrow pendingWrapperBorrow;
     private List<WrapperBorrow> pendingFactoryBorrows = List.of();
     /** The fresh result recorded for the call about to be emitted; absent where it unwinds. */
-    private AllocationInfo pendingFreshResult;
+    private ReferenceIdentity pendingFreshResult;
     private SourceSpan discardedCallSpan;
 
-    private final Map<String, AllocationInfo> borrowedOwnedFields = new LinkedHashMap<>();
-    private final Map<AllocationInfo, AllocationInfo> poolOwners = new IdentityHashMap<>();
-    private final Map<IrOperand, AllocationInfo> poolValueOwners = new LinkedHashMap<>();
+    private final Map<ReferenceIdentity, ReferenceIdentity> poolOwners = new IdentityHashMap<>();
+    private final Map<IrOperand, ReferenceIdentity> poolValueOwners = new LinkedHashMap<>();
     private PoolTransfer pendingPoolTransfer;
     private final Map<LocalSymbol, List<IrType>> preciseRethrowTypes = new LinkedHashMap<>();
     private final Set<LocalSymbol> constructorParameterSymbols = new java.util.LinkedHashSet<>();
@@ -258,14 +257,12 @@ final class FunctionAnalyzer {
     private int controlFlowDepth;
 
     FunctionAnalyzer(SourceFile source, CallableSymbol function, ClassHierarchy hierarchy,
-                     EscapeSummaryAnalyzer escapeSummaries, OwnedArrayFieldAnalyzer ownedArrayFields,
-                     StringPool stringPool,
+                     EscapeSummaryAnalyzer escapeSummaries, StringPool stringPool,
                      List<Diagnostic> diagnostics, Map<String, String> constructorDelegations) {
         this.source = source;
         this.function = function;
         this.hierarchy = hierarchy;
         this.escapeSummaries = escapeSummaries;
-        this.ownedArrayFields = ownedArrayFields;
         this.stringPool = stringPool;
         this.currentClass = hierarchy.type(function.ownerType()).orElseThrow();
         this.staticImports = new StaticImportResolver(hierarchy.typeResolver(), hierarchy);
@@ -274,8 +271,6 @@ final class FunctionAnalyzer {
         this.diagnostics = diagnostics;
         this.constructorDelegations = constructorDelegations;
     }
-
-    /** The frees of locals this lowering rejected, by statement span, with each local's static type. */
 
     AnonymousParentBinder.PrimaryPlanningContext anonymousParentPlanningContext() {
         return planningContext;
@@ -1184,8 +1179,7 @@ final class FunctionAnalyzer {
                 }
             }
             if (requiredType.isReference()) {
-                markEscaped(operand, "allocation is retained as captured variable '"
-                        + capture.variable().name() + "' by '" + target.sourceName() + "'");
+                markEscaped(operand);
             }
             operands.add(operand);
         }
@@ -1316,7 +1310,7 @@ final class FunctionAnalyzer {
                                       List<Statement> statements, int start,
                                       SourceSpan enclosingBlock) {
         LinkedHashMap<LocalSymbol, IrOperand> before = copyEnvironment();
-        OwnershipSnapshot ownershipBefore = snapshotOwnership();
+        ProtocolSnapshot protocolsBefore = snapshotProtocols();
         List<ExceptionRegion> outerExceptions = List.copyOf(exceptionRegions);
         List<FinallyContext> outerFinally = List.copyOf(finallyContexts);
         FinallyContext cleanup = new FinallyContext(action,
@@ -1333,16 +1327,16 @@ final class FunctionAnalyzer {
         }
         MutableBlock normalEnd = currentBlock;
         LinkedHashMap<LocalSymbol, IrOperand> normalEnvironment = copyEnvironment();
-        OwnershipSnapshot normalOwnership = snapshotOwnership();
+        ProtocolSnapshot normalProtocols = snapshotProtocols();
         if (region.edges.isEmpty()) {
             region.landingPad.terminate(new IrUnreachable(span));
         } else {
-            IrOperand primary = beginExceptionHandler(region, before, ownershipBefore, span);
+            IrOperand primary = beginExceptionHandler(region, before, protocolsBefore, span);
             lowerFinallyForPendingException(cleanup, primary, span);
         }
         currentBlock = normalEnd;
         environment = normalEnvironment;
-        restoreOwnership(normalOwnership);
+        restoreProtocols(normalProtocols);
         return reachable;
     }
 
@@ -1359,7 +1353,7 @@ final class FunctionAnalyzer {
             return lowerBlock(block, true);
         }
         if (statement instanceof LocalVariableDeclaration declaration) {
-            lowerStatementAction(statement.span(), () -> lowerLocalVariable(declaration));
+            lowerLocalVariable(declaration);
             return true;
         }
         if (statement instanceof LocalClassDeclaration) {
@@ -1370,12 +1364,11 @@ final class FunctionAnalyzer {
             return true;
         }
         if (statement instanceof AssignmentStatement assignment) {
-            lowerStatementAction(statement.span(), () -> lowerAssignment(assignment));
+            lowerAssignment(assignment);
             return true;
         }
         if (statement instanceof ExpressionStatement expressionStatement) {
-            lowerStatementAction(statement.span(),
-                    () -> lowerExpressionStatement(expressionStatement));
+            lowerExpressionStatement(expressionStatement);
             return true;
         }
         if (statement instanceof ReturnStatement returnStatement) {
@@ -1480,8 +1473,7 @@ final class FunctionAnalyzer {
                 IrType.VOID, operands, initialization.span()), initialization.span());
         for (int index = 0; index < arguments.size(); index++) {
             if (arguments.get(index).type().isReference()) {
-                markEscaped(arguments.get(index).operand(),
-                        "allocation escapes through enum constructor argument " + (index + 1));
+                markEscaped(arguments.get(index).operand());
             }
         }
         currentBlock.addInstruction(new IrStaticFieldStoreInstruction(
@@ -1508,10 +1500,7 @@ final class FunctionAnalyzer {
 
     private void lowerLocalVariable(LocalVariableDeclaration declaration) {
         IrType declaredType = resolveType(declaration.type());
-        if (declaration.hasSuppressUnfreedDirective() && !declaredType.isReference()) {
-            diagnostics.add(error(declaration.type().span(),
-                    "the @SuppressUnfreed directive requires a reference local variable"));
-        }
+
         if (declaredType.equals(IrType.VOID)) {
             diagnostics.add(error(declaration.nameSpan(), "local variable cannot have type void"));
             declaredType = IrType.I32;
@@ -1698,8 +1687,7 @@ final class FunctionAnalyzer {
 
     private void storeField(IrOperand receiver, FieldSymbol field, Expression valueExpression,
                             SourceSpan span, boolean validateReceiverAfterValue) {
-        lowerStatementAction(span, () -> storeFieldValue(receiver, field, valueExpression, span,
-                validateReceiverAfterValue));
+        storeFieldValue(receiver, field, valueExpression, span, validateReceiverAfterValue);
     }
 
     private void storeFieldValue(IrOperand receiver, FieldSymbol field, Expression valueExpression,
@@ -1714,14 +1702,13 @@ final class FunctionAnalyzer {
         if (validateReceiverAfterValue) {
             emitNullCheck(receiver, span);
         }
-        detachOwnedField(receiver, field, operand);
-        markEscaped(operand, "allocation escapes through field '"
-                + field.declaration().name() + "'", valueExpression.span());
+
+        markEscaped(operand);
         currentBlock.addInstruction(new IrFieldStoreInstruction(receiver, field.irField(), operand, span));
     }
 
     private void storeStaticField(FieldSymbol field, Expression valueExpression, SourceSpan span) {
-        lowerStatementAction(span, () -> storeStaticFieldValue(field, valueExpression, span));
+        storeStaticFieldValue(field, valueExpression, span);
     }
 
     private void storeStaticFieldValue(FieldSymbol field, Expression valueExpression,
@@ -1738,8 +1725,7 @@ final class FunctionAnalyzer {
         if (field.staticField().triggersInitialization()) {
             ensureTypeInitialized(field.ownerClass(), span);
         }
-        markEscaped(operand, "allocation escapes through static field '"
-                + field.ownerClass() + "." + field.declaration().name() + "'", valueExpression.span());
+        markEscaped(operand);
         currentBlock.addInstruction(new IrStaticFieldStoreInstruction(field.staticField(), operand, span));
     }
 
@@ -1760,8 +1746,6 @@ final class FunctionAnalyzer {
             discardedCallSpan = previous;
         }
     }
-
-    /** The ownership state after a free: dead, and no longer retaining anything. */
 
     private void lowerReturn(ReturnStatement statement) {
         if (function.sourceName().equals("<clinit>")) {
@@ -1797,15 +1781,14 @@ final class FunctionAnalyzer {
                     statement.span());
             return;
         }
-        TypedValue value = lowerTransferOperand(statement.span(), () -> lowerExpression(
-                statement.value().get(), Optional.of(function.returnType())));
+        TypedValue value = lowerExpression(statement.value().get(), Optional.of(function.returnType()));
         if (!isAssignmentConvertible(function.returnType(), value)) {
             diagnostics.add(error(statement.value().get().span(),
                     "cannot return " + typeName(value.type()) + " from " + typeName(function.returnType())
                             + " method '" + function.sourceName() + "'"));
         }
         IrOperand operand = assignmentValue(value, function.returnType(), statement.value().get().span(), "return");
-        markEscaped(operand, "allocation escapes through the method return value");
+        markEscaped(operand);
         completeReturn(Optional.of(operand), statement.span());
     }
 
@@ -1823,7 +1806,7 @@ final class FunctionAnalyzer {
         FinallyContext context = pending.get(index);
         // Sibling cleanup copies are mutually exclusive runtime paths.
         LinkedHashMap<LocalSymbol, IrOperand> beforeEnvironment = copyEnvironment();
-        OwnershipSnapshot beforeOwnership = snapshotOwnership();
+        ProtocolSnapshot beforeProtocols = snapshotProtocols();
         List<ExceptionRegion> savedExceptions = List.copyOf(exceptionRegions);
         List<FinallyContext> savedFinally = List.copyOf(finallyContexts);
         try {
@@ -1835,7 +1818,7 @@ final class FunctionAnalyzer {
             }
         } finally {
             environment = beforeEnvironment;
-            restoreOwnership(beforeOwnership);
+            restoreProtocols(beforeProtocols);
             restoreDeque(exceptionRegions, savedExceptions);
             restoreDeque(finallyContexts, savedFinally);
         }
@@ -1844,8 +1827,7 @@ final class FunctionAnalyzer {
     private void lowerThrow(ThrowStatement statement) {
         LocalSymbol rethrownCatch = statement.value() instanceof NameExpression name
                 ? resolve(name.name()) : null;
-        TypedValue value = lowerTransferOperand(statement.span(),
-                () -> lowerExpression(statement.value()));
+        TypedValue value = lowerExpression(statement.value());
         IrOperand exception;
         if (value.type().equals(IrType.NULL)) {
             exception = new IrNull(IrType.reference("ironwood.lang.Throwable"),
@@ -1870,7 +1852,7 @@ final class FunctionAnalyzer {
                         statement.value().span(), "precisely rethrown exception"));
             }
             exception = requireValue(value, value.type(), statement.value().span(), "throw statement");
-            markEscaped(exception, "allocation escapes through a thrown exception");
+            markEscaped(exception);
         }
         boolean knownNonNull = statement.value() instanceof ThisExpression;
         if (!knownNonNull && (value.type().equals(IrType.NULL) || (value.type().isReference()
@@ -1890,7 +1872,7 @@ final class FunctionAnalyzer {
         predecessor.terminate(new IrThrowTerminator(exception, impossible.label, unwindTarget, span));
         if (region != null) {
             region.addEdge(new ExceptionEdge(predecessor, copyEnvironment(),
-                    snapshotOwnership()));
+                    snapshotProtocols()));
         }
         impossible.terminate(new IrUnreachable(span));
         currentBlock = impossible;
@@ -1903,7 +1885,7 @@ final class FunctionAnalyzer {
                 .filter(CatchAlternative::valid)
                 .map(CatchAlternative::type).toList();
         LinkedHashMap<LocalSymbol, IrOperand> before = copyEnvironment();
-        OwnershipSnapshot ownershipBefore = snapshotOwnership();
+        ProtocolSnapshot protocolsBefore = snapshotProtocols();
         List<ExceptionRegion> outerExceptions = List.copyOf(exceptionRegions);
         List<FinallyContext> outerFinally = List.copyOf(finallyContexts);
 
@@ -1925,7 +1907,7 @@ final class FunctionAnalyzer {
             finallyContexts.push(finallyContext);
         }
         boolean tryReachable = lowerBlock(statement.body(), true);
-        OwnershipSnapshot tryOwnership = snapshotOwnership();
+        ProtocolSnapshot tryProtocols = snapshotProtocols();
         Set<IrType> observed = observedTryBodyExceptions.pop();
         checkedCatchScopes.pop();
         diagnoseUnreachableCheckedCatches(statement, catchTargets, observed);
@@ -1938,14 +1920,14 @@ final class FunctionAnalyzer {
         restoreDeque(finallyContexts, outerFinally);
 
         List<BranchFlow> normalFlows = new ArrayList<>();
-        List<OwnershipSnapshot> normalOwnerships = new ArrayList<>();
-        List<JoinPath> normalPaths = List.of();
+        List<ProtocolSnapshot> normalProtocolss = new ArrayList<>();
+
         if (tryReachable) {
-            restoreOwnership(tryOwnership);
+            restoreProtocols(tryProtocols);
             boolean afterFinally = finallyContext == null || lowerFinallyBody(finallyContext);
             if (afterFinally) {
-                normalFlows.add(new BranchFlow(true, currentBlock, copyEnvironment(), snapshotOwnership()));
-                normalOwnerships.add(snapshotOwnership());
+                normalFlows.add(new BranchFlow(true, currentBlock, copyEnvironment(), snapshotProtocols()));
+                normalProtocolss.add(snapshotProtocols());
 
             }
         }
@@ -1953,16 +1935,16 @@ final class FunctionAnalyzer {
         if (tryRegion.edges.isEmpty()) {
             tryLanding.terminate(new IrUnreachable(statement.span()));
             for (int index = 0; index < statement.catches().size(); index++) {
-                restoreOwnership(ownershipBefore);
+                restoreProtocols(protocolsBefore);
                 analyzeDeadCatch(statement.catches().get(index), catchTargets.get(index), before,
                         finallyContext, preciseCatchTypes.get(index));
             }
-            restoreOwnership(tryOwnership);
+            restoreProtocols(tryProtocols);
         } else {
-            IrOperand exception = beginExceptionHandler(tryRegion, before, ownershipBefore,
+            IrOperand exception = beginExceptionHandler(tryRegion, before, protocolsBefore,
                     statement.span());
             LinkedHashMap<LocalSymbol, IrOperand> handlerEnvironment = copyEnvironment();
-            OwnershipSnapshot handlerOwnership = snapshotOwnership();
+            ProtocolSnapshot handlerProtocols = snapshotProtocols();
             if (statement.catches().isEmpty()) {
                 if (finallyContext == null) {
                     emitThrow(exception, statement.span());
@@ -1971,8 +1953,8 @@ final class FunctionAnalyzer {
                 }
             } else {
                 lowerCatchDispatch(statement, catchTargets, exception, handlerEnvironment,
-                        handlerOwnership, finallyContext, catchEscapeRegion, normalFlows,
-                        normalOwnerships, normalPaths,
+                        handlerProtocols, finallyContext, catchEscapeRegion, normalFlows,
+                        normalProtocolss,
                         outerExceptions, outerFinally, preciseCatchTypes);
             }
         }
@@ -1984,7 +1966,7 @@ final class FunctionAnalyzer {
                 restoreDeque(exceptionRegions, outerExceptions);
                 restoreDeque(finallyContexts, outerFinally);
                 IrOperand exception = beginExceptionHandler(catchEscapeRegion, before,
-                        ownershipBefore, statement.span());
+                        protocolsBefore, statement.span());
                 lowerFinallyForPendingException(finallyContext, exception, statement.span());
             }
         }
@@ -2002,12 +1984,10 @@ final class FunctionAnalyzer {
             flow.block().terminate(new IrJump(merge.label, statement.span()));
         }
         currentBlock = merge;
-        mergeOwnership(ownershipBefore, normalOwnerships,
-                "allocation has conflicting ownership across try/catch paths", normalPaths);
+        mergeProtocols(protocolsBefore, normalProtocolss);
         environment = new LinkedHashMap<>();
         for (LocalSymbol symbol : before.keySet()) {
-            environment.put(symbol, mergeValue(symbol, normalFlows, statement.span(), merge,
-                    normalPaths));
+            environment.put(symbol, mergeValue(symbol, normalFlows, statement.span(), merge));
         }
         return true;
     }
@@ -2109,12 +2089,11 @@ final class FunctionAnalyzer {
     private void lowerCatchDispatch(TryStatement statement, List<CatchTarget> targets,
                                     IrOperand exception,
                                     LinkedHashMap<LocalSymbol, IrOperand> handlerEnvironment,
-                                    OwnershipSnapshot handlerOwnership,
+                                    ProtocolSnapshot handlerProtocols,
                                     FinallyContext finallyContext,
                                     ExceptionRegion catchEscapeRegion,
                                     List<BranchFlow> normalFlows,
-                                    List<OwnershipSnapshot> normalOwnerships,
-                                    List<JoinPath> normalPaths,
+                                    List<ProtocolSnapshot> normalProtocolss,
                                     List<ExceptionRegion> outerExceptions,
                                     List<FinallyContext> outerFinally,
                                     List<List<IrType>> preciseCatchTypes) {
@@ -2128,7 +2107,7 @@ final class FunctionAnalyzer {
 
             currentBlock = caught;
             environment = new LinkedHashMap<>(handlerEnvironment);
-            restoreOwnership(handlerOwnership);
+            restoreProtocols(handlerProtocols);
             currentBlock.addInstruction(new IrExceptionCaughtInstruction(exception, clause.span()));
             enterScope();
             IrType catchType = target.bindingType();
@@ -2157,14 +2136,14 @@ final class FunctionAnalyzer {
             if (reachable) {
                 boolean afterFinally = finallyContext == null || lowerFinallyBody(finallyContext);
                 if (afterFinally) {
-                    normalFlows.add(new BranchFlow(true, currentBlock, copyEnvironment(), snapshotOwnership()));
-                    normalOwnerships.add(snapshotOwnership());
+                    normalFlows.add(new BranchFlow(true, currentBlock, copyEnvironment(), snapshotProtocols()));
+                    normalProtocolss.add(snapshotProtocols());
 
                 }
             }
             currentBlock = next;
             environment = new LinkedHashMap<>(handlerEnvironment);
-            restoreOwnership(handlerOwnership);
+            restoreProtocols(handlerProtocols);
         }
         if (finallyContext == null) {
             emitThrow(exception, statement.span());
@@ -2227,13 +2206,12 @@ final class FunctionAnalyzer {
 
     private IrOperand beginExceptionHandler(ExceptionRegion region,
                                             LinkedHashMap<LocalSymbol, IrOperand> before,
-                                            OwnershipSnapshot ownershipBefore,
+                                            ProtocolSnapshot protocolsBefore,
                                             SourceSpan span) {
         currentBlock = region.landingPad;
-        List<JoinPath> paths = List.of();
-        mergeOwnership(ownershipBefore, region.edges.stream()
-                        .map(ExceptionEdge::ownership).toList(),
-                "allocation has conflicting ownership across exceptional paths", paths);
+
+        mergeProtocols(protocolsBefore, region.edges.stream()
+                        .map(ExceptionEdge::protocols).toList());
         environment = mergeExceptionalEnvironment(before, region, span);
         IrValueReference handle = newValue(IrType.EXCEPTION, span);
         IrValueReference object = newValue(IrType.reference("ironwood.lang.Throwable"), span);
@@ -2259,7 +2237,7 @@ final class FunctionAnalyzer {
                             edge.environment().get(symbol))).toList();
             region.landingPad.addPhi(new MutablePhi(result, incoming, span));
             List<IrOperand> sources = incoming.stream().map(IrPhiIncoming::value).toList();
-            propagateCommonOwnedHelperBorrow(result, sources);
+            propagateCommonProtocolOrigin(result, sources);
             mergeAllocationIdentity(result, sources);
             merged.put(symbol, result);
         }
@@ -2299,7 +2277,7 @@ final class FunctionAnalyzer {
     private void lowerFinallyForPendingException(FinallyContext context, IrOperand primary,
                                                  SourceSpan span) {
         LinkedHashMap<LocalSymbol, IrOperand> before = copyEnvironment();
-        OwnershipSnapshot ownershipBefore = snapshotOwnership();
+        ProtocolSnapshot protocolsBefore = snapshotProtocols();
         MutableBlock secondaryLanding = createBlock("finally.secondary", span);
         ExceptionRegion secondaryRegion = new ExceptionRegion(secondaryLanding);
         List<ExceptionRegion> cleanupExceptions = new ArrayList<>();
@@ -2318,7 +2296,7 @@ final class FunctionAnalyzer {
             return;
         }
         IrOperand secondary = beginExceptionHandler(secondaryRegion, before,
-                ownershipBefore, span);
+                protocolsBefore, span);
         currentBlock.addInstruction(new IrAddSecondaryExceptionInstruction(primary, secondary, span));
         emitThrow(primary, span);
     }
@@ -2409,7 +2387,7 @@ final class FunctionAnalyzer {
         TypedValue condition = lowerCondition(statement.condition(), patternFlow);
         IrOperand conditionOperand = requireCondition(condition, statement.condition().span(), "if");
         LinkedHashMap<LocalSymbol, IrOperand> before = copyEnvironment();
-        OwnershipSnapshot ownershipBefore = snapshotOwnership();
+        ProtocolSnapshot protocolsBefore = snapshotProtocols();
 
         MutableBlock thenBlock = createBlock("if.then", statement.thenBranch().span());
         MutableBlock elseBlock = createBlock("if.else",
@@ -2420,8 +2398,8 @@ final class FunctionAnalyzer {
 
         BranchFlow thenFlow = lowerBranch(thenBlock, statement.thenBranch(), before,
                 patternFlow.whenTrue());
-        OwnershipSnapshot thenOwnership = snapshotOwnership();
-        restoreOwnership(ownershipBefore);
+        ProtocolSnapshot thenProtocols = snapshotProtocols();
+        restoreProtocols(protocolsBefore);
         BranchFlow elseFlow;
         if (statement.elseBranch().isPresent()) {
             elseFlow = lowerBranch(elseBlock, statement.elseBranch().get(), before,
@@ -2429,9 +2407,9 @@ final class FunctionAnalyzer {
         } else {
             currentBlock = elseBlock;
             environment = new LinkedHashMap<>(before);
-            elseFlow = new BranchFlow(true, elseBlock, copyEnvironment(), snapshotOwnership());
+            elseFlow = new BranchFlow(true, elseBlock, copyEnvironment(), snapshotProtocols());
         }
-        OwnershipSnapshot elseOwnership = snapshotOwnership();
+        ProtocolSnapshot elseProtocols = snapshotProtocols();
 
         List<BranchFlow> incoming = new ArrayList<>();
         if (thenFlow.reachable()) {
@@ -2445,29 +2423,27 @@ final class FunctionAnalyzer {
 
         currentBlock = mergeBlock;
         if (incoming.isEmpty()) {
-            restoreOwnership(ownershipBefore);
+            restoreProtocols(protocolsBefore);
             environment = before;
             mergeBlock.terminate(new IrUnreachable(statement.span()));
             return false;
         }
 
-        List<OwnershipSnapshot> incomingOwnership = new ArrayList<>();
-        List<JoinPath> joinPaths = List.of();
+        List<ProtocolSnapshot> incomingProtocols = new ArrayList<>();
+
         if (thenFlow.reachable()) {
-            incomingOwnership.add(thenOwnership);
+            incomingProtocols.add(thenProtocols);
 
         }
         if (elseFlow.reachable()) {
-            incomingOwnership.add(elseOwnership);
+            incomingProtocols.add(elseProtocols);
 
         }
-        mergeOwnership(ownershipBefore, incomingOwnership,
-                "allocation has conflicting ownership across if branches", joinPaths);
+        mergeProtocols(protocolsBefore, incomingProtocols);
 
         environment = new LinkedHashMap<>();
         for (LocalSymbol symbol : before.keySet()) {
-            environment.put(symbol, mergeValue(symbol, incoming, statement.span(), mergeBlock,
-                    joinPaths));
+            environment.put(symbol, mergeValue(symbol, incoming, statement.span(), mergeBlock));
         }
         if (thenFlow.reachable() && !elseFlow.reachable()) {
             activatePatternBindings(patternFlow.whenTrue());
@@ -2492,17 +2468,11 @@ final class FunctionAnalyzer {
         boolean reachable = lowerStatement(statement);
         LinkedHashMap<LocalSymbol, IrOperand> branchEnvironment = copyEnvironment();
         exitScope();
-        return new BranchFlow(reachable, currentBlock, branchEnvironment, snapshotOwnership());
+        return new BranchFlow(reachable, currentBlock, branchEnvironment, snapshotProtocols());
     }
 
     private IrOperand mergeValue(LocalSymbol symbol, List<BranchFlow> incoming,
                                  SourceSpan span, MutableBlock mergeBlock) {
-        return mergeValue(symbol, incoming, span, mergeBlock, List.of());
-    }
-
-    private IrOperand mergeValue(LocalSymbol symbol, List<BranchFlow> incoming,
-                                 SourceSpan span, MutableBlock mergeBlock,
-                                 List<JoinPath> paths) {
         IrOperand first = incoming.getFirst().environment().get(symbol);
         boolean same = incoming.stream().allMatch(flow -> flow.environment().get(symbol).equals(first));
         if (same || incoming.size() == 1) {
@@ -2514,8 +2484,8 @@ final class FunctionAnalyzer {
                 .toList();
         mergeBlock.addPhi(new MutablePhi(result, values, span));
         List<IrOperand> sources = values.stream().map(IrPhiIncoming::value).toList();
-        propagateCommonOwnedHelperBorrow(result, sources);
-        List<AllocationInfo> borrowedOwners = sources.stream()
+        propagateCommonProtocolOrigin(result, sources);
+        List<ReferenceIdentity> borrowedOwners = sources.stream()
                 .filter(this::isDependentBorrow)
                 .map(this::allocationOf)
                 .filter(java.util.Objects::nonNull)
@@ -2525,9 +2495,8 @@ final class FunctionAnalyzer {
                 value instanceof IrNull || isDependentBorrow(value));
         if (!borrowedOwners.isEmpty()
                 && (!everySourceIsBorrowed || borrowedOwners.size() != 1)) {
-            String reason = "allocation has conflicting borrowed-helper ownership across control flow";
-            for (AllocationInfo owner : borrowedOwners) {
-                selectUncertain(owner, reason);
+            for (ReferenceIdentity owner : borrowedOwners) {
+                selectUncertain(owner);
             }
         }
         mergeAllocationIdentity(result, sources);
@@ -2540,11 +2509,11 @@ final class FunctionAnalyzer {
 
     private void mergeAllocationIdentity(IrOperand result, List<IrOperand> sources,
                                          SourceSpan expressionSpan) {
-        propagateCommonOwnedHelperBorrow(result, sources);
+        propagateCommonProtocolOrigin(result, sources);
         List<IrOperand> nonNull = sources.stream().filter(value -> !(value instanceof IrNull)).toList();
         if (!nonNull.isEmpty() && nonNull.size() < sources.size()
                 && nonNull.stream().allMatch(this::isDependentBorrow)) {
-            AllocationInfo root = allocationOf(nonNull.getFirst());
+            ReferenceIdentity root = allocationOf(nonNull.getFirst());
             if (root != null && nonNull.stream().allMatch(value -> allocationOf(value) == root)) {
                 // Null adds no alias or ownership. Preserve a single borrowed
                 // root through normal and exceptional nullable-view joins.
@@ -2552,14 +2521,14 @@ final class FunctionAnalyzer {
                 return;
             }
         }
-        AllocationInfo first = allocationOf(sources.getFirst());
+        ReferenceIdentity first = allocationOf(sources.getFirst());
         if (first != null && sources.stream().allMatch(value -> allocationOf(value) == first)) {
             allocationsByOperand.put(result, first);
             return;
         }
         if (!nonNull.isEmpty() && nonNull.size() < sources.size()) {
-            AllocationInfo held = allocationOf(nonNull.getFirst());
-            if (held != null && held.origin == AllocationOrigin.ONE_OF
+            ReferenceIdentity held = allocationOf(nonNull.getFirst());
+            if (held != null && !held.mayBe.isEmpty()
                     && nonNull.stream().allMatch(value -> allocationOf(value) == held)) {
                 // Null adds no alias. Losing a one-of identity would keep every
                 // allocation it may be observed forever; keeping it blocks them
@@ -2568,14 +2537,13 @@ final class FunctionAnalyzer {
                 return;
             }
         }
-        List<AllocationInfo> alternatives = sources.stream().map(this::allocationOf)
+        List<ReferenceIdentity> alternatives = sources.stream().map(this::allocationOf)
                 .filter(java.util.Objects::nonNull).distinct().toList();
         // Losing a phi's exact identity must not lose its possible aliases or
         // turn a potentially dangling reference back into an unchecked value.
-        alternatives.stream().filter(value -> value.origin == AllocationOrigin.ONE_OF)
+        alternatives.stream().filter(value -> !value.mayBe.isEmpty())
                 .forEach(this::observeElements);
-        alternatives.forEach(value -> selectBlocked(value,
-                "allocation may still be observed through a merged reference", expressionSpan));
+        alternatives.forEach(value -> selectBlocked(value));
     }
 
     private boolean lowerSwitch(SwitchStatement statement) {
@@ -2605,7 +2573,6 @@ final class FunctionAnalyzer {
             MutableBlock groupBlock = groupBlocks.get(index);
             List<BranchFlow> incoming = new ArrayList<>(dispatchIncoming(
                     dispatchEdges, groupBlock.label, before));
-            List<JoinPath> incomingPaths = List.of();
 
             if (fallthrough != null && fallthrough.reachable()) {
                 fallthrough.block().terminate(new IrJump(groupBlock.label, group.span()));
@@ -2614,8 +2581,7 @@ final class FunctionAnalyzer {
             }
 
             currentBlock = groupBlock;
-            environment = mergeEnvironment(before, incoming, group.span(), groupBlock,
-                    incomingPaths);
+            environment = mergeEnvironment(before, incoming, group.span(), groupBlock);
             boolean reachable = true;
             for (Statement child : group.statements()) {
                 if (!reachable) {
@@ -2624,13 +2590,12 @@ final class FunctionAnalyzer {
                 }
                 reachable = lowerStatement(child);
             }
-            fallthrough = new BranchFlow(reachable, currentBlock, copyEnvironment(), snapshotOwnership());
+            fallthrough = new BranchFlow(reachable, currentBlock, copyEnvironment(), snapshotProtocols());
         }
         breakContexts.pop();
         exitScope();
 
         List<BranchFlow> exits = new ArrayList<>(switchContext.breakFlows);
-        List<JoinPath> exitPaths = List.of();
 
         if (fallthrough != null && fallthrough.reachable()) {
             fallthrough.block().terminate(new IrJump(exit.label, statement.span()));
@@ -2649,10 +2614,10 @@ final class FunctionAnalyzer {
             exit.terminate(new IrUnreachable(statement.span()));
             return false;
         }
-        mergeFlowOwnership(exits, exitPaths);
+        mergeFlowProtocols(exits);
         environment = new LinkedHashMap<>();
         for (LocalSymbol symbol : before.keySet()) {
-            environment.put(symbol, mergeValue(symbol, exits, statement.span(), exit, exitPaths));
+            environment.put(symbol, mergeValue(symbol, exits, statement.span(), exit));
         }
         return true;
     }
@@ -2678,22 +2643,19 @@ final class FunctionAnalyzer {
         BreakContext switchContext = new BreakContext(exit.label, List.copyOf(finallyContexts));
         breakContexts.push(switchContext);
         List<BranchFlow> exits = new ArrayList<>();
-        List<JoinPath> exitPaths = List.of();
+
         enterScope();
         for (int index = 0; index < statement.rules().size(); index++) {
             SwitchRule rule = statement.rules().get(index);
             MutableBlock ruleBlock = ruleBlocks.get(index);
             List<BranchFlow> incoming = dispatchIncoming(
                     dispatchEdges, ruleBlock.label, before);
-            List<JoinPath> incomingPaths = List.of();
+
             currentBlock = ruleBlock;
-            environment = mergeEnvironment(before, incoming, rule.span(), ruleBlock,
-                    incomingPaths);
+            environment = mergeEnvironment(before, incoming, rule.span(), ruleBlock);
             boolean reachable;
             if (rule.body() instanceof SwitchRuleExpression expression) {
-                // An expression rule body is an expression statement: a full
-                // expression whose temporaries are reclaimed at its end, observed by
-                // the missing-free tracker like any other statement.
+                // Expression rules use ordinary statement evaluation and exit order.
                 reachable = lowerStatement(new ExpressionStatement(expression.expression(),
                         expression.span()));
             } else if (rule.body() instanceof SwitchRuleBlock block) {
@@ -2705,7 +2667,7 @@ final class FunctionAnalyzer {
                 throw new IllegalStateException("unsupported switch rule body");
             }
             if (reachable) {
-                BranchFlow flow = new BranchFlow(true, currentBlock, copyEnvironment(), snapshotOwnership());
+                BranchFlow flow = new BranchFlow(true, currentBlock, copyEnvironment(), snapshotProtocols());
                 currentBlock.terminate(new IrJump(exit.label, rule.span()));
                 exits.add(flow);
 
@@ -2727,7 +2689,7 @@ final class FunctionAnalyzer {
             exit.terminate(new IrUnreachable(statement.span()));
             return false;
         }
-        environment = mergeEnvironment(before, exits, statement.span(), exit, exitPaths);
+        environment = mergeEnvironment(before, exits, statement.span(), exit);
         return true;
     }
 
@@ -2787,13 +2749,13 @@ final class FunctionAnalyzer {
 
         currentBlock = noMatch;
         environment = new LinkedHashMap<>(before);
-        restoreOwnership(dispatchEdges.ownership());
+        restoreProtocols(dispatchEdges.protocols());
         if (labels.defaultTarget() != null || exhaustive) {
             noMatch.terminate(new IrUnreachable(expression.span()));
         } else {
             TypedValue recovery = switchRecoveryValue(expectedType, expression.span());
             context.yields.add(new YieldFlow(noMatch, copyEnvironment(), recovery,
-                    expression.span(), snapshotOwnership()));
+                    expression.span(), snapshotProtocols()));
         }
         if (context.yields.isEmpty()) {
             if (expectedType.isEmpty() || expectedType.orElseThrow().equals(IrType.VOID)) {
@@ -2804,7 +2766,7 @@ final class FunctionAnalyzer {
             MutableBlock recovery = createBlock("switch.expression.recovery", expression.span());
             context.yields.add(new YieldFlow(recovery, new LinkedHashMap<>(before),
                     switchRecoveryValue(expectedType, expression.span()), expression.span(),
-                    snapshotOwnership()));
+                    snapshotProtocols()));
         }
         return finishSwitchExpression(expression, context);
     }
@@ -2819,13 +2781,13 @@ final class FunctionAnalyzer {
             MutableBlock ruleBlock = ruleBlocks.get(index);
             List<BranchFlow> incoming = dispatchIncoming(
                     dispatchEdges, ruleBlock.label, before);
-            List<JoinPath> paths = List.of();
+
             currentBlock = ruleBlock;
-            environment = mergeEnvironment(before, incoming, rule.span(), ruleBlock, paths);
+            environment = mergeEnvironment(before, incoming, rule.span(), ruleBlock);
             if (rule.body() instanceof SwitchRuleExpression result) {
                 TypedValue value = lowerExpression(result.expression(), context.expectedType);
                 context.yields.add(new YieldFlow(currentBlock, copyEnvironment(), value,
-                        result.expression().span(), snapshotOwnership()));
+                        result.expression().span(), snapshotProtocols()));
             } else if (rule.body() instanceof SwitchRuleThrow thrown) {
                 lowerThrow(thrown.statement());
             } else if (rule.body() instanceof SwitchRuleBlock block) {
@@ -2835,7 +2797,7 @@ final class FunctionAnalyzer {
                             "switch expression rule block must yield a value or complete abruptly"));
                     context.yields.add(new YieldFlow(currentBlock, copyEnvironment(),
                             switchRecoveryValue(context.expectedType, block.span()), block.span(),
-                            snapshotOwnership()));
+                            snapshotProtocols()));
                 }
             }
         }
@@ -2852,7 +2814,6 @@ final class FunctionAnalyzer {
             MutableBlock groupBlock = groupBlocks.get(index);
             List<BranchFlow> incoming = new ArrayList<>(dispatchIncoming(
                     dispatchEdges, groupBlock.label, before));
-            List<JoinPath> paths = List.of();
 
             if (fallthrough != null && fallthrough.reachable()) {
                 fallthrough.block().terminate(new IrJump(groupBlock.label, group.span()));
@@ -2860,7 +2821,7 @@ final class FunctionAnalyzer {
 
             }
             currentBlock = groupBlock;
-            environment = mergeEnvironment(before, incoming, group.span(), groupBlock, paths);
+            environment = mergeEnvironment(before, incoming, group.span(), groupBlock);
             boolean reachable = true;
             for (Statement child : group.statements()) {
                 if (!reachable) {
@@ -2869,14 +2830,14 @@ final class FunctionAnalyzer {
                 }
                 reachable = lowerStatement(child);
             }
-            fallthrough = new BranchFlow(reachable, currentBlock, copyEnvironment(), snapshotOwnership());
+            fallthrough = new BranchFlow(reachable, currentBlock, copyEnvironment(), snapshotProtocols());
         }
         if (fallthrough != null && fallthrough.reachable()) {
             diagnostics.add(error(expression.span(),
                     "switch expression may complete without yielding a value"));
             context.yields.add(new YieldFlow(fallthrough.block(), fallthrough.environment(),
                     switchRecoveryValue(context.expectedType, expression.span()), expression.span(),
-                    fallthrough.ownership()));
+                    fallthrough.protocols()));
         }
     }
 
@@ -2889,8 +2850,7 @@ final class FunctionAnalyzer {
             currentBlock.terminate(new IrUnreachable(statement.span()));
             return false;
         }
-        TypedValue value = lowerTransferOperand(statement.span(),
-                () -> lowerExpression(statement.value(), context.expectedType));
+        TypedValue value = lowerExpression(statement.value(), context.expectedType);
         List<FinallyContext> current = List.copyOf(finallyContexts);
         int cleanupCount = current.size() - context.targetFinallyContexts.size();
         if (cleanupCount < 0 || !current.subList(cleanupCount, current.size())
@@ -2898,18 +2858,11 @@ final class FunctionAnalyzer {
             diagnostics.add(error(statement.span(),
                     "cannot resolve yield cleanup path across active finally blocks"));
             context.yields.add(new YieldFlow(currentBlock, copyEnvironment(), value,
-                    statement.value().span(), snapshotOwnership()));
+                    statement.value().span(), snapshotProtocols()));
             return false;
         }
-        AllocationInfo retained = allocationOf(value.operand());
-        pendingYieldAllocations.add(retained);
-        try {
-            completeYieldThrough(current.subList(0, cleanupCount), 0, context, value,
-                    statement.value().span(), statement.span());
-        } finally {
-            pendingYieldAllocations.removeLast();
-
-        }
+        completeYieldThrough(current.subList(0, cleanupCount), 0, context, value,
+                statement.value().span(), statement.span());
         return false;
     }
 
@@ -2918,14 +2871,14 @@ final class FunctionAnalyzer {
                                       SourceSpan span, SourceSpan yieldSpan) {
         if (index >= pending.size()) {
             context.yields.add(new YieldFlow(currentBlock, copyEnvironment(), value, span,
-                    snapshotOwnership()));
+                    snapshotProtocols()));
             return;
         }
         FinallyContext cleanup = pending.get(index);
         List<ExceptionRegion> savedExceptions = List.copyOf(exceptionRegions);
         List<FinallyContext> savedFinally = List.copyOf(finallyContexts);
         LinkedHashMap<LocalSymbol, IrOperand> savedEnvironment = copyEnvironment();
-        OwnershipSnapshot savedOwnership = snapshotOwnership();
+        ProtocolSnapshot savedProtocols = snapshotProtocols();
         restoreDeque(exceptionRegions, cleanup.outerExceptionRegions());
         restoreDeque(finallyContexts, cleanup.outerFinallyContexts());
         try {
@@ -2935,7 +2888,7 @@ final class FunctionAnalyzer {
             }
         } finally {
             environment = savedEnvironment;
-            restoreOwnership(savedOwnership);
+            restoreProtocols(savedProtocols);
             restoreDeque(exceptionRegions, savedExceptions);
             restoreDeque(finallyContexts, savedFinally);
         }
@@ -2946,12 +2899,12 @@ final class FunctionAnalyzer {
         IrType resultType = switchExpressionType(context.yields, context.expectedType,
                 expression.span());
         List<BranchFlow> incoming = new ArrayList<>();
-        List<JoinPath> paths = List.of();
+
         List<IrPhiIncoming> resultIncoming = new ArrayList<>();
         for (YieldFlow flow : context.yields) {
             currentBlock = flow.block();
             environment = new LinkedHashMap<>(flow.environment());
-            restoreOwnership(flow.ownership());
+            restoreProtocols(flow.protocols());
             TypedValue value = flow.value();
             boolean convertible = isAssignmentConvertible(resultType, value);
             if (!convertible) {
@@ -2963,13 +2916,13 @@ final class FunctionAnalyzer {
                     ? assignmentValue(value, resultType, flow.span(), "switch expression result")
                     : defaultValue(resultType, flow.span());
             currentBlock.terminate(new IrJump(context.merge.label, flow.span()));
-            incoming.add(new BranchFlow(true, currentBlock, copyEnvironment(), snapshotOwnership()));
+            incoming.add(new BranchFlow(true, currentBlock, copyEnvironment(), snapshotProtocols()));
 
             resultIncoming.add(new IrPhiIncoming(currentBlock.label, operand));
         }
         currentBlock = context.merge;
         environment = mergeEnvironment(context.before, incoming, expression.span(),
-                context.merge, paths);
+                context.merge);
         IrValueReference result = newValue(resultType, expression.span());
         context.merge.addPhi(new MutablePhi(result, resultIncoming, expression.span()));
         mergeAllocationIdentity(result, resultIncoming.stream().map(IrPhiIncoming::value).toList());
@@ -3026,8 +2979,7 @@ final class FunctionAnalyzer {
     }
 
     private SwitchSelection lowerSwitchSelector(Expression selectorExpression) {
-        TypedValue selected = lowerTransferOperand(selectorExpression.span(),
-                () -> lowerExpression(selectorExpression));
+        TypedValue selected = lowerExpression(selectorExpression);
         IrType selectorType = selected.type();
         TypeSymbol enumType = selectorType.isNominalReference()
                 ? hierarchy.type(selectorType.referenceName()).orElse(null) : null;
@@ -3224,7 +3176,7 @@ final class FunctionAnalyzer {
         } else {
             emitIntegralSwitch(selector, labels, defaultTarget, edges, span);
         }
-        return new DispatchEdges(edges, snapshotOwnership());
+        return new DispatchEdges(edges, snapshotProtocols());
     }
 
     private void emitIntegralSwitch(IrOperand selector,
@@ -3256,28 +3208,21 @@ final class FunctionAnalyzer {
                                               LinkedHashMap<LocalSymbol, IrOperand> before) {
         return edges.predecessors().getOrDefault(target, List.of()).stream()
                 .map(block -> new BranchFlow(true, block, new LinkedHashMap<>(before),
-                        edges.ownership()))
+                        edges.protocols()))
                 .toList();
     }
 
     private LinkedHashMap<LocalSymbol, IrOperand> mergeEnvironment(
             LinkedHashMap<LocalSymbol, IrOperand> before,
             List<BranchFlow> incoming, SourceSpan span, MutableBlock block) {
-        return mergeEnvironment(before, incoming, span, block, List.of());
-    }
-
-    private LinkedHashMap<LocalSymbol, IrOperand> mergeEnvironment(
-            LinkedHashMap<LocalSymbol, IrOperand> before,
-            List<BranchFlow> incoming, SourceSpan span, MutableBlock block,
-            List<JoinPath> paths) {
-        mergeFlowOwnership(incoming, paths);
+        mergeFlowProtocols(incoming);
         LinkedHashMap<LocalSymbol, IrOperand> merged = new LinkedHashMap<>();
         if (incoming.isEmpty()) {
             merged.putAll(before);
             return merged;
         }
         for (LocalSymbol symbol : before.keySet()) {
-            merged.put(symbol, mergeValue(symbol, incoming, span, block, paths));
+            merged.put(symbol, mergeValue(symbol, incoming, span, block));
         }
         return merged;
     }
@@ -3511,7 +3456,7 @@ final class FunctionAnalyzer {
         PatternFlow.Result patternFlow = PatternFlow.analyze(statement.condition());
         MutableBlock preheader = currentBlock;
         LinkedHashMap<LocalSymbol, IrOperand> before = copyEnvironment();
-        OwnershipSnapshot loopOwnership = snapshotOwnership();
+        ProtocolSnapshot loopProtocols = snapshotProtocols();
         MutableBlock header = createBlock("while.header", statement.condition().span());
         MutableBlock body = createBlock("while.body", statement.body().span());
         MutableBlock exit = createBlock("while.exit", statement.span());
@@ -3526,10 +3471,10 @@ final class FunctionAnalyzer {
             header.addPhi(phi);
             loopPhis.put(entry.getKey(), phi);
             headerEnvironment.put(entry.getKey(), result);
-            AllocationInfo allocation = allocationOf(entry.getValue());
+            ReferenceIdentity allocation = allocationOf(entry.getValue());
             if (allocation != null) {
                 allocationsByOperand.put(result, allocation);
-                propagateOwnedHelperBorrow(result, entry.getValue());
+                propagateProtocolOrigin(result, entry.getValue());
             }
         }
 
@@ -3539,7 +3484,7 @@ final class FunctionAnalyzer {
         IrOperand conditionOperand = requireCondition(condition, statement.condition().span(), "while");
         MutableBlock conditionEnd = currentBlock;
         LinkedHashMap<LocalSymbol, IrOperand> conditionEnvironment = copyEnvironment();
-        OwnershipSnapshot conditionOwnership = snapshotOwnership();
+        ProtocolSnapshot conditionProtocols = snapshotProtocols();
         conditionEnd.terminate(alwaysTrue
                 ? new IrJump(body.label, statement.span())
                 : new IrBranch(conditionOperand, body.label, exit.label, statement.span()));
@@ -3573,7 +3518,7 @@ final class FunctionAnalyzer {
         currentBlock = exit;
         List<BranchFlow> exits = new ArrayList<>();
         if (!alwaysTrue) {
-            exits.add(new BranchFlow(true, conditionEnd, conditionEnvironment, conditionOwnership));
+            exits.add(new BranchFlow(true, conditionEnd, conditionEnvironment, conditionProtocols));
         }
         exits.addAll(loop.breakFlows);
         if (exits.isEmpty()) {
@@ -3581,22 +3526,14 @@ final class FunctionAnalyzer {
             environment = before;
             return false;
         }
-        List<JoinPath> exitPaths = new ArrayList<>();
-        if (!alwaysTrue) {
-            exitPaths.add(new JoinPath(conditionOwnership, "when the while condition is false",
-                    source, statement.condition().span()));
-        }
 
-        List<JoinPath> joinPaths = new ArrayList<>(exitPaths);
-        joinPaths.addAll(loopContinuationPaths(backEdges, bodyFlow, "while",
-                statement.body().span()));
-        mergeLoopOwnership(exits, backEdges, joinPaths);
-        // After the ownership merge, which rebuilds states from the snapshots.
+        mergeLoopProtocols(exits, backEdges);
+        // After the protocol merge, which rebuilds states from the snapshots.
         mergeLoopPhiIdentities(loopPhis, before,
                 loop.continueFlows.stream().map(BranchFlow::environment).toList(), statement.span());
         environment = new LinkedHashMap<>();
         for (LocalSymbol symbol : before.keySet()) {
-            environment.put(symbol, mergeValue(symbol, exits, statement.span(), exit, exitPaths));
+            environment.put(symbol, mergeValue(symbol, exits, statement.span(), exit));
         }
         if (loop.breakFlows.isEmpty()) {
             activatePatternBindings(patternFlow.whenFalse());
@@ -3608,7 +3545,7 @@ final class FunctionAnalyzer {
         boolean alwaysTrue = isLiteralTrue(statement.condition());
         MutableBlock preheader = currentBlock;
         LinkedHashMap<LocalSymbol, IrOperand> before = copyEnvironment();
-        OwnershipSnapshot loopOwnership = snapshotOwnership();
+        ProtocolSnapshot loopProtocols = snapshotProtocols();
         MutableBlock body = createBlock("do.body", statement.body().span());
         MutableBlock conditionBlock = createBlock("do.condition", statement.condition().span());
         MutableBlock exit = createBlock("do.exit", statement.span());
@@ -3623,10 +3560,10 @@ final class FunctionAnalyzer {
             body.addPhi(phi);
             loopPhis.put(entry.getKey(), phi);
             bodyEnvironment.put(entry.getKey(), result);
-            AllocationInfo allocation = allocationOf(entry.getValue());
+            ReferenceIdentity allocation = allocationOf(entry.getValue());
             if (allocation != null) {
                 allocationsByOperand.put(result, allocation);
-                propagateOwnedHelperBorrow(result, entry.getValue());
+                propagateProtocolOrigin(result, entry.getValue());
             }
         }
 
@@ -3655,25 +3592,24 @@ final class FunctionAnalyzer {
             conditionBlock.terminate(new IrUnreachable(statement.span()));
         } else {
             currentBlock = conditionBlock;
-            List<JoinPath> continuationPaths = loopContinuationPaths(loop.continueFlows,
-                    bodyFlow, "do-while", statement.body().span());
-            mergeFlowOwnership(loop.continueFlows, continuationPaths);
+
+            mergeFlowProtocols(loop.continueFlows);
             environment = new LinkedHashMap<>();
             for (LocalSymbol symbol : before.keySet()) {
                 environment.put(symbol, mergeValue(symbol, loop.continueFlows,
-                        statement.span(), conditionBlock, continuationPaths));
+                        statement.span(), conditionBlock));
             }
             TypedValue condition = lowerCondition(statement.condition(), patternFlow);
             IrOperand conditionOperand = requireCondition(condition, statement.condition().span(),
                     "do-while");
             MutableBlock conditionEnd = currentBlock;
             LinkedHashMap<LocalSymbol, IrOperand> conditionEnvironment = copyEnvironment();
-            OwnershipSnapshot conditionOwnership = snapshotOwnership();
+            ProtocolSnapshot conditionProtocols = snapshotProtocols();
             conditionEnd.terminate(alwaysTrue
                     ? new IrJump(body.label, statement.span())
                     : new IrBranch(conditionOperand, body.label, exit.label, statement.span()));
             guardBranch(conditionEnd, statement.condition());
-            conditionFlow = new BranchFlow(true, conditionEnd, conditionEnvironment, conditionOwnership);
+            conditionFlow = new BranchFlow(true, conditionEnd, conditionEnvironment, conditionProtocols);
             if (!(conditionOperand instanceof IrConstant constant && constant.value().intValue() == 0)) {
                 backEdges.add(conditionFlow);
             }
@@ -3683,7 +3619,7 @@ final class FunctionAnalyzer {
             }
         }
         for (Map.Entry<LocalSymbol, MutablePhi> entry : loopPhis.entrySet()) {
-            AllocationInfo initial = allocationOf(before.get(entry.getKey()));
+            ReferenceIdentity initial = allocationOf(before.get(entry.getKey()));
             if (initial != null && conditionFlow != null
                     && allocationOf(conditionFlow.environment().get(entry.getKey())) != initial) {
                 allocationsByOperand.remove(entry.getValue().result);
@@ -3701,17 +3637,11 @@ final class FunctionAnalyzer {
             environment = before;
             return false;
         }
-        List<JoinPath> exitPaths = new ArrayList<>();
-        if (conditionFlow != null && !alwaysTrue) {
-            exitPaths.add(new JoinPath(conditionFlow.ownership(),
-                    "when the do-while condition is false", source,
-                    statement.condition().span()));
-        }
 
-        mergeFlowOwnership(exits, exitPaths);
+        mergeFlowProtocols(exits);
         environment = new LinkedHashMap<>();
         for (LocalSymbol symbol : before.keySet()) {
-            environment.put(symbol, mergeValue(symbol, exits, statement.span(), exit, exitPaths));
+            environment.put(symbol, mergeValue(symbol, exits, statement.span(), exit));
         }
         if (conditionFlow != null && loop.breakFlows.isEmpty()) {
             activatePatternBindings(patternFlow.whenFalse());
@@ -3724,7 +3654,7 @@ final class FunctionAnalyzer {
         statement.initializer().ifPresent(this::lowerStatement);
         MutableBlock preheader = currentBlock;
         LinkedHashMap<LocalSymbol, IrOperand> before = copyEnvironment();
-        OwnershipSnapshot loopOwnership = snapshotOwnership();
+        ProtocolSnapshot loopProtocols = snapshotProtocols();
         MutableBlock header = createBlock("for.header",
                 statement.condition().map(Expression::span).orElse(statement.span()));
         MutableBlock body = createBlock("for.body", statement.body().span());
@@ -3741,10 +3671,10 @@ final class FunctionAnalyzer {
             header.addPhi(phi);
             loopPhis.put(entry.getKey(), phi);
             headerEnvironment.put(entry.getKey(), result);
-            AllocationInfo allocation = allocationOf(entry.getValue());
+            ReferenceIdentity allocation = allocationOf(entry.getValue());
             if (allocation != null) {
                 allocationsByOperand.put(result, allocation);
-                propagateOwnedHelperBorrow(result, entry.getValue());
+                propagateProtocolOrigin(result, entry.getValue());
             }
         }
 
@@ -3759,7 +3689,7 @@ final class FunctionAnalyzer {
                 .orElseGet(() -> new IrConstant(IrType.I1, 1, statement.span()));
         MutableBlock conditionEnd = currentBlock;
         LinkedHashMap<LocalSymbol, IrOperand> conditionEnvironment = copyEnvironment();
-        OwnershipSnapshot conditionOwnership = snapshotOwnership();
+        ProtocolSnapshot conditionProtocols = snapshotProtocols();
         conditionEnd.terminate(alwaysTrue
                 ? new IrJump(body.label, statement.span())
                 : new IrBranch(condition, body.label, exit.label, statement.span()));
@@ -3789,13 +3719,12 @@ final class FunctionAnalyzer {
         if (loop.continueFlows.isEmpty()) {
             update.terminate(new IrUnreachable(statement.span()));
         } else {
-            List<JoinPath> continuationPaths = loopContinuationPaths(loop.continueFlows,
-                    bodyFlow, "for", statement.body().span());
-            mergeFlowOwnership(loop.continueFlows, continuationPaths);
+
+            mergeFlowProtocols(loop.continueFlows);
             environment = new LinkedHashMap<>();
             for (LocalSymbol symbol : before.keySet()) {
                 environment.put(symbol, mergeValue(symbol, loop.continueFlows,
-                        statement.span(), update, continuationPaths));
+                        statement.span(), update));
             }
             enterScope();
             activatePatternBindings(patternFlow.whenTrue());
@@ -3804,8 +3733,7 @@ final class FunctionAnalyzer {
                 if (local != null && loop.continueFlows.stream()
                         .allMatch(flow -> flow.environment().containsKey(local.symbol))) {
                     environment.put(local.symbol, mergeValue(local.symbol,
-                            loop.continueFlows, statement.span(), update,
-                            continuationPaths));
+                            loop.continueFlows, statement.span(), update));
                 }
             }
             for (Expression updateExpression : statement.updates()) {
@@ -3816,12 +3744,12 @@ final class FunctionAnalyzer {
                     diagnostics.add(error(updateExpression.span(),
                             "for update must be an assignment, increment, decrement, method call, or object creation"));
                 }
-                lowerStatementAction(updateExpression.span(), () -> lowerExpression(updateExpression));
+                lowerExpression(updateExpression);
             }
             updateEnvironment = copyEnvironment();
             exitScope();
             MutableBlock updateEnd = currentBlock;
-            backEdges.add(new BranchFlow(true, updateEnd, copyEnvironment(), snapshotOwnership()));
+            backEdges.add(new BranchFlow(true, updateEnd, copyEnvironment(), snapshotProtocols()));
             updateEnd.terminate(new IrJump(header.label, statement.span()));
             for (Map.Entry<LocalSymbol, MutablePhi> entry : loopPhis.entrySet()) {
                 entry.getValue().addIncoming(new IrPhiIncoming(updateEnd.label,
@@ -3832,7 +3760,7 @@ final class FunctionAnalyzer {
         currentBlock = exit;
         List<BranchFlow> exits = new ArrayList<>();
         if (!alwaysTrue) {
-            exits.add(new BranchFlow(true, conditionEnd, conditionEnvironment, conditionOwnership));
+            exits.add(new BranchFlow(true, conditionEnd, conditionEnvironment, conditionProtocols));
         }
         exits.addAll(loop.breakFlows);
         if (exits.isEmpty()) {
@@ -3841,23 +3769,12 @@ final class FunctionAnalyzer {
             exitScope();
             return false;
         }
-        List<JoinPath> exitPaths = new ArrayList<>();
-        if (!alwaysTrue) {
-            exitPaths.add(new JoinPath(conditionOwnership, "when the for condition is false",
-                    source, statement.condition().map(Expression::span).orElse(statement.span())));
-        }
-
-        List<JoinPath> joinPaths = new ArrayList<>(exitPaths);
-        for (BranchFlow flow : backEdges) {
-            joinPaths.add(new JoinPath(flow.ownership(), "for update back edge",
-                    source, statement.span()));
-        }
-        mergeLoopOwnership(exits, backEdges, joinPaths);
+        mergeLoopProtocols(exits, backEdges);
         mergeLoopPhiIdentities(loopPhis, before,
                 updateEnvironment == null ? List.of() : List.of(updateEnvironment), statement.span());
         environment = new LinkedHashMap<>();
         for (LocalSymbol symbol : before.keySet()) {
-            environment.put(symbol, mergeValue(symbol, exits, statement.span(), exit, exitPaths));
+            environment.put(symbol, mergeValue(symbol, exits, statement.span(), exit));
         }
         exitScope();
         if (loop.breakFlows.isEmpty()) {
@@ -3869,8 +3786,7 @@ final class FunctionAnalyzer {
     private boolean lowerEnhancedFor(EnhancedForStatement statement,
                                      LabeledStatement label) {
         enterScope();
-        TypedValue sourceValue = lowerTransferOperand(statement.iterable().span(),
-                () -> lowerExpression(statement.iterable()));
+        TypedValue sourceValue = lowerExpression(statement.iterable());
         IrOperand source = sourceValue.operand();
         boolean array = sourceValue.type().isArray();
         boolean iterable = !array && iterableView(sourceValue.type()) != null;
@@ -3909,7 +3825,7 @@ final class FunctionAnalyzer {
 
         MutableBlock preheader = currentBlock;
         LinkedHashMap<LocalSymbol, IrOperand> before = copyEnvironment();
-        OwnershipSnapshot loopOwnership = snapshotOwnership();
+        ProtocolSnapshot loopProtocols = snapshotProtocols();
         MutableBlock header = createBlock("enhanced.header", statement.iterable().span());
         MutableBlock body = createBlock("enhanced.body", statement.body().span());
         MutableBlock update = createBlock("enhanced.update", statement.span());
@@ -3925,10 +3841,10 @@ final class FunctionAnalyzer {
             header.addPhi(phi);
             loopPhis.put(entry.getKey(), phi);
             headerEnvironment.put(entry.getKey(), result);
-            AllocationInfo allocation = allocationOf(entry.getValue());
+            ReferenceIdentity allocation = allocationOf(entry.getValue());
             if (allocation != null) {
                 allocationsByOperand.put(result, allocation);
-                propagateOwnedHelperBorrow(result, entry.getValue());
+                propagateProtocolOrigin(result, entry.getValue());
             }
         }
 
@@ -3956,7 +3872,7 @@ final class FunctionAnalyzer {
         }
         MutableBlock conditionEnd = currentBlock;
         LinkedHashMap<LocalSymbol, IrOperand> conditionEnvironment = copyEnvironment();
-        OwnershipSnapshot conditionOwnership = snapshotOwnership();
+        ProtocolSnapshot conditionProtocols = snapshotProtocols();
         conditionEnd.terminate(new IrBranch(condition, body.label, exit.label, statement.span()));
 
         LoopContext loop = new LoopContext(exit.label, update.label, List.copyOf(finallyContexts));
@@ -3997,7 +3913,7 @@ final class FunctionAnalyzer {
             environment.put(variable, elementOperand);
         }
         boolean bodyReachable = lowerStatement(statement.body());
-        BranchFlow bodyFlow = new BranchFlow(bodyReachable, currentBlock, copyEnvironment(), snapshotOwnership());
+        BranchFlow bodyFlow = new BranchFlow(bodyReachable, currentBlock, copyEnvironment(), snapshotProtocols());
         exitScope();
         if (label != null) {
             labeledContexts.pop();
@@ -4016,13 +3932,12 @@ final class FunctionAnalyzer {
         if (loop.continueFlows.isEmpty()) {
             update.terminate(new IrUnreachable(statement.span()));
         } else {
-            List<JoinPath> continuationPaths = loopContinuationPaths(loop.continueFlows,
-                    bodyFlow, "enhanced-for", statement.body().span());
-            mergeFlowOwnership(loop.continueFlows, continuationPaths);
+
+            mergeFlowProtocols(loop.continueFlows);
             environment = new LinkedHashMap<>();
             for (LocalSymbol symbol : before.keySet()) {
                 environment.put(symbol, mergeValue(symbol, loop.continueFlows,
-                        statement.span(), update, continuationPaths));
+                        statement.span(), update));
             }
             IrOperand nextIndex = null;
             if (array) {
@@ -4034,7 +3949,7 @@ final class FunctionAnalyzer {
             }
             updateEnvironment = copyEnvironment();
             updateEnd = currentBlock;
-            backEdges.add(new BranchFlow(true, updateEnd, copyEnvironment(), snapshotOwnership()));
+            backEdges.add(new BranchFlow(true, updateEnd, copyEnvironment(), snapshotProtocols()));
             updateEnd.terminate(new IrJump(header.label, statement.span()));
             for (Map.Entry<LocalSymbol, MutablePhi> entry : loopPhis.entrySet()) {
                 entry.getValue().addIncoming(new IrPhiIncoming(updateEnd.label,
@@ -4047,23 +3962,14 @@ final class FunctionAnalyzer {
 
         currentBlock = exit;
         List<BranchFlow> exits = new ArrayList<>();
-        exits.add(new BranchFlow(true, conditionEnd, conditionEnvironment, conditionOwnership));
+        exits.add(new BranchFlow(true, conditionEnd, conditionEnvironment, conditionProtocols));
         exits.addAll(loop.breakFlows);
-        List<JoinPath> exitPaths = new ArrayList<>();
-        exitPaths.add(new JoinPath(conditionOwnership,
-                "when enhanced-for iteration ends", this.source, statement.iterable().span()));
-
-        List<JoinPath> joinPaths = new ArrayList<>(exitPaths);
-        for (BranchFlow flow : backEdges) {
-            joinPaths.add(new JoinPath(flow.ownership(), "enhanced-for update back edge",
-                    this.source, statement.span()));
-        }
-        mergeLoopOwnership(exits, backEdges, joinPaths);
+        mergeLoopProtocols(exits, backEdges);
         mergeLoopPhiIdentities(loopPhis, before,
                 updateEnvironment == null ? List.of() : List.of(updateEnvironment), statement.span());
         environment = new LinkedHashMap<>();
         for (LocalSymbol symbol : before.keySet()) {
-            environment.put(symbol, mergeValue(symbol, exits, statement.span(), exit, exitPaths));
+            environment.put(symbol, mergeValue(symbol, exits, statement.span(), exit));
         }
         exitScope();
         return true;
@@ -4095,11 +4001,10 @@ final class FunctionAnalyzer {
         boolean reachable = lowerStatement(statement.body());
         labeledContexts.pop();
         List<BranchFlow> incoming = new ArrayList<>(target.breakFlows);
-        List<JoinPath> paths = List.of();
 
         if (reachable) {
             currentBlock.terminate(new IrJump(exit.label, statement.span()));
-            incoming.add(new BranchFlow(true, currentBlock, copyEnvironment(), snapshotOwnership()));
+            incoming.add(new BranchFlow(true, currentBlock, copyEnvironment(), snapshotProtocols()));
 
         }
         currentBlock = exit;
@@ -4108,10 +4013,10 @@ final class FunctionAnalyzer {
             environment = before;
             return false;
         }
-        mergeFlowOwnership(incoming, paths);
+        mergeFlowProtocols(incoming);
         environment = new LinkedHashMap<>();
         for (LocalSymbol symbol : before.keySet()) {
-            environment.put(symbol, mergeValue(symbol, incoming, statement.span(), exit, paths));
+            environment.put(symbol, mergeValue(symbol, incoming, statement.span(), exit));
         }
         return true;
     }
@@ -4229,7 +4134,7 @@ final class FunctionAnalyzer {
                                          String target, List<BranchFlow> flows,
                                          SourceSpan span, String description) {
         if (index >= pending.size()) {
-            BranchFlow flow = new BranchFlow(true, currentBlock, copyEnvironment(), snapshotOwnership());
+            BranchFlow flow = new BranchFlow(true, currentBlock, copyEnvironment(), snapshotProtocols());
             currentBlock.terminate(new IrJump(target, span));
             flows.add(flow);
             return;
@@ -4238,7 +4143,7 @@ final class FunctionAnalyzer {
         List<ExceptionRegion> savedExceptions = List.copyOf(exceptionRegions);
         List<FinallyContext> savedFinally = List.copyOf(finallyContexts);
         LinkedHashMap<LocalSymbol, IrOperand> savedEnvironment = copyEnvironment();
-        OwnershipSnapshot savedOwnership = snapshotOwnership();
+        ProtocolSnapshot savedProtocols = snapshotProtocols();
         restoreDeque(exceptionRegions, context.outerExceptionRegions());
         restoreDeque(finallyContexts, context.outerFinallyContexts());
         try {
@@ -4248,7 +4153,7 @@ final class FunctionAnalyzer {
             }
         } finally {
             environment = savedEnvironment;
-            restoreOwnership(savedOwnership);
+            restoreProtocols(savedProtocols);
             restoreDeque(exceptionRegions, savedExceptions);
             restoreDeque(finallyContexts, savedFinally);
         }
@@ -4384,10 +4289,10 @@ final class FunctionAnalyzer {
             return lowerUpdate(updateExpression);
         }
         if (expression instanceof ConditionalExpression conditionalExpression) {
-            return lowerBranchingExpression(() -> lowerConditional(conditionalExpression, expectedType));
+            return lowerConditional(conditionalExpression, expectedType);
         }
         if (expression instanceof SwitchExpression switchExpression) {
-            return lowerBranchingExpression(() -> lowerSwitchExpression(switchExpression, expectedType));
+            return lowerSwitchExpression(switchExpression, expectedType);
         }
         if (expression instanceof CastExpression castExpression) {
             return lowerCast(castExpression);
@@ -4429,7 +4334,7 @@ final class FunctionAnalyzer {
             IrValueReference result = newValue(field.type(), expression.span());
             currentBlock.addInstruction(new IrFieldLoadInstruction(result, thisOperand,
                     field.irField(), expression.span()));
-            trackOwnedFieldLoad(result, thisOperand, field);
+            trackFieldOrigins(result, thisOperand, field);
             noteFinalFieldLoad(result, thisOperand, field);
             return new TypedValue(field.type(), result);
         }
@@ -4454,7 +4359,7 @@ final class FunctionAnalyzer {
             IrValueReference result = newValue(lexical.field().type(), expression.span());
             currentBlock.addInstruction(new IrFieldLoadInstruction(result, lexical.receiver(),
                     lexical.field().irField(), expression.span()));
-            trackOwnedFieldLoad(result, lexical.receiver(), lexical.field());
+            trackFieldOrigins(result, lexical.receiver(), lexical.field());
             noteFinalFieldLoad(result, lexical.receiver(), lexical.field());
             return new TypedValue(lexical.field().type(), result);
         }
@@ -4475,7 +4380,7 @@ final class FunctionAnalyzer {
             IrValueReference result = newValue(target.field().type(), expression.span());
             currentBlock.addInstruction(new IrFieldLoadInstruction(result, target.receiver(),
                     target.field().irField(), expression.span()));
-            trackOwnedFieldLoad(result, target.receiver(), target.field());
+            trackFieldOrigins(result, target.receiver(), target.field());
             noteFinalFieldLoad(result, target.receiver(), target.field());
             return new TypedValue(target.field().type(), result);
         }
@@ -4519,7 +4424,7 @@ final class FunctionAnalyzer {
         IrValueReference result = newValue(target.field().type(), expression.span());
         currentBlock.addInstruction(new IrFieldLoadInstruction(result, target.receiver(),
                 target.field().irField(), expression.span()));
-        trackOwnedFieldLoad(result, target.receiver(), target.field());
+        trackFieldOrigins(result, target.receiver(), target.field());
         noteFinalFieldLoad(result, target.receiver(), target.field());
         return new TypedValue(target.field().type(), result);
     }
@@ -4714,7 +4619,7 @@ final class FunctionAnalyzer {
         IrValueReference result = newValue(arrayType, expression.span());
         emitCall(new IrArrayAllocateInstruction(result, elementType,
                 lengthOperand, expression.span()), expression.span());
-        AllocationInfo allocation = new AllocationInfo(controlFlowDepth);
+        ReferenceIdentity allocation = new ReferenceIdentity();
         allocations.add(allocation);
 
         allocationsByOperand.put(result, allocation);
@@ -4730,7 +4635,7 @@ final class FunctionAnalyzer {
         IrValueReference result = newValue(arrayType, expression.span());
         emitCall(new IrArrayAllocateInstruction(result, elementType,
                 length, expression.span()), expression.span());
-        AllocationInfo allocation = new AllocationInfo(controlFlowDepth);
+        ReferenceIdentity allocation = new ReferenceIdentity();
         allocations.add(allocation);
 
         allocationsByOperand.put(result, allocation);
@@ -4843,7 +4748,7 @@ final class FunctionAnalyzer {
     private TypedValue lowerSelectedConstructor(NewExpression expression,
                                                 InvocationPlan invocation) {
         planningContext.commitCaptures();
-        forgetUnaliasedOwnedFieldLoans();
+
         InvocationPlan.CandidatePlan selected = invocation.selected();
         CallableSymbol constructor = selected.candidate().callable()
                 .substitute(selected.inference().substitutions());
@@ -4882,14 +4787,11 @@ final class FunctionAnalyzer {
         LoweredInvocationArguments arguments = lowerInvocationArguments(selected,
                 "constructor argument");
 
-        if (function.isConstructor()) {
-        }
-
         ensureTypeInitialized(targetClass.name(), expression.span());
         IrValueReference result = newValue(referenceType, expression.span());
         emitCall(new IrAllocateInstruction(result, targetClass.name(), expression.span()),
                 expression.span());
-        AllocationInfo allocation = new AllocationInfo(controlFlowDepth);
+        ReferenceIdentity allocation = new ReferenceIdentity();
         allocation.constructedType = referenceType;
         allocations.add(allocation);
 
@@ -4910,8 +4812,7 @@ final class FunctionAnalyzer {
                 IrOperand captured = assignmentValue(enclosing, required, expression.span(),
                         "anonymous lexical enclosing instance");
                 operands.add(captured);
-                markEscaped(captured, "allocation is retained as an enclosing instance by '"
-                        + targetClass.sourceName() + "'");
+                markEscaped(captured);
             }
         } else if (anonymous == null && constructor.enclosingInstanceType().isPresent()) {
             IrType required = constructor.enclosingInstanceType().orElseThrow();
@@ -4925,8 +4826,7 @@ final class FunctionAnalyzer {
                 IrOperand captured = assignmentValue(enclosing, required, expression.span(),
                         "enclosing instance");
                 operands.add(captured);
-                markEscaped(captured, "allocation is retained as an enclosing instance by '"
-                        + targetClass.sourceName() + "'");
+                markEscaped(captured);
             }
         }
         operands.addAll(constructionCaptureOperands(targetClass, referenceType, expression.span()));
@@ -4947,26 +4847,25 @@ final class FunctionAnalyzer {
                 IrOperand enclosing = assignmentValue(superEnclosing, required, expression.span(),
                         "anonymous superclass enclosing instance");
                 operands.add(enclosing);
-                markEscaped(enclosing, "allocation is retained as the anonymous superclass "
-                        + "enclosing instance");
+                markEscaped(enclosing);
             }
         }
         operands.addAll(arguments.operands());
         markConstructorPublications(constructor, targetClass, arguments.values(),
                 arguments.spans());
-        emitConstructorCall(new IrCallInstruction(Optional.empty(), constructor.linkageName(),
+        emitCall(new IrCallInstruction(Optional.empty(), constructor.linkageName(),
                 IrType.VOID, operands, IrCallKind.DIRECT, Optional.empty(),
-                selected.inference().substitutions(), expression.span()), result,
+                selected.inference().substitutions(), expression.span()),
                 expression.span());
         if (escapeSummaries.summary(constructor).thisEscapes()) {
-            allocation.escape("constructor publishes the result");
+            allocation.escape();
         }
         for (TypeSymbol constructedType = targetClass.superclass().orElse(null);
              constructedType != null;
              constructedType = constructedType.superclass().orElse(null)) {
             if (constructedType.constructors().stream()
                     .anyMatch(candidate -> escapeSummaries.summary(candidate).thisEscapes())) {
-                allocation.escape("superclass constructor publishes the result");
+                allocation.escape();
                 break;
             }
         }
@@ -4976,7 +4875,7 @@ final class FunctionAnalyzer {
     }
 
     private TypedValue lowerNew(NewExpression expression) {
-        forgetUnaliasedOwnedFieldLoans();
+
         TypedValue explicitEnclosing = expression.enclosingInstance()
                 .map(this::lowerExpression).orElse(null);
         if (explicitEnclosing != null && explicitEnclosing.type().isNominalReference()) {
@@ -5086,15 +4985,13 @@ final class FunctionAnalyzer {
         IrValueReference result = newValue(referenceType, expression.span());
         emitCall(new IrAllocateInstruction(result, targetClass.name(), expression.span()),
                 expression.span());
-        AllocationInfo allocation = new AllocationInfo(controlFlowDepth);
+        ReferenceIdentity allocation = new ReferenceIdentity();
         allocation.constructedType = referenceType;
         allocations.add(allocation);
 
         allocationsByOperand.put(result, allocation);
         if (constructor == null) {
             return new TypedValue(referenceType, result);
-        }
-        if (function.isConstructor()) {
         }
         checkCheckedExceptions(constructor, expression.span());
         if (!isAccessible(constructor.accessModifier(), targetClass.name(), targetClass.name(), false)) {
@@ -5119,8 +5016,7 @@ final class FunctionAnalyzer {
                 IrOperand captured = requireValue(enclosing, requiredEnclosing,
                         expression.span(), "enclosing instance");
                 operands.add(captured);
-                markEscaped(captured, "allocation is retained as an enclosing instance by '"
-                        + targetClass.sourceName() + "'");
+                markEscaped(captured);
             }
         } else if (explicitEnclosing != null) {
             diagnostics.add(error(expression.classNameSpan(), "static nested class '"
@@ -5132,18 +5028,18 @@ final class FunctionAnalyzer {
         List<SourceSpan> argumentSpans = expression.arguments().stream()
                 .map(Expression::span).toList();
         markConstructorPublications(constructor, targetClass, arguments, argumentSpans);
-        emitConstructorCall(new IrCallInstruction(Optional.empty(),
-                constructor.linkageName(), IrType.VOID, operands, expression.span()), result,
+        emitCall(new IrCallInstruction(Optional.empty(),
+                constructor.linkageName(), IrType.VOID, operands, expression.span()),
                 expression.span());
         if (escapeSummaries.summary(constructor).thisEscapes()) {
-            allocation.escape("constructor publishes the result");
+            allocation.escape();
         }
         for (TypeSymbol constructedType = targetClass.superclass().orElse(null);
              constructedType != null;
              constructedType = constructedType.superclass().orElse(null)) {
             if (constructedType.constructors().stream()
                     .anyMatch(candidate -> escapeSummaries.summary(candidate).thisEscapes())) {
-                allocation.escape("superclass constructor publishes the result");
+                allocation.escape();
                 break;
             }
         }
@@ -5199,7 +5095,7 @@ final class FunctionAnalyzer {
                     expression.span()), expression.span());
         }
 
-        AllocationInfo allocation = new AllocationInfo(controlFlowDepth);
+        ReferenceIdentity allocation = new ReferenceIdentity();
         allocations.add(allocation);
 
         allocationsByOperand.put(result, allocation);
@@ -5518,7 +5414,7 @@ final class FunctionAnalyzer {
     private TypedValue lowerBinary(BinaryExpression expression) {
         if (expression.operator() == BinaryOperator.LOGICAL_AND
                 || expression.operator() == BinaryOperator.LOGICAL_OR) {
-            return lowerBranchingExpression(() -> lowerShortCircuit(expression));
+            return lowerShortCircuit(expression);
         }
         if (expression.operator() == BinaryOperator.ADD
                 && plannedExpressionType(expression).filter(STRING_TYPE::equals).isPresent()) {
@@ -6032,7 +5928,7 @@ final class FunctionAnalyzer {
         IrValueReference result = newValue(STRING_TYPE, span);
         emitCall(new IrStringConcatInstruction(result, parts, span), span);
 
-        AllocationInfo allocation = new AllocationInfo(controlFlowDepth);
+        ReferenceIdentity allocation = new ReferenceIdentity();
         allocations.add(allocation);
 
         allocationsByOperand.put(result, allocation);
@@ -6133,7 +6029,7 @@ final class FunctionAnalyzer {
             EscapeSummaryAnalyzer.EscapeSummary summary = escapeSummaries.summary(linkageName);
             recordResolvedCall(summary == null
                             ? EscapeSummaryAnalyzer.EscapeSummary.unknown(target) : summary,
-                    linkageName, receiver, List.of(), result, target.sourceName());
+                    linkageName, receiver, List.of(), result, target.sourceName(), true);
             emitCall(new IrCallInstruction(result, linkageName, target.returnType(),
                     List.of(receiver), owner.isInterface()
                     ? IrCallKind.DEVIRTUALIZED_INTERFACE : IrCallKind.DEVIRTUALIZED_VIRTUAL,
@@ -6159,7 +6055,7 @@ final class FunctionAnalyzer {
         IrOperand condition = requireCondition(left, expression.left().span(),
                 "operator '" + operatorText(expression.operator()) + "'");
         LinkedHashMap<LocalSymbol, IrOperand> before = copyEnvironment();
-        OwnershipSnapshot ownershipBefore = snapshotOwnership();
+        ProtocolSnapshot protocolsBefore = snapshotProtocols();
         MutableBlock rightBlock = createBlock("logical.right", expression.right().span());
         MutableBlock shortBlock = createBlock("logical.short", expression.left().span());
         MutableBlock merge = createBlock("logical.merge", expression.span());
@@ -6178,11 +6074,11 @@ final class FunctionAnalyzer {
                 "operator '" + operatorText(expression.operator()) + "'");
         MutableBlock rightEnd = currentBlock;
         LinkedHashMap<LocalSymbol, IrOperand> rightEnvironment = copyEnvironment();
-        OwnershipSnapshot rightOwnership = snapshotOwnership();
+        ProtocolSnapshot rightProtocols = snapshotProtocols();
         exitScope();
 
         currentBlock = shortBlock;
-        restoreOwnership(ownershipBefore);
+        restoreProtocols(protocolsBefore);
         environment = new LinkedHashMap<>(before);
         IrOperand shortValue = new IrConstant(IrType.I1, and ? 0 : 1, expression.left().span());
         LinkedHashMap<LocalSymbol, IrOperand> shortEnvironment = copyEnvironment();
@@ -6191,14 +6087,13 @@ final class FunctionAnalyzer {
         shortBlock.terminate(new IrJump(merge.label, expression.span()));
         currentBlock = merge;
         List<BranchFlow> incoming = List.of(
-                new BranchFlow(true, rightEnd, rightEnvironment, rightOwnership),
-                new BranchFlow(true, shortBlock, shortEnvironment, ownershipBefore));
-        List<JoinPath> paths = List.of();
-        mergeFlowOwnership(incoming, paths);
+                new BranchFlow(true, rightEnd, rightEnvironment, rightProtocols),
+                new BranchFlow(true, shortBlock, shortEnvironment, protocolsBefore));
+
+        mergeFlowProtocols(incoming);
         environment = new LinkedHashMap<>();
         for (LocalSymbol symbol : before.keySet()) {
-            environment.put(symbol, mergeValue(symbol, incoming, expression.span(), merge,
-                    paths));
+            environment.put(symbol, mergeValue(symbol, incoming, expression.span(), merge));
         }
         IrValueReference result = newValue(IrType.I1, expression.span());
         merge.addPhi(new MutablePhi(result, List.of(
@@ -6216,7 +6111,7 @@ final class FunctionAnalyzer {
                     new IrPhiIncoming(shortBlock.label,
                             new IrNull(local.symbol.type(), binding.variable().nameSpan()))),
                     binding.variable().nameSpan()));
-            AllocationInfo allocation = allocationOf(rightValue);
+            ReferenceIdentity allocation = allocationOf(rightValue);
             if (allocation != null) {
                 allocationsByOperand.put(merged, allocation);
             }
@@ -6236,7 +6131,7 @@ final class FunctionAnalyzer {
                     new IrPhiIncoming(shortBlock.label,
                             new IrNull(local.symbol.type(), binding.variable().nameSpan()))),
                     binding.variable().nameSpan()));
-            AllocationInfo allocation = allocationOf(local.operand);
+            ReferenceIdentity allocation = allocationOf(local.operand);
             if (allocation != null) {
                 allocationsByOperand.put(merged, allocation);
             }
@@ -6251,7 +6146,7 @@ final class FunctionAnalyzer {
         IrOperand condition = requireCondition(conditionValue, expression.condition().span(),
                 "conditional expression");
         LinkedHashMap<LocalSymbol, IrOperand> before = copyEnvironment();
-        OwnershipSnapshot ownershipBefore = snapshotOwnership();
+        ProtocolSnapshot protocolsBefore = snapshotProtocols();
         MutableBlock trueBlock = createBlock("conditional.true", expression.whenTrue().span());
         MutableBlock falseBlock = createBlock("conditional.false", expression.whenFalse().span());
         MutableBlock merge = createBlock("conditional.merge", expression.span());
@@ -6267,30 +6162,30 @@ final class FunctionAnalyzer {
         TypedValue whenTrue = lowerExpression(expression.whenTrue(), expectedType);
         MutableBlock trueEnd = currentBlock;
         LinkedHashMap<LocalSymbol, IrOperand> trueEnvironment = copyEnvironment();
-        OwnershipSnapshot trueOwnership = snapshotOwnership();
+        ProtocolSnapshot trueProtocols = snapshotProtocols();
         exitScope();
 
         currentBlock = falseBlock;
-        restoreOwnership(ownershipBefore);
+        restoreProtocols(protocolsBefore);
         environment = new LinkedHashMap<>(before);
         enterScope();
         activatePatternBindings(patternFlow.whenFalse());
         TypedValue whenFalse = lowerExpression(expression.whenFalse(), expectedType);
         MutableBlock falseEnd = currentBlock;
         LinkedHashMap<LocalSymbol, IrOperand> falseEnvironment = copyEnvironment();
-        OwnershipSnapshot falseOwnership = snapshotOwnership();
+        ProtocolSnapshot falseProtocols = snapshotProtocols();
         exitScope();
 
         IrType resultType = conditionalType(whenTrue, whenFalse, expectedType, expression);
         currentBlock = trueEnd;
-        restoreOwnership(trueOwnership);
+        restoreProtocols(trueProtocols);
         environment = trueEnvironment;
         IrOperand trueOperand = requireValue(whenTrue, resultType,
                 expression.whenTrue().span(), "conditional expression");
-        trueOwnership = snapshotOwnership();
+        trueProtocols = snapshotProtocols();
         trueEnd.terminate(new IrJump(merge.label, expression.span()));
         currentBlock = falseEnd;
-        restoreOwnership(falseOwnership);
+        restoreProtocols(falseProtocols);
         environment = falseEnvironment;
         IrOperand falseOperand = requireValue(whenFalse, resultType,
                 expression.whenFalse().span(), "conditional expression");
@@ -6298,14 +6193,13 @@ final class FunctionAnalyzer {
 
         currentBlock = merge;
         List<BranchFlow> incoming = List.of(
-                new BranchFlow(true, trueEnd, trueEnvironment, trueOwnership),
-                new BranchFlow(true, falseEnd, falseEnvironment, snapshotOwnership()));
-        List<JoinPath> paths = List.of();
-        mergeFlowOwnership(incoming, paths);
+                new BranchFlow(true, trueEnd, trueEnvironment, trueProtocols),
+                new BranchFlow(true, falseEnd, falseEnvironment, snapshotProtocols()));
+
+        mergeFlowProtocols(incoming);
         environment = new LinkedHashMap<>();
         for (LocalSymbol symbol : before.keySet()) {
-            environment.put(symbol, mergeValue(symbol, incoming, expression.span(), merge,
-                    paths));
+            environment.put(symbol, mergeValue(symbol, incoming, expression.span(), merge));
         }
         IrValueReference result = newValue(resultType, expression.span());
         merge.addPhi(new MutablePhi(result, List.of(
@@ -6764,16 +6658,15 @@ final class FunctionAnalyzer {
             IrValueReference result = newValue(field.type(), span);
             currentBlock.addInstruction(new IrFieldLoadInstruction(result, receiver,
                     field.irField(), span));
-            trackOwnedFieldLoad(result, receiver, field);
+            trackFieldOrigins(result, receiver, field);
             noteFinalFieldLoad(result, receiver, field);
             return result;
         }, (value, writeSpan, valueSpan) -> {
             if (validateReceiverOnWrite) {
                 emitNullCheck(receiver, writeSpan);
             }
-            detachOwnedField(receiver, field, value);
-            markEscaped(value, "allocation escapes through field '"
-                    + field.declaration().name() + "'", valueSpan);
+
+            markEscaped(value);
             currentBlock.addInstruction(new IrFieldStoreInstruction(receiver, field.irField(),
                     value, writeSpan));
         }, description);
@@ -6792,8 +6685,7 @@ final class FunctionAnalyzer {
             if (field.staticField().triggersInitialization()) {
                 ensureTypeInitialized(field.ownerClass(), writeSpan);
             }
-            markEscaped(value, "allocation escapes through static field '"
-                    + field.ownerClass() + "." + field.declaration().name() + "'", valueSpan);
+            markEscaped(value);
             currentBlock.addInstruction(new IrStaticFieldStoreInstruction(
                     field.staticField(), value, writeSpan));
         }, description);
@@ -6857,7 +6749,7 @@ final class FunctionAnalyzer {
                 nullGuards.guard(reference, test.label, branch.falseTarget(), loops));
     }
 
-    /** Lowers a loop as open, so guards met before it do not cover fields it may free (D287). */
+    /** Lowers a loop as open, so guards met before it do not cover fields it may store (D287). */
     private boolean lowerOpenLoop(java.util.function.BooleanSupplier loop) {
         openLoops.push(nextLoopId++);
         try {
@@ -7003,12 +6895,7 @@ final class FunctionAnalyzer {
     private void markConstructorPublications(CallableSymbol constructor, TypeSymbol target,
                                              List<TypedValue> arguments,
                                              List<SourceSpan> argumentSpans) {
-        List<FreshBorrowingFactoryAnalysis.Input> copiedItems = escapeSummaries.constructorBorrowedElements(constructor);
-        if (copiedItems != null && !factoryInputsHaveBorrowingCallbacks(copiedItems, null, arguments)) copiedItems = null;
-        if (copiedItems == null) {
-            arguments.forEach(argument -> exposeContainerContents(argument.operand(),
-                    "constructor can observe stored data-structure references"));
-        }
+        arguments.forEach(argument -> exposeContainerContents(argument.operand()));
         EscapeSummaryAnalyzer.EscapeSummary summary = escapeSummaries.summary(constructor);
         boolean publishesReceiver = summary.thisEscapes();
         for (TypeSymbol parent = target.superclass().orElse(null); parent != null;
@@ -7017,76 +6904,38 @@ final class FunctionAnalyzer {
                     .anyMatch(candidate -> escapeSummaries.summary(candidate).thisEscapes());
         }
         // Publication may happen before the constructor throws. Record it before
-        // the invoke captures exceptional ownership; receiver-only borrows are
-        // installed after success and disappear with a rolled-back wrapper.
+        // the invoke captures exceptional state; receiver-only origins are
+        // installed after successful construction.
         for (int index = 0; index < arguments.size(); index++) {
             if (arguments.get(index).type().isReference()
                     && (summary.parameterEscapesOutsideReceiver(index)
                     || publishesReceiver && summary.parameterEscapes(index))) {
-                markEscaped(arguments.get(index).operand(),
-                        "allocation escapes through constructor argument " + (index + 1),
-                        argumentSpans.get(index));
+                markEscaped(arguments.get(index).operand());
             }
         }
     }
 
-    private void recordConstructorBorrows(CallableSymbol constructor, AllocationInfo owner,
+    private void recordConstructorBorrows(CallableSymbol constructor, ReferenceIdentity owner,
                                           List<TypedValue> arguments,
                                           List<SourceSpan> argumentSpans) {
         EscapeSummaryAnalyzer.EscapeSummary summary = escapeSummaries.summary(constructor);
-        List<FreshBorrowingFactoryAnalysis.Input> copiedItems = escapeSummaries.constructorBorrowedElements(constructor);
-        if (copiedItems != null && !factoryInputsHaveBorrowingCallbacks(copiedItems, null, arguments)) copiedItems = null;
-        if (copiedItems != null) {
-            owner.copiedContainerItems = true;
-            for (var input : copiedItems) {
-                IrOperand source = arguments.get(input.origin().parameterIndex()).operand();
-                AllocationInfo backing = allocationOf(source);
-                if (backing == null) continue;
-                if (!isDependentBorrow(source) && !exposedContainerContents.contains(backing)
-                        && backing.constructedType != null && backing.constructedType.isNominalReference()
-                        && (backing.constructedType.referenceName().equals("ironwood.ds.ArrayList")
-                            || MapCopyFactoryAnalysis.isMap(backing.constructedType)
-                            || SetCopyFactoryAnalysis.isSet(backing.constructedType))) {
-                    for (AllocationInfo child : retainedBorrows.getOrDefault(backing, Set.of())) {
-                        if (SetCopyFactoryAnalysis.isSet(backing.constructedType)
-                                || backing.possibleMapKeys != null && backing.possibleMapKeys.contains(child)) {
-                            recordPossibleMapKey(owner, child);
-                            if (input.keyCallbacks()) {
-                                exposeContainerContents(child, "snapshot key callbacks can observe nested data-structure contents",
-                                        Collections.newSetFromMap(new IdentityHashMap<>()));
-                            }
-                        }
-                        addRetainedBorrow(owner, child, argumentSpans.get(input.origin().parameterIndex()));
-                    }
-                } else {
-                    if (MapCopyFactoryAnalysis.isMap(input.type()) || SetCopyFactoryAnalysis.isSet(input.type())) {
-                        recordPossibleMapKey(owner, backing);
-                    }
-                    if (input.keyCallbacks()) {
-                        exposeContainerContents(backing, "snapshot callbacks can observe unknown key membership",
-                                Collections.newSetFromMap(new IdentityHashMap<>()));
-                    }
-                    addRetainedBorrow(owner, backing, argumentSpans.get(input.origin().parameterIndex()));
-                }
-            }
-        }
         for (int index = 0; index < arguments.size(); index++) {
-            AllocationInfo argument = allocationOf(arguments.get(index).operand());
+            ReferenceIdentity argument = allocationOf(arguments.get(index).operand());
             if (argument == null || !arguments.get(index).type().isReference()) { continue; }
             FieldSymbol field = escapeSummaries.retainedParameterField(constructor, index);
-            if (owner.state == AllocationState.ACTIVE
+            if (owner.state == IdentityState.ACTIVE
                     && summary.parameterRetainedByReceiverOnly(index)
-                    && field != null && ownedArrayFields.isEncapsulated(field)) {
-                Set<AllocationInfo> borrowed = new LinkedHashSet<>(
+                    && field != null && FinalFieldOrigins.isStable(field)) {
+                Set<ReferenceIdentity> borrowed = new LinkedHashSet<>(
                         retainedBorrows.getOrDefault(owner, Set.of()));
                 borrowed.add(argument);
                 retainedBorrows.put(owner, Set.copyOf(borrowed));
 
-                if (field.isFinal()) { owner.finalBorrowedFields.put(ownedFieldKey(field), argument); }
+                owner.containedFields.put(fieldKey(field), argument);
+                ReferenceIdentity pool = poolValueOwner(arguments.get(index).operand());
+                if (pool != null) owner.containedPoolOrigins.put(fieldKey(field), pool);
             } else if (summary.parameterEscapes(index)) {
-                markEscaped(arguments.get(index).operand(),
-                        "allocation escapes through constructor argument " + (index + 1),
-                        argumentSpans.get(index));
+                markEscaped(arguments.get(index).operand());
             }
         }
     }
@@ -7095,7 +6944,7 @@ final class FunctionAnalyzer {
      * Arguments of an explicit {@code this(...)} or {@code super(...)} invocation. The
      * receiver is the object under construction, which has no tracked record, so an
      * argument the delegated constructor retains or publishes escapes. One it only
-     * reads stays active and can be a temporary of the invocation.
+     * reads preserves its protocol origin.
      */
     private void markConstructorArgumentsEscaped(CallableSymbol constructor,
                                                  List<TypedValue> arguments,
@@ -7104,12 +6953,9 @@ final class FunctionAnalyzer {
         for (int index = 0; index < arguments.size(); index++) {
             TypedValue argument = arguments.get(index);
             if (!argument.type().isReference()) continue;
-            exposeContainerContents(argument.operand(),
-                    "constructor can observe stored data-structure references");
+            exposeContainerContents(argument.operand());
             if (summary.parameterEscapes(index)) {
-                markEscaped(argument.operand(),
-                        "allocation escapes through constructor argument " + (index + 1),
-                        argumentSpans.get(index));
+                markEscaped(argument.operand());
             }
         }
     }
@@ -7161,7 +7007,6 @@ final class FunctionAnalyzer {
 
         LoweredInvocationArguments arguments = lowerInvocationArguments(selected,
                 "method argument");
-        validateFileTreeVisitor(target, arguments.values(), expression.span());
 
         List<IrOperand> operands = new ArrayList<>();
         if (!target.isStatic()) {
@@ -7188,7 +7033,7 @@ final class FunctionAnalyzer {
         SourceSpan span = prepared.span();
         IrOperand receiver = prepared.receiver();
         List<TypedValue> arguments = prepared.arguments();
-        forgetUnaliasedOwnedFieldLoans();
+
         if (prepared.nullCheckSpan() != null && receiver != null) {
             emitNullCheck(receiver, prepared.nullCheckSpan());
         }
@@ -7203,13 +7048,13 @@ final class FunctionAnalyzer {
         Set<String> targets = direct || prepared.arrayReceiver()
                 ? Set.of(target.linkageName()) : hierarchy.dispatchTargets(prepared.dispatchType(), target);
         boolean returnsToOrigin = escapeSummaries.returnsToOriginatingPool(function, span);
-        CallSites callSites = null;
+
         if (targets.size() == 1) {
             String linkage = targets.iterator().next();
             if (!returnsToOrigin) recordResolvedCall(prepared.specializedEffects()
                             ? specializedCallSummary(target, linkage, arguments) : escapeSummaries.summary(target),
                     linkage, target.isStatic() ? null : receiver, arguments, result,
-                    target.sourceName(), true, callSites);
+                    target.sourceName(), true);
             emitCall(new IrCallInstruction(result, linkage, resultType, prepared.operands(),
                     direct ? IrCallKind.DIRECT : prepared.dispatchOwner().isInterface()
                             ? IrCallKind.DEVIRTUALIZED_INTERFACE : IrCallKind.DEVIRTUALIZED_VIRTUAL,
@@ -7217,8 +7062,8 @@ final class FunctionAnalyzer {
                             + "." + target.signatureKey()), prepared.substitutions(), span), span);
         } else {
             if (!returnsToOrigin && !recordKnownBorrowDispatch(target, receiver, arguments,
-                    result, span, callSites)) {
-                recordUnknownCallEscapes(receiver, arguments, target.sourceName(), span, callSites);
+                    result, span)) {
+                recordUnknownCallEscapes(receiver, arguments, target.sourceName(), span);
             }
             if (prepared.dispatchOwner().isInterface()) {
                 emitCall(new IrInterfaceCallInstruction(result, prepared.dispatchOwner().name(),
@@ -7288,68 +7133,16 @@ final class FunctionAnalyzer {
         if (isBorrowingStringJoin(callable, arguments)) {
             return summary.withBorrowingContract(false, true);
         }
-        if (isFileTreeWalk(callable) && (function.ownerType().equals("ironwood.nio.file.Files")
-                || fileVisitorCallbacksBorrow(arguments.getLast().type()))) {
-            // The traversal owns temporary paths and attributes. Every possible
-            // closed-world visitor target must borrow those callback values.
-            return summary.withBorrowingContract(false, true);
-        }
         return summary;
     }
 
-    private static boolean isFileTreeWalk(CallableSymbol callable) {
-        if (!callable.ownerType().equals("ironwood.nio.file.Files")
-                || !callable.sourceName().equals("walkFileTree") || !callable.isStatic()) {
-            return false;
-        }
-        List<IrType> parameters = callable.parameterTypes();
-        return parameters.size() == 2 || parameters.size() == 4;
-    }
 
-    private void validateFileTreeVisitor(CallableSymbol callable,
-                                         List<TypedValue> arguments, SourceSpan span) {
-        if (isFileTreeWalk(callable) && !function.ownerType().equals("ironwood.nio.file.Files")
-                && !fileVisitorCallbacksBorrow(arguments.getLast().type())) {
-            ownershipVerdict(error(span, "Files.walkFileTree visitor callbacks "
-                    + "must not retain callback paths or attributes"));
-        }
-    }
 
-    private boolean fileVisitorCallbacksBorrow(IrType type) {
-        IrType path = IrType.reference("ironwood.nio.file.Path");
-        IrType attributes = IrType.reference("ironwood.nio.file.attribute.BasicFileAttributes");
-        IrType failure = IrType.reference("ironwood.io.IOException");
-        return fileVisitorCallbackBorrows(type, "preVisitDirectory",
-                List.of(path, attributes), 0, 1)
-                && fileVisitorCallbackBorrows(type, "visitFile",
-                List.of(path, attributes), 0, 1)
-                && fileVisitorCallbackBorrows(type, "visitFileFailed",
-                List.of(path, failure), 0)
-                && fileVisitorCallbackBorrows(type, "postVisitDirectory",
-                List.of(path, failure), 0);
-    }
 
-    private boolean fileVisitorCallbackBorrows(IrType type, String name,
-                                               List<IrType> parameters,
-                                               int... borrowedParameters) {
-        if (!type.isNominalReference()) { return false; }
-        IrType result = IrType.reference("ironwood.nio.file.FileVisitResult");
-        List<CallableSymbol> methods = hierarchy.lookupMethods(type, name).stream()
-                .filter(method -> !method.isStatic()
-                        && method.parameterTypes().equals(parameters)
-                        && method.returnType().equals(result)).toList();
-        if (methods.size() != 1) { return false; }
-        Set<String> targets = hierarchy.dispatchTargets(type, methods.getFirst());
-        if (targets.isEmpty()) { return false; }
-        for (String target : targets) {
-            EscapeSummaryAnalyzer.EscapeSummary effects = escapeSummaries.summary(target);
-            if (effects == null) { return false; }
-            for (int index : borrowedParameters) {
-                if (effects.parameterEscapes(index)) return false;
-            }
-        }
-        return true;
-    }
+
+
+
+
 
     private boolean throwableTraceCallbacksDoNotPublish() {
         IrType throwable = IrType.reference("ironwood.lang.Throwable");
@@ -7649,7 +7442,6 @@ final class FunctionAnalyzer {
             return null;
         }
         checkCheckedExceptions(target, expression.span());
-        validateFileTreeVisitor(target, arguments, expression.span());
         if (variableReceiver) {
             targetType = hierarchy.type(target.ownerType()).orElse(targetType);
         }
@@ -7844,27 +7636,11 @@ final class FunctionAnalyzer {
     private void recordResolvedCall(EscapeSummaryAnalyzer.EscapeSummary summary,
                                     String resolvedLinkageName,
                                     IrOperand receiver, List<TypedValue> arguments,
-                                    Optional<IrValueReference> result, String methodName) {
-        recordResolvedCall(summary, resolvedLinkageName, receiver, arguments, result, methodName, true);
-    }
-
-    private void recordResolvedCall(EscapeSummaryAnalyzer.EscapeSummary summary,
-                                    String resolvedLinkageName,
-                                    IrOperand receiver, List<TypedValue> arguments,
                                     Optional<IrValueReference> result, String methodName,
                                     boolean useTargetMetadata) {
-        recordResolvedCall(summary, resolvedLinkageName, receiver, arguments, result,
-                methodName, useTargetMetadata, null);
-    }
-
-    private void recordResolvedCall(EscapeSummaryAnalyzer.EscapeSummary summary,
-                                    String resolvedLinkageName,
-                                    IrOperand receiver, List<TypedValue> arguments,
-                                    Optional<IrValueReference> result, String methodName,
-                                    boolean useTargetMetadata, CallSites callSites) {
         CallableSymbol candidate = escapeSummaries.callable(resolvedLinkageName);
         recordResolvedCall(summary, resolvedLinkageName, receiver, arguments, result, methodName,
-                useTargetMetadata, callSites,
+                useTargetMetadata,
                 candidate == null ? List.of() : List.of(candidate), false);
     }
 
@@ -7872,44 +7648,10 @@ final class FunctionAnalyzer {
                                     String resolvedLinkageName,
                                     IrOperand receiver, List<TypedValue> arguments,
                                     Optional<IrValueReference> result, String methodName,
-                                    boolean useTargetMetadata, CallSites callSites,
+                                    boolean useTargetMetadata,
                                     List<CallableSymbol> possibleTargets,
                                     boolean possibleDispatch) {
         CallableSymbol resolved = useTargetMetadata ? escapeSummaries.callable(resolvedLinkageName) : null;
-        if (resolved != null && receiver != null && isDependentBorrow(receiver)
-                && allocationOf(receiver) != null && allocationOf(receiver).copiedContainerItems
-                && !resolved.ownerType().equals(allocationOf(receiver).constructedType.referenceName())
-                && escapeSummaries.primitivePayloadRead(resolved)
-                && !possibleTargets.isEmpty()
-                && possibleTargets.stream().allMatch(escapeSummaries::primitivePayloadRead)) return;
-        CopiedMapReadAnalysis.Read copiedRead = resolved == null || receiver == null ? null
-                : escapeSummaries.copiedMembershipRead(resolved);
-        if (copiedRead != null && (!copiedRead.keyCallbacks()
-                || hasBorrowingKeyCallbacks(receiver.type()) && arguments.stream().allMatch(argument ->
-                    hasBorrowingCallbacks(argument.type(), Map.of("hashCode", List.of(), "equals",
-                            List.of(IrType.reference("ironwood.lang.Object"))))))) {
-            AllocationInfo owner = allocationOf(receiver);
-            if (owner != null && owner.copiedContainerItems) {
-                if (copiedRead.keyCallbacks()) {
-                    if (owner.possibleMapKeys != null) {
-                        for (AllocationInfo key : retainedBorrows.getOrDefault(owner, Set.of())) {
-                            if (owner.possibleMapKeys.contains(key)) {
-                                exposeContainerContents(key, "snapshot lookup callbacks can observe stored key contents",
-                                        Collections.newSetFromMap(new IdentityHashMap<>()));
-                            }
-                        }
-                    }
-                    arguments.forEach(argument -> exposeContainerContents(argument.operand(),
-                            "snapshot lookup callbacks can observe nested key contents"));
-                }
-                if (result.isPresent() && result.orElseThrow().type().isReference()) {
-                    allocationsByOperand.put(result.orElseThrow(), owner);
-                    ownedHelperBorrows.add(result.orElseThrow());
-                }
-                return;
-            }
-        }
-        if (resolved != null && recordSingleRootListGet(resolved, receiver, result)) return;
         if (resolved != null && recordFreshBorrowingFactory(resolved, receiver, arguments, result)) {
             return;
         }
@@ -7917,22 +7659,19 @@ final class FunctionAnalyzer {
             return;
         }
         Set<Integer> handledArguments = resolved == null ? null
-                : recordContainerCall(resolved, receiver, arguments, result, callSites);
+                : recordContainerCall(resolved, receiver, arguments, result);
         if (handledArguments == null) {
             // This call can expose an element, an iterator, or a callback alias.
-            exposeContainerContents(receiver, "method '" + methodName
-                    + "' can expose stored data-structure references");
+            exposeContainerContents(receiver);
         }
         for (int index = 0; index < arguments.size(); index++) {
             if (handledArguments == null || !handledArguments.contains(index)) {
-                exposeContainerContents(arguments.get(index).operand(), "argument to method '"
-                        + methodName + "' can expose stored data-structure references");
+                exposeContainerContents(arguments.get(index).operand());
             }
         }
         if (resolved != null && PoolSemantics.isRelease(resolved)
                 && receiver != null && arguments.size() == 1) {
-            pendingPoolTransfer = new PoolTransfer(receiver, arguments.getFirst().operand(),
-                    callSites == null ? null : callSites.argument(0));
+            pendingPoolTransfer = new PoolTransfer(receiver, arguments.getFirst().operand());
             return;
         }
         if (result.filter(value -> value.type().isReference()).isEmpty()
@@ -7940,16 +7679,13 @@ final class FunctionAnalyzer {
                 && java.util.stream.IntStream.range(0, arguments.size()).noneMatch(index ->
                         arguments.get(index).type().isReference()
                                 && summary.parameterEscapesWithoutReturn(index))) {
-            exposeArrayElements(receiver, "borrowed call can observe reference-array elements");
-            arguments.forEach(argument -> exposeArrayElements(argument.operand(),
-                    "borrowed call can observe reference-array elements"));
+            exposeArrayElements(receiver);
+            arguments.forEach(argument -> exposeArrayElements(argument.operand()));
             return;
         }
         if (!isBorrowingStringJoin(resolved, arguments) && !isBorrowingProcessCommand(resolved)) {
-            exposeArrayElements(receiver, "call to method '" + methodName
-                    + "' can observe reference-array elements");
-            arguments.forEach(argument -> exposeArrayElements(argument.operand(),
-                    "call to method '" + methodName + "' can observe reference-array elements"));
+            exposeArrayElements(receiver);
+            arguments.forEach(argument -> exposeArrayElements(argument.operand()));
         }
         ReturnOrigin exactOrigin = exactDirectReturnOrigin(summary);
         SymbolicReturnOriginAnalyzer.BorrowedReturnOrigin exactBorrow =
@@ -7957,12 +7693,11 @@ final class FunctionAnalyzer {
         // A proved fresh result cannot alias a receiver/argument either. Preserve
         // all non-return publication effects, but do not confuse a returned copy
         // with publication of the input from which it was constructed.
-        boolean preciseReturn = exactOrigin != null || exactBorrow != null || summary.returnsOwnedFresh();
+        boolean preciseReturn = exactOrigin != null || exactBorrow != null || summary.returnsFresh();
         if (receiver != null && (preciseReturn
                 ? summary.thisEscapesWithoutReturn()
                 : summary.thisEscapes() || summary.thisEscapesWithoutReturn())) {
-            markEscaped(receiver, "allocation escapes through receiver of method '" + methodName + "'",
-                    callSites == null ? null : callSites.receiver());
+            markEscaped(receiver);
         }
         for (int index = 0; index < arguments.size(); index++) {
             if (handledArguments != null && handledArguments.contains(index)) { continue; }
@@ -7971,35 +7706,13 @@ final class FunctionAnalyzer {
                     : summary.parameterEscapes(index)
                     || summary.parameterEscapesWithoutReturn(index)) {
                 if (recordReceiverBorrow(resolved, summary, receiver,
-                        arguments.get(index), index, callSites)) {
+                        arguments.get(index), index)) {
                     continue;
                 }
-                markEscaped(arguments.get(index).operand(), "allocation escapes through argument "
-                        + (index + 1) + " of method '" + methodName + "'",
-                        callSites == null ? null : callSites.argument(index));
+                markEscaped(arguments.get(index).operand());
             }
         }
-        FieldSymbol borrowedField = useTargetMetadata
-                ? ownedArrayFields.borrowedReturnField(resolvedLinkageName) : null;
-        if (result.isPresent() && receiver != null && borrowedField != null) {
-            IrValueReference borrowed = result.orElseThrow();
-            AllocationInfo owner = allocationOf(receiver);
-            if (owner == null && receiver.equals(thisOperand)) {
-                // Within the owner, retain the field identity as well. A pending
-                // deferred getter result must block specialized destructor free.
-                trackOwnedFieldLoad(borrowed, receiver, borrowedField);
-                owner = allocationOf(borrowed);
-            }
-            if (owner != null) {
-                allocationsByOperand.put(borrowed, owner);
-                ownedHelperBorrows.add(borrowed);
-                if (borrowedField.type().isNominalReference()) {
-                    ownedHelperBorrowTypes.put(borrowed,
-                            borrowedField.type().referenceName());
-                }
-            }
-            return;
-        }
+
         if (result.isPresent() && exactBorrow != null) {
             ReturnOrigin ownerOrigin = exactBorrow.ownerOrigin();
             IrOperand source = switch (ownerOrigin.kind()) {
@@ -8008,14 +7721,17 @@ final class FunctionAnalyzer {
                         ? arguments.get(ownerOrigin.parameterIndex()).operand() : null;
                 case ELEMENT_OF_PARAMETER -> null;
             };
-            AllocationInfo owner = allocationOf(source);
+            ReferenceIdentity owner = allocationOf(source);
             if (owner != null) {
+                ReferenceIdentity pool = poolValueOwner(source);
                 if (!isDependentBorrow(source) && exactBorrow.borrowedOwnerField() != null) {
-                    owner = owner.finalBorrowedFields.getOrDefault(exactBorrow.borrowedOwnerField(), owner);
+                    pool = owner.containedPoolOrigins.get(exactBorrow.borrowedOwnerField());
+                    owner = owner.containedFields.getOrDefault(exactBorrow.borrowedOwnerField(), owner);
                 }
                 IrValueReference borrowed = result.orElseThrow();
                 allocationsByOperand.put(borrowed, owner);
-                ownedHelperBorrows.add(borrowed);
+                helperBorrows.add(borrowed);
+                if (pool != null) poolValueOwners.put(borrowed, pool);
                 if (exactBorrow.helperType().equals(PoolSemantics.POOL_VALUE_BORROW)) {
                     // A nested pool reached through a borrow has no independently
                     // proved pool identity. Keep its lifetime dependency only.
@@ -8024,13 +7740,13 @@ final class FunctionAnalyzer {
 
                     }
                 } else if (!exactBorrow.helperType().equals(PoolSemantics.DYNAMIC_BORROW)) {
-                    ownedHelperBorrowTypes.put(borrowed, exactBorrow.helperType());
+                    helperBorrowTypes.put(borrowed, exactBorrow.helperType());
                 }
             }
             return;
         }
-        if (result.isPresent() && summary.returnsOwnedFresh()) {
-            AllocationInfo allocation = AllocationInfo.freshCall(controlFlowDepth);
+        if (result.isPresent() && summary.returnsFresh()) {
+            ReferenceIdentity allocation = new ReferenceIdentity();
             allocations.add(allocation);
             pendingFreshResult = allocation;
 
@@ -8047,14 +7763,14 @@ final class FunctionAnalyzer {
                     ? arguments.get(exactOrigin.parameterIndex()).operand() : null;
             case ELEMENT_OF_PARAMETER -> null;
         };
-        AllocationInfo allocation = allocationOf(source);
+        ReferenceIdentity allocation = allocationOf(source);
         if (allocation != null) {
             allocationsByOperand.put(result.orElseThrow(), allocation);
-            propagateOwnedHelperBorrow(result.orElseThrow(), source);
+            propagateProtocolOrigin(result.orElseThrow(), source);
         }
     }
 
-    private static boolean isKnownContainer(AllocationInfo allocation) {
+    private static boolean isKnownContainer(ReferenceIdentity allocation) {
         return allocation.constructedType != null && allocation.constructedType.isNominalReference()
                 && DataStructureSemantics.isBorrowingContainer(allocation.constructedType.referenceName());
     }
@@ -8062,10 +7778,9 @@ final class FunctionAnalyzer {
     /** Returns handled argument indices, or null for unaudited contents effects. */
     private Set<Integer> recordContainerCall(CallableSymbol method, IrOperand receiver,
                                              List<TypedValue> arguments,
-                                             Optional<IrValueReference> result,
-                                             CallSites callSites) {
-        AllocationInfo owner = allocationOf(receiver);
-        if (owner == null || owner.state != AllocationState.ACTIVE || isDependentBorrow(receiver)
+                                             Optional<IrValueReference> result) {
+        ReferenceIdentity owner = allocationOf(receiver);
+        if (owner == null || owner.state != IdentityState.ACTIVE || isDependentBorrow(receiver)
                 || owner.constructedType == null
                 || !owner.constructedType.referenceName().equals(method.ownerType())) { return null; }
         if (method.ownerType().equals("ironwood.ds.UnmodifiableList")
@@ -8085,27 +7800,22 @@ final class FunctionAnalyzer {
         if ((retained.isEmpty() && !removal) || (DataStructureSemantics.invokesKeyCallbacks(method)
                 && !hasBorrowingKeyCallbacks(owner.constructedType))) { return null; }
         if (DataStructureSemantics.invokesKeyCallbacks(method)) {
-            exposeContainerContents(arguments.getFirst().operand(),
-                    "key callbacks can observe nested data-structure contents");
+            exposeContainerContents(arguments.getFirst().operand());
         }
         if (result.isPresent() && result.orElseThrow().type().isReference()
                 && !result.orElseThrow().sourceSpan().equals(discardedCallSpan)) {
-            exposeContainerContents(receiver, "returned value can alias a stored data-structure reference");
+            exposeContainerContents(receiver);
         }
         // Insertion may retain before throwing. Keep these edges on exceptional
-        // paths too; only a successful clear or destruction can discharge them.
+        // paths too; only a successful clear can discharge them.
         for (int index : retained) {
             IrOperand value = arguments.get(index).operand();
             if (exposedContainerContents.contains(owner)) {
-                markEscaped(value, "allocation is stored in a data structure whose contents were exposed");
+                markEscaped(value);
             } else {
-                AllocationInfo child = allocationOf(value);
+                ReferenceIdentity child = allocationOf(value);
                 if (child != null) {
-                    addRetainedBorrow(owner, child,
-                            callSites == null ? null : callSites.argument(index));
-                    if (index == 0 && MapCopyFactoryAnalysis.isMap(owner.constructedType)) {
-                        recordPossibleMapKey(owner, child);
-                    }
+                    addRetainedBorrow(owner, child);
                 }
             }
         }
@@ -8161,8 +7871,7 @@ final class FunctionAnalyzer {
         if (result.isEmpty()) return false;
         FreshBorrowingFactoryAnalysis.Result proof = escapeSummaries.freshBorrowingFactory(method);
         if (proof == null) return false;
-        if (!factoryInputsHaveBorrowingCallbacks(proof.elements(), receiver, arguments)) return false;
-        AllocationInfo owner = AllocationInfo.freshCall(controlFlowDepth);
+        ReferenceIdentity owner = new ReferenceIdentity();
         owner.constructedType = proof.type();
         IrType resultType = result.orElseThrow().type();
         if (resultType.isNominalReference() && proof.type().isNominalReference()
@@ -8177,105 +7886,31 @@ final class FunctionAnalyzer {
 
         allocationsByOperand.put(result.orElseThrow(), owner);
         List<WrapperBorrow> borrows = new ArrayList<>();
-        List<FreshBorrowingFactoryAnalysis.Input> inputs = new ArrayList<>(proof.borrows().values());
-        inputs.addAll(proof.elements());
-        for (var input : inputs) {
+        for (var entry : proof.borrows().entrySet()) {
+            var input = entry.getValue();
             IrOperand source = switch (input.origin().kind()) {
                 case THIS -> receiver;
                 case PARAMETER -> input.origin().parameterIndex() < arguments.size()
                         ? arguments.get(input.origin().parameterIndex()).operand() : null;
                 case ELEMENT_OF_PARAMETER -> null;
             };
-            AllocationInfo backing = allocationOf(source);
+            ReferenceIdentity backing = allocationOf(source);
             if (backing == null) continue;
+            ReferenceIdentity pool = poolValueOwner(source);
             if (!isDependentBorrow(source)) {
                 for (FieldSymbol field : input.fields()) {
-                    AllocationInfo next = backing.finalBorrowedFields.get(ownedFieldKey(field));
-                    if (next == null) break; // Owned substructure keeps the enclosing root.
+                    ReferenceIdentity next = backing.containedFields.get(fieldKey(field));
+                    if (next == null) break;
+                    pool = backing.containedPoolOrigins.get(fieldKey(field));
                     backing = next;
                 }
             }
-            if (input.containerElements() && input.fields().isEmpty()
-                    && !isDependentBorrow(source) && !exposedContainerContents.contains(backing)
-                    && backing.constructedType != null && backing.constructedType.isNominalReference()
-                    && (backing.constructedType.referenceName().equals("ironwood.ds.ArrayList")
-                        || MapCopyFactoryAnalysis.isMap(backing.constructedType)
-                        || SetCopyFactoryAnalysis.isSet(backing.constructedType))) {
-                // Copy the actual loans, including a self-item or a nested wrapper.
-                // Fresh storage does not erase any payload's lifetime dependency.
-                for (AllocationInfo child : retainedBorrows.getOrDefault(backing, Set.of())) {
-                    if (input.keyCallbacks() && (SetCopyFactoryAnalysis.isSet(backing.constructedType)
-                            || backing.possibleMapKeys != null && backing.possibleMapKeys.contains(child))) {
-                        exposeContainerContents(child, "copy key callbacks can observe nested data-structure contents",
-                                Collections.newSetFromMap(new IdentityHashMap<>()));
-                    }
-                    if (MapCopyFactoryAnalysis.isMap(proof.type()) && backing.possibleMapKeys != null
-                            && backing.possibleMapKeys.contains(child)) {
-                        recordPossibleMapKey(owner, child);
-                    }
-                    borrows.add(new WrapperBorrow(owner, child, result.orElseThrow().sourceSpan()));
-                }
-            } else {
-                if (MapCopyFactoryAnalysis.isMap(proof.type())) {
-                    // A whole source root represents unknown key membership.
-                    // Preserve it as a possible key for subsequent copies;
-                    // an empty metadata set never proves these keys absent.
-                    recordPossibleMapKey(owner, backing);
-                    if (input.keyCallbacks()) {
-                        exposeContainerContents(backing, "copy callbacks can observe unknown key membership",
-                                Collections.newSetFromMap(new IdentityHashMap<>()));
-                    }
-                }
-                if (SetCopyFactoryAnalysis.isSet(proof.type()) && input.keyCallbacks()) {
-                    exposeContainerContents(backing, "copy callbacks can observe unknown set membership",
-                            Collections.newSetFromMap(new IdentityHashMap<>()));
-                }
-                borrows.add(new WrapperBorrow(owner, backing, result.orElseThrow().sourceSpan()));
-            }
-            for (var entry : proof.borrows().entrySet()) {
-                if (entry.getValue().equals(input)) owner.finalBorrowedFields.put(ownedFieldKey(entry.getKey()), backing);
-            }
+            borrows.add(new WrapperBorrow(owner, backing));
+            owner.containedFields.put(fieldKey(entry.getKey()), backing);
+            if (pool != null) owner.containedPoolOrigins.put(fieldKey(entry.getKey()), pool);
         }
         pendingFactoryBorrows = List.copyOf(borrows);
 
-        return true;
-    }
-
-    private boolean factoryInputsHaveBorrowingCallbacks(List<FreshBorrowingFactoryAnalysis.Input> inputs,
-                                                        IrOperand receiver, List<TypedValue> arguments) {
-        for (var input : inputs) {
-            if (!input.keyCallbacks()) continue;
-            IrOperand source = switch (input.origin().kind()) {
-                case THIS -> receiver;
-                case PARAMETER -> input.origin().parameterIndex() < arguments.size()
-                        ? arguments.get(input.origin().parameterIndex()).operand() : null;
-                case ELEMENT_OF_PARAMETER -> null;
-            };
-            if (source == null || !input.fields().isEmpty() || !hasBorrowingKeyCallbacks(source.type())) return false;
-        }
-        return true;
-    }
-
-    private boolean recordSingleRootListGet(CallableSymbol method, IrOperand receiver,
-                                            Optional<IrValueReference> result) {
-        CallExpression guard = DataStructureSemantics.arrayListElementReadGuard(method);
-        if (guard == null || result.isEmpty() || !result.orElseThrow().type().isReference()) return false;
-        TypeSymbol listType = hierarchy.type(method.ownerType()).orElse(null);
-        FieldSymbol storage = listType == null ? null : listType.declaredFields().get("array");
-        if (storage == null || !ownedArrayFields.isOwned(storage)) return false;
-        List<CallableSymbol> guards = escapeSummaries.boundTargets(method, guard);
-        if (guards.isEmpty() || guards.stream().anyMatch(target -> !DataStructureSemantics.isPureArrayListReadGuard(target)
-                || escapeSummaries.summary(target).thisEscapesWithoutReturn())) return false;
-        AllocationInfo list = allocationOf(receiver);
-        if (list == null || list.constructedType == null || !list.constructedType.isNominalReference()
-                || !list.constructedType.referenceName().equals(method.ownerType())
-                || isDependentBorrow(receiver) || exposedContainerContents.contains(list)) return false;
-        Set<AllocationInfo> roots = retainedBorrows.getOrDefault(list, Set.of());
-        if (roots.size() != 1) return false;
-        // All known elements borrow the same lifetime root. Reading one does not
-        // transfer ownership, nor tie an externally owned entry to the list.
-        allocationsByOperand.put(result.orElseThrow(), roots.iterator().next());
-        ownedHelperBorrows.add(result.orElseThrow());
         return true;
     }
 
@@ -8283,7 +7918,7 @@ final class FunctionAnalyzer {
                                           EscapeSummaryAnalyzer.EscapeSummary summary,
                                           List<TypedValue> arguments,
                                           Optional<IrValueReference> result) {
-        if (!DataStructureSemantics.isListViewFactory(method) || !summary.returnsOwnedFresh()
+        if (!DataStructureSemantics.isListViewFactory(method) || !summary.returnsFresh()
                 || result.isEmpty()) { return false; }
         TypeSymbol view = hierarchy.type("ironwood.ds.UnmodifiableList").orElse(null);
         if (view == null || view.constructors().size() != 1) { return false; }
@@ -8291,27 +7926,22 @@ final class FunctionAnalyzer {
         EscapeSummaryAnalyzer.EscapeSummary effects = escapeSummaries.summary(constructor);
         FieldSymbol field = escapeSummaries.retainedParameterField(constructor, 0);
         if (effects.thisEscapes() || !effects.parameterRetainedByReceiverOnly(0)
-                || field == null || !ownedArrayFields.isEncapsulated(field)) { return false; }
-        AllocationInfo owner = AllocationInfo.freshCall(controlFlowDepth);
+                || field == null || !FinalFieldOrigins.isStable(field)) { return false; }
+        ReferenceIdentity owner = new ReferenceIdentity();
         owner.constructedType = result.orElseThrow().type();
         allocations.add(owner);
         pendingFreshResult = owner;
 
         allocationsByOperand.put(result.orElseThrow(), owner);
-        AllocationInfo backing = allocationOf(arguments.getFirst().operand());
+        ReferenceIdentity backing = allocationOf(arguments.getFirst().operand());
         if (backing != null) {
-            pendingWrapperBorrow = new WrapperBorrow(owner, backing,
-                    result.orElseThrow().sourceSpan());
+            pendingWrapperBorrow = new WrapperBorrow(owner, backing);
         }
         return true;
     }
 
-    private void addRetainedBorrow(AllocationInfo owner, AllocationInfo child) {
-        addRetainedBorrow(owner, child, null);
-    }
-
-    private void addRetainedBorrow(AllocationInfo owner, AllocationInfo child, SourceSpan site) {
-        Set<AllocationInfo> borrowed = new LinkedHashSet<>(retainedBorrows.getOrDefault(owner, Set.of()));
+    private void addRetainedBorrow(ReferenceIdentity owner, ReferenceIdentity child) {
+        Set<ReferenceIdentity> borrowed = new LinkedHashSet<>(retainedBorrows.getOrDefault(owner, Set.of()));
         borrowed.add(child);
         retainedBorrows.put(owner, Set.copyOf(borrowed));
 
@@ -8319,70 +7949,61 @@ final class FunctionAnalyzer {
 
     private boolean recordReceiverBorrow(CallableSymbol resolved,
                                          EscapeSummaryAnalyzer.EscapeSummary summary,
-                                         IrOperand receiver, TypedValue argument, int index,
-                                         CallSites callSites) {
+                                         IrOperand receiver, TypedValue argument, int index) {
         if (resolved == null || receiver == null
                 || !summary.parameterRetainedByReceiverOnly(index)) {
             return false;
         }
-        AllocationInfo owner = allocationOf(receiver);
-        AllocationInfo child = allocationOf(argument.operand());
+        ReferenceIdentity owner = allocationOf(receiver);
+        ReferenceIdentity child = allocationOf(argument.operand());
         FieldSymbol field = escapeSummaries.retainedParameterField(resolved, index);
-        if (owner == null || child == null || owner.state != AllocationState.ACTIVE
-                || child.state != AllocationState.ACTIVE || field == null
-                || !ownedArrayFields.isEncapsulated(field)) {
+        if (owner == null || child == null || owner.state != IdentityState.ACTIVE
+                || child.state != IdentityState.ACTIVE || field == null
+                || !FinalFieldOrigins.isStable(field)) {
             return false;
         }
         if (owner != child) {
-            addRetainedBorrow(owner, child,
-                    callSites == null ? null : callSites.argument(index));
+            addRetainedBorrow(owner, child);
         }
         return true;
     }
 
-    private void finishContainerCall(AllocationInfo cleared, WrapperBorrow wrapper) {
+    private void finishContainerCall(ReferenceIdentity cleared, WrapperBorrow wrapper) {
         if (cleared != null) {
             retainedBorrows.remove(cleared);
 
         }
         if (wrapper != null) {
-            addRetainedBorrow(wrapper.owner(), wrapper.child(), wrapper.site());
+            addRetainedBorrow(wrapper.owner(), wrapper.child());
         }
     }
 
-    private record WrapperBorrow(AllocationInfo owner, AllocationInfo child, SourceSpan site) {}
+    private record WrapperBorrow(ReferenceIdentity owner, ReferenceIdentity child) {}
 
-    private static void recordPossibleMapKey(AllocationInfo owner, AllocationInfo key) {
-        if (owner.possibleMapKeys == null) {
-            owner.possibleMapKeys = Collections.newSetFromMap(new IdentityHashMap<>());
-        }
-        owner.possibleMapKeys.add(key);
-    }
-
-    private void exposeContainerContents(IrOperand operand, String reason) {
-        AllocationInfo allocation = allocationOf(operand);
+    private void exposeContainerContents(IrOperand operand) {
+        ReferenceIdentity allocation = allocationOf(operand);
         if (allocation != null) {
-            exposeContainerContents(allocation, reason,
+            exposeContainerContents(allocation,
                     Collections.newSetFromMap(new IdentityHashMap<>()));
         }
     }
 
-    private void exposeContainerContents(AllocationInfo allocation, String reason,
-                                         Set<AllocationInfo> visited) {
+    private void exposeContainerContents(ReferenceIdentity allocation,
+                                         Set<ReferenceIdentity> visited) {
         if (!visited.add(allocation)) { return; }
-        Set<AllocationInfo> children = retainedBorrows.getOrDefault(allocation, Set.of());
-        if (isKnownContainer(allocation) || allocation.copiedContainerItems) {
+        Set<ReferenceIdentity> children = retainedBorrows.getOrDefault(allocation, Set.of());
+        if (isKnownContainer(allocation)) {
             exposedContainerContents.add(allocation);
-            for (AllocationInfo child : children) {
-                markEscaped(child, reason, Collections.newSetFromMap(new IdentityHashMap<>()));
+            for (ReferenceIdentity child : children) {
+                markEscaped(child, identitySet());
             }
         } else {
-            children.forEach(child -> exposeContainerContents(child, reason, visited));
+            children.forEach(child -> exposeContainerContents(child, visited));
         }
         knownArraySlots.entrySet().stream()
                 .filter(entry -> entry.getKey().container() == allocation)
                 .map(Map.Entry::getValue)
-                .forEach(child -> exposeContainerContents(child, reason, visited));
+                .forEach(child -> exposeContainerContents(child, visited));
     }
 
     private static ReturnOrigin exactDirectReturnOrigin(
@@ -8401,7 +8022,7 @@ final class FunctionAnalyzer {
             exactBorrowedReturnOrigin(EscapeSummaryAnalyzer.EscapeSummary summary) {
         // Shared process values can join an owner-dependent return. Conservatively
         // keep that owner's lifetime even on the shared branch. This grants no
-        // fresh ownership; every non-return escape is still checked at the call.
+        // fresh allocation identity; every non-return escape is still checked at the call.
         if (summary.mayReturnFresh()
                 || !summary.returnedOrigins().isEmpty()
                 || summary.borrowedReturnedOrigins().isEmpty()) {
@@ -8414,7 +8035,7 @@ final class FunctionAnalyzer {
             return null;
         }
         if (summary.borrowedReturnedOrigins().size() > 1) {
-            // Owned and injected branches can lend different fields of the same
+            // Retained and injected branches can lend different fields of the same
             // facade. Keep the facade itself as the conservative root when the
             // field differs; its ordinary retained borrows keep inputs alive.
             String field = summary.borrowedReturnedOrigins().stream().allMatch(other ->
@@ -8430,43 +8051,30 @@ final class FunctionAnalyzer {
 
     private void recordUnknownCallEscapes(IrOperand receiver, List<TypedValue> arguments,
                                           String methodName, SourceSpan span) {
-        recordUnknownCallEscapes(receiver, arguments, methodName, span,
-                null);
-    }
-
-    private void recordUnknownCallEscapes(IrOperand receiver, List<TypedValue> arguments,
-                                          String methodName, SourceSpan span, CallSites callSites) {
-        exposeContainerContents(receiver, "polymorphic call can expose stored data-structure references");
-        arguments.forEach(argument -> exposeContainerContents(argument.operand(),
-                "polymorphic call can expose stored data-structure references"));
+        exposeContainerContents(receiver);
+        arguments.forEach(argument -> exposeContainerContents(argument.operand()));
         if (escapeSummaries.isNonRetainingPrimitiveCall(function.linkageName(), span, methodName)) {
-            exposeArrayElements(receiver, "borrowed call can observe reference-array elements");
-            arguments.forEach(argument -> exposeArrayElements(argument.operand(),
-                    "borrowed call can observe reference-array elements"));
+            exposeArrayElements(receiver);
+            arguments.forEach(argument -> exposeArrayElements(argument.operand()));
             return;
         }
-        markEscaped(receiver, "cannot prove receiver of polymorphic method '" + methodName
-                + "' does not escape", callSites == null ? null : callSites.receiver());
+        markEscaped(receiver);
         for (int index = 0; index < arguments.size(); index++) {
-            markEscaped(arguments.get(index).operand(), "cannot prove argument " + (index + 1)
-                    + " of polymorphic method '" + methodName + "' does not escape",
-                    callSites == null ? null : callSites.argument(index));
+            markEscaped(arguments.get(index).operand());
         }
     }
 
     private boolean recordKnownBorrowDispatch(CallableSymbol target, IrOperand receiver,
                                               List<TypedValue> arguments,
-                                              Optional<IrValueReference> result, SourceSpan span,
-                                              CallSites callSites) {
+                                              Optional<IrValueReference> result, SourceSpan span) {
         List<CallableSymbol> bound = escapeSummaries.boundTargets(function.linkageName(), span,
                 target.sourceName());
         if (!bound.isEmpty() && !PoolSemantics.isCheckout(target) && !PoolSemantics.isRelease(target)) {
             recordResolvedCall(escapeSummaries.combinedSummary(bound), bound.getFirst().linkageName(),
-                    receiver, arguments, result, target.sourceName(), bound.size() == 1,
-                    callSites, bound, true);
+                    receiver, arguments, result, target.sourceName(), bound.size() == 1, bound, true);
             return true;
         }
-        String concreteType = ownedHelperBorrowTypes.get(receiver);
+        String concreteType = helperBorrowTypes.get(receiver);
         if (concreteType == null) {
             Set<String> poolTargets = hierarchy.dispatchTargets(receiver.type(), target);
             List<CallableSymbol> methods = poolTargets.stream().map(escapeSummaries::callable).toList();
@@ -8476,10 +8084,10 @@ final class FunctionAnalyzer {
                 return false;
             }
             // The source remains polymorphic. Every closed-world target must
-            // have the same audited ownership contract before it can be used.
+            // have the same audited reference-effect contract before it can be used.
             CallableSymbol representative = methods.getFirst();
             recordResolvedCall(escapeSummaries.summary(representative), representative.linkageName(),
-                    receiver, arguments, result, target.sourceName(), true, callSites);
+                    receiver, arguments, result, target.sourceName(), true);
             return true;
         }
         Set<String> targets = hierarchy.dispatchTargets(
@@ -8491,7 +8099,7 @@ final class FunctionAnalyzer {
         EscapeSummaryAnalyzer.EscapeSummary summary = escapeSummaries.summary(linkageName);
         recordResolvedCall(summary == null
                         ? EscapeSummaryAnalyzer.EscapeSummary.unknown(target) : summary,
-                linkageName, receiver, arguments, result, target.sourceName(), true, callSites);
+                linkageName, receiver, arguments, result, target.sourceName(), true);
         return true;
     }
 
@@ -8709,10 +8317,10 @@ final class FunctionAnalyzer {
             provenNonNullOperands.add(result);
         }
         nullGuards.converted(result, value);
-        AllocationInfo allocation = allocationOf(value);
+        ReferenceIdentity allocation = allocationOf(value);
         if (allocation != null) {
             allocationsByOperand.put(result, allocation);
-            propagateOwnedHelperBorrow(result, value);
+            propagateProtocolOrigin(result, value);
         }
         return result;
     }
@@ -10716,41 +10324,20 @@ final class FunctionAnalyzer {
 
     }
 
-    private java.util.stream.Stream<IrOperand> pendingDeferredOperands() {
-        return finallyContexts.stream().map(FinallyContext::action)
-                .filter(action -> action instanceof DeferredCallAction)
-                .map(action -> ((DeferredCallAction) action).invocation())
-                .flatMap(call -> call.operands().stream());
-    }
-
-    private void lowerStatementAction(SourceSpan span, Runnable body) {
-        body.run();
-    }
-
-    private TypedValue lowerBranchingExpression(Supplier<TypedValue> body) {
-        return body.get();
-    }
-
-    private TypedValue lowerTransferOperand(SourceSpan span, Supplier<TypedValue> body) {
-        return body.get();
-    }
-
     private TypedValue lowerCondition(Expression condition, PatternFlow.Result patternFlow) {
         return lowerExpression(condition);
     }
 
-    /** The blocking fact of a declined temporary, in the wording of the rejected-free message. */
-
     private void emitCall(IrInstruction call, SourceSpan span) {
         PoolTransfer transfer = pendingPoolTransfer;
         pendingPoolTransfer = null;
-        AllocationInfo cleared = pendingContainerClear;
+        ReferenceIdentity cleared = pendingContainerClear;
         pendingContainerClear = null;
         WrapperBorrow wrapper = pendingWrapperBorrow;
         pendingWrapperBorrow = null;
         List<WrapperBorrow> factoryBorrows = pendingFactoryBorrows;
         pendingFactoryBorrows = List.of();
-        AllocationInfo freshResult = pendingFreshResult;
+        ReferenceIdentity freshResult = pendingFreshResult;
         pendingFreshResult = null;
         List<IrOperand> operands = switch (call) {
             case IrCallInstruction direct -> direct.arguments();
@@ -10766,8 +10353,7 @@ final class FunctionAnalyzer {
             currentBlock.addInstruction(call);
             finishPoolTransfer(transfer);
             finishContainerCall(cleared, wrapper);
-            factoryBorrows.forEach(borrow -> addRetainedBorrow(borrow.owner(), borrow.child(),
-                    borrow.site()));
+            factoryBorrows.forEach(borrow -> addRetainedBorrow(borrow.owner(), borrow.child()));
 
             return;
         }
@@ -10778,22 +10364,14 @@ final class FunctionAnalyzer {
         // The result has no identity on an exceptional edge. Preserve only
         // reference and pool provenance available before successful completion.
         if (freshResult != null) freshResult.present = false;
-        OwnershipSnapshot unwindOwnership = snapshotOwnership();
+        ProtocolSnapshot unwindProtocols = snapshotProtocols();
         if (freshResult != null) freshResult.present = true;
-        region.addEdge(new ExceptionEdge(predecessor, copyEnvironment(), unwindOwnership));
+        region.addEdge(new ExceptionEdge(predecessor, copyEnvironment(), unwindProtocols));
         currentBlock = normal;
         finishPoolTransfer(transfer);
         finishContainerCall(cleared, wrapper);
-        factoryBorrows.forEach(borrow -> addRetainedBorrow(borrow.owner(), borrow.child(),
-                borrow.site()));
+        factoryBorrows.forEach(borrow -> addRetainedBorrow(borrow.owner(), borrow.child()));
 
-    }
-
-    private void emitConstructorCall(IrInstruction call,
-                                                 IrOperand allocation,
-                                                 SourceSpan span) {
-        // Failed construction leaves a zero-initialized managed graph, including published aliases.
-        emitCall(call, span);
     }
 
     private MutableBlock createBlock(String prefix, SourceSpan span) {
@@ -10810,13 +10388,13 @@ final class FunctionAnalyzer {
         return new IrValueReference(nextValueId++, type, span);
     }
 
-    private AllocationInfo allocationOf(IrOperand operand) {
-        AllocationInfo allocation = operand == null ? null : allocationsByOperand.get(operand);
+    private ReferenceIdentity allocationOf(IrOperand operand) {
+        ReferenceIdentity allocation = operand == null ? null : allocationsByOperand.get(operand);
         // Most references have no pool owner. Avoid allocating traversal state
         // for this frequently queried identity; the bound also stops join cycles.
         int remaining = poolOwners.size();
         while (allocation != null && remaining-- > 0) {
-            AllocationInfo parent = poolOwners.get(allocation);
+            ReferenceIdentity parent = poolOwners.get(allocation);
             if (parent == null) { break; }
             allocation = parent;
         }
@@ -10824,83 +10402,83 @@ final class FunctionAnalyzer {
     }
 
     private boolean isDependentBorrow(IrOperand operand) {
-        return ownedHelperBorrows.contains(operand)
+        return helperBorrows.contains(operand)
                 || poolOwners.containsKey(allocationsByOperand.get(operand));
     }
 
     private void finishPoolTransfer(PoolTransfer transfer) {
         if (transfer == null || transfer.value() instanceof IrNull) { return; }
-        AllocationInfo owner = allocationOf(transfer.owner());
-        AllocationInfo value = allocationOf(transfer.value());
+        ReferenceIdentity owner = allocationOf(transfer.owner());
+        ReferenceIdentity value = allocationOf(transfer.value());
         if (isDependentBorrow(transfer.value())) {
-            AllocationInfo registry = poolValueOwner(transfer.value());
-            AllocationInfo receiver = !isDependentBorrow(transfer.owner())
+            ReferenceIdentity registry = poolValueOwner(transfer.value());
+            ReferenceIdentity receiver = !isDependentBorrow(transfer.owner())
                     ? allocationsByOperand.get(transfer.owner()) : null;
             if (registry != null && registry == receiver) { return; }
             if (owner == null) {
-                markEscaped(transfer.value(), "pooled object returned through an unknown pool");
+                markEscaped(transfer.value());
             } else {
-                ownershipVerdict(error(transfer.value().sourceSpan(),
+                protocolError(error(transfer.value().sourceSpan(),
                         "cannot transfer an object owned by another pool or containing object; "
                                 + "release must return a value checked out from this pool"));
             }
             return;
         }
         if (owner == null || value == null || owner == value
-                || value.state != AllocationState.ACTIVE || value.origin == AllocationOrigin.OWNED_FIELD
+                || value.state != IdentityState.ACTIVE
                 || knownArraySlots.containsValue(value)
                 || retainedBorrows.values().stream().anyMatch(values -> values.contains(value))) {
-            markEscaped(transfer.owner(), "pool received an object whose exclusive ownership is unproved");
-            markEscaped(transfer.value(), "allocation escapes through argument 1 of method 'release'");
+            markEscaped(transfer.owner());
+            markEscaped(transfer.value());
             return;
         }
         poolOwners.put(value, owner);
 
-        Set<AllocationInfo> dependencies = new LinkedHashSet<>(retainedBorrows.getOrDefault(owner, Set.of()));
+        Set<ReferenceIdentity> dependencies = new LinkedHashSet<>(retainedBorrows.getOrDefault(owner, Set.of()));
         dependencies.addAll(retainedBorrows.getOrDefault(value, Set.of()));
         retainedBorrows.remove(value);
         if (!dependencies.isEmpty()) { retainedBorrows.put(owner, Set.copyOf(dependencies)); }
     }
 
-    private AllocationInfo poolValueOwner(IrOperand value) {
-        AllocationInfo adoptedOwner = poolOwners.get(allocationsByOperand.get(value));
+    private ReferenceIdentity poolValueOwner(IrOperand value) {
+        ReferenceIdentity adoptedOwner = poolOwners.get(allocationsByOperand.get(value));
         return adoptedOwner != null ? adoptedOwner : poolValueOwners.get(value);
     }
 
-    private record PoolTransfer(IrOperand owner, IrOperand value, SourceSpan span) {}
+    private record PoolTransfer(IrOperand owner, IrOperand value) {}
 
-    private void propagateOwnedHelperBorrow(IrOperand target, IrOperand source) {
+    private void propagateProtocolOrigin(IrOperand target, IrOperand source) {
         if (isDependentBorrow(source)) {
-            ownedHelperBorrows.add(target);
-            AllocationInfo registry = poolValueOwner(source);
+            helperBorrows.add(target);
+            ReferenceIdentity registry = poolValueOwner(source);
             if (registry != null) {
                 poolValueOwners.put(target, registry);
 
             }
-            String concreteType = ownedHelperBorrowTypes.get(source);
+            String concreteType = helperBorrowTypes.get(source);
             if (concreteType != null) {
-                ownedHelperBorrowTypes.put(target, concreteType);
+                helperBorrowTypes.put(target, concreteType);
             }
         }
     }
 
-    private void propagateCommonOwnedHelperBorrow(IrOperand target,
+    private void propagateCommonProtocolOrigin(IrOperand target,
                                                   List<IrOperand> sources) {
         sources = sources.stream().filter(value -> !(value instanceof IrNull)).toList();
         if (sources.isEmpty() || sources.stream()
                 .anyMatch(source -> !isDependentBorrow(source))) {
             return;
         }
-        ownedHelperBorrows.add(target);
-        AllocationInfo registry = poolValueOwner(sources.getFirst());
+        helperBorrows.add(target);
+        ReferenceIdentity registry = poolValueOwner(sources.getFirst());
         if (registry != null && sources.stream().allMatch(source -> poolValueOwner(source) == registry)) {
             poolValueOwners.put(target, registry);
 
         }
-        String concreteType = ownedHelperBorrowTypes.get(sources.getFirst());
+        String concreteType = helperBorrowTypes.get(sources.getFirst());
         if (concreteType != null && sources.stream().allMatch(source ->
-                concreteType.equals(ownedHelperBorrowTypes.get(source)))) {
-            ownedHelperBorrowTypes.put(target, concreteType);
+                concreteType.equals(helperBorrowTypes.get(source)))) {
+            helperBorrowTypes.put(target, concreteType);
         }
     }
 
@@ -10917,147 +10495,80 @@ final class FunctionAnalyzer {
         nullGuards.loadedFinalField(loaded, receiver, field.irField(), false);
     }
 
-    private void trackOwnedFieldLoad(IrOperand loaded, IrOperand receiver, FieldSymbol field) {
+    private void trackFieldOrigins(IrOperand loaded, IrOperand receiver, FieldSymbol field) {
         // References reached through a pooled value or helper must not outlive
         // the owner, including internal nodes and segment arrays.
         if (loaded.type().isReference() && isDependentBorrow(receiver)) {
-            AllocationInfo owner = allocationOf(receiver);
+            ReferenceIdentity owner = allocationOf(receiver);
             if (owner != null) {
                 allocationsByOperand.put(loaded, owner);
-                ownedHelperBorrows.add(loaded);
+                helperBorrows.add(loaded);
             }
             return;
         }
         if (thisOperand == null || !receiver.equals(thisOperand)) {
-            AllocationInfo owner = loaded.type().isReference() ? allocationOf(receiver) : null;
+            ReferenceIdentity owner = loaded.type().isReference() ? allocationOf(receiver) : null;
             if (owner == null) return;
-            if (owner.origin == AllocationOrigin.ONE_OF) {
+            if (!owner.mayBe.isEmpty()) {
                 trackFieldLoadFromOneOf(loaded, owner, field);
                 return;
             }
-            // Neither the receiver nor the children it retains are temporaries once a
-            // field of the receiver is read: the loaded value may observe them after
-            // the statement, and the receiver's destructor may release them.
+            // Preserve field/container origin for pool and foreign confinement.
 
-            Set<AllocationInfo> children = retainedBorrows.getOrDefault(owner, Set.of());
+            Set<ReferenceIdentity> children = retainedBorrows.getOrDefault(owner, Set.of());
 
-            if (ownedArrayFields.isOwned(field)) {
-                // The receiver's destructor releases this field: the loaded value is
-                // the receiver's own storage, a distinct allocation the analyzer does
-                // not know. It cannot be freed, the receiver cannot be freed while
-                // it is held, and, since its state is uncertain, anything stored
-                // through it escapes. Giving it the receiver's identity instead
-                // merged the two allocations and let stores record slots on the
-                // receiver.
-                Set<AllocationInfo> storage = identitySet();
-                storage.add(owner);
-                bindOneOf(loaded, storage, loaded.sourceSpan());
-                return;
-            }
-            AllocationInfo child = field.isFinal()
-                    ? owner.finalBorrowedFields.get(ownedFieldKey(field)) : null;
+            ReferenceIdentity child = field.isFinal()
+                    ? owner.containedFields.get(fieldKey(field)) : null;
             if (child != null) {
                 // A final encapsulated field holds exactly the argument its constructor
-                // retained, so the loaded value is that allocation: freeing it by its
-                // original name while this value is live is rejected as an alias.
+                // retained, so the load has the same protocol origin.
                 allocationsByOperand.put(loaded, child);
                 return;
             }
             // Any other field may hold any child the receiver retains; a value stored
-            // into it later has already escaped. The loaded value may be any of those
-            // children, and blocks their frees only while something holds it.
+            // into it later has already escaped. Keep the possible origins.
             bindOneOf(loaded, children, loaded.sourceSpan());
             return;
         }
-        if (!ownedArrayFields.isOwned(field)) {
-
-            String rejectionReason = ownedArrayFields.rejectionReason(field);
-            if (rejectionReason != null) {
-                AllocationInfo allocation = AllocationInfo.borrowedField(controlFlowDepth,
-                        field.declaration().name());
-                allocations.add(allocation);
-
-                allocationsByOperand.put(loaded, allocation);
-
-            }
-            return;
-        }
-        String key = ownedFieldKey(field);
-        AllocationInfo allocation = borrowedOwnedFields.get(key);
-        if (allocation == null) {
-            allocation = AllocationInfo.borrowedField(controlFlowDepth,
-                    field.declaration().name());
-            borrowedOwnedFields.put(key, allocation);
-            allocations.add(allocation);
-
-        }
-        allocationsByOperand.put(loaded, allocation);
     }
 
-    private void detachOwnedField(IrOperand receiver, FieldSymbol field, IrOperand replacement) {
-        if (thisOperand == null || !receiver.equals(thisOperand) || !ownedArrayFields.isOwned(field)) {
-            return;
-        }
-        String key = ownedFieldKey(field);
-        AllocationInfo previous = borrowedOwnedFields.get(key);
-        if (previous == null || allocationOf(replacement) == previous) {
-            return;
-        }
-        previous.detached = true;
-        borrowedOwnedFields.remove(key);
-    }
-
-    /**
-     * Before code that may replace an owned field runs, forgets each loan that no local
-     * still holds, so a later load starts a new one. An attached loan with a live alias
-     * cannot reach here: owned-field analysis rejects the field when code may run while
-     * one exists (D041, D281).
-     */
-    private void forgetUnaliasedOwnedFieldLoans() {
-        borrowedOwnedFields.values().removeIf(allocation -> java.util.stream.Stream.concat(
-                environment.values().stream(), pendingDeferredOperands())
-                .noneMatch(value -> allocationOf(value) == allocation));
-    }
-
-    private static String ownedFieldKey(FieldSymbol field) {
+    private static String fieldKey(FieldSymbol field) {
         return field.ownerClass() + "#" + field.declaration().name();
     }
 
-    private Map<AllocationInfo, AllocationStateSnapshot> snapshotAllocationStates() {
-        Map<AllocationInfo, AllocationStateSnapshot> result = new IdentityHashMap<>();
-        for (AllocationInfo allocation : allocations) {
+    private Map<ReferenceIdentity, IdentityStateSnapshot> snapshotIdentityStates() {
+        Map<ReferenceIdentity, IdentityStateSnapshot> result = new IdentityHashMap<>();
+        for (ReferenceIdentity allocation : allocations) {
             if (allocation.present) {
-                result.put(allocation, new AllocationStateSnapshot(allocation.state,
-                        allocation.blockingReason, allocation.detached));
+                result.put(allocation, new IdentityStateSnapshot(allocation.state));
             }
         }
         return result;
     }
 
-    private OwnershipSnapshot snapshotOwnership() {
-        OwnershipSnapshot snapshot = new OwnershipSnapshot(snapshotAllocationStates(),
-                knownArraySlots,
-                new LinkedHashMap<>(borrowedOwnedFields), new IdentityHashMap<>(retainedBorrows),
+    private ProtocolSnapshot snapshotProtocols() {
+        ProtocolSnapshot snapshot = new ProtocolSnapshot(snapshotIdentityStates(),
+                knownArraySlots, arrayPoolOrigins,
+                new IdentityHashMap<>(retainedBorrows),
                 new IdentityHashMap<>(poolOwners), Set.copyOf(exposedContainerContents));
         return snapshot;
     }
 
-    private void restoreOwnership(OwnershipSnapshot snapshot) {
+    private void restoreProtocols(ProtocolSnapshot snapshot) {
 
         allocations.forEach(allocation -> allocation.present = false);
-        for (Map.Entry<AllocationInfo, AllocationStateSnapshot> entry
+        for (Map.Entry<ReferenceIdentity, IdentityStateSnapshot> entry
                 : snapshot.states().entrySet()) {
-            AllocationInfo allocation = entry.getKey();
-            AllocationStateSnapshot state = entry.getValue();
+            ReferenceIdentity allocation = entry.getKey();
+            IdentityStateSnapshot state = entry.getValue();
             allocation.present = true;
             allocation.state = state.state();
-            allocation.blockingReason = state.blockingReason();
-            allocation.detached = state.detached();
+
         }
         knownArraySlots.clear();
         knownArraySlots.putAll(snapshot.knownArraySlots());
-        borrowedOwnedFields.clear();
-        borrowedOwnedFields.putAll(snapshot.borrowedOwnedFields());
+        arrayPoolOrigins.clear();
+        arrayPoolOrigins.putAll(snapshot.arrayPoolOrigins());
         retainedBorrows.clear();
         retainedBorrows.putAll(snapshot.retainedBorrows());
         poolOwners.clear();
@@ -11066,92 +10577,81 @@ final class FunctionAnalyzer {
         exposedContainerContents.addAll(snapshot.exposedContainerContents());
     }
 
-    private void mergeOwnership(OwnershipSnapshot before,
-                                List<OwnershipSnapshot> incoming,
-                                String conflictReason) {
-        mergeOwnership(before, incoming, conflictReason, List.of());
-    }
+    private void mergeProtocols(ProtocolSnapshot before,
+                                List<ProtocolSnapshot> incoming) {
+        restoreProtocols(before);
 
-    private void mergeOwnership(OwnershipSnapshot before,
-                                List<OwnershipSnapshot> incoming,
-                                String conflictReason, List<JoinPath> paths) {
-        restoreOwnership(before);
-
-        Set<AllocationInfo> joined = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        Set<ReferenceIdentity> joined = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
         incoming.forEach(snapshot -> joined.addAll(snapshot.states().keySet()));
-        for (AllocationInfo allocation : joined) {
-            List<AllocationStateSnapshot> states = incoming.stream()
+        for (ReferenceIdentity allocation : joined) {
+            List<IdentityStateSnapshot> states = incoming.stream()
                     .map(snapshot -> snapshot.states().get(allocation))
                     .filter(java.util.Objects::nonNull).toList();
             if (states.isEmpty()) {
                 continue;
             }
-            AllocationStateSnapshot first = states.getFirst();
+            IdentityStateSnapshot first = states.getFirst();
             allocation.present = true;
             if (states.stream().allMatch(first::equals)) {
                 allocation.state = first.state();
-                allocation.blockingReason = first.blockingReason();
-                allocation.detached = first.detached();
+
             } else {
-                allocation.state = AllocationState.UNCERTAIN;
-                allocation.blockingReason = conflictReason;
-                allocation.detached = states.stream().allMatch(AllocationStateSnapshot::detached);
+                allocation.state = IdentityState.UNCERTAIN;
+
             }
         }
         knownArraySlots.entrySet().removeIf(entry -> incoming.stream().anyMatch(snapshot ->
                 snapshot.knownArraySlots().get(entry.getKey()) != entry.getValue()));
-        borrowedOwnedFields.entrySet().removeIf(entry -> incoming.stream().anyMatch(snapshot ->
-                snapshot.borrowedOwnedFields().get(entry.getKey()) != entry.getValue()));
         if (!incoming.isEmpty()) {
-            for (Map.Entry<ArraySlot, AllocationInfo> entry
+            for (Map.Entry<ArraySlot, ReferenceIdentity> entry
                     : incoming.getFirst().knownArraySlots().entrySet()) {
                 if (incoming.stream().allMatch(snapshot ->
                         snapshot.knownArraySlots().get(entry.getKey()) == entry.getValue())) {
                     knownArraySlots.put(entry.getKey(), entry.getValue());
                 }
             }
-            for (Map.Entry<String, AllocationInfo> entry
-                    : incoming.getFirst().borrowedOwnedFields().entrySet()) {
-                if (incoming.stream().allMatch(snapshot ->
-                        snapshot.borrowedOwnedFields().get(entry.getKey()) == entry.getValue())) {
-                    borrowedOwnedFields.put(entry.getKey(), entry.getValue());
+
+        }
+
+        arrayPoolOrigins.clear();
+        if (!incoming.isEmpty()) {
+            incoming.getFirst().arrayPoolOrigins().forEach((slot, origin) -> {
+                if (incoming.stream().allMatch(path -> path.arrayPoolOrigins().get(slot) == origin)) {
+                    arrayPoolOrigins.put(slot, origin);
                 }
-            }
+            });
         }
 
         poolOwners.clear();
-        for (OwnershipSnapshot path : incoming) {
+        for (ProtocolSnapshot path : incoming) {
             path.poolOwners().forEach((value, owner) -> {
-                AllocationInfo previous = poolOwners.putIfAbsent(value, owner);
+                ReferenceIdentity previous = poolOwners.putIfAbsent(value, owner);
                 if (previous != null && previous != owner) {
-                    selectBlocked(previous, "object has conflicting pool origins across control flow");
-                    selectBlocked(owner, "object has conflicting pool origins across control flow");
+                    selectBlocked(previous);
+                    selectBlocked(owner);
                 }
             });
         }
         retainedBorrows.clear();
         exposedContainerContents.clear();
-        for (OwnershipSnapshot path : incoming) {
+        for (ProtocolSnapshot path : incoming) {
             exposedContainerContents.addAll(path.exposedContainerContents());
             path.retainedBorrows().forEach((owner, borrowed) -> {
-                Set<AllocationInfo> merged = new LinkedHashSet<>(retainedBorrows.getOrDefault(owner, Set.of()));
+                Set<ReferenceIdentity> merged = new LinkedHashSet<>(retainedBorrows.getOrDefault(owner, Set.of()));
                 merged.addAll(borrowed);
                 retainedBorrows.put(owner, Set.copyOf(merged));
             });
         }
         // An inexact slot loses load identity, not the fact that it may retain
-        // an alias. Otherwise a branch-local store could make a later free unsafe.
-        for (OwnershipSnapshot path : incoming) {
+        for (ProtocolSnapshot path : incoming) {
             path.knownArraySlots().forEach((slot, allocation) -> {
                 if (knownArraySlots.get(slot) != allocation) {
-                    String reason = "allocation may still be observed through "
-                            + "an array element on an incoming control-flow path";
                     // A stored one-of identity stands for the allocations it may be;
                     // those are what the lost slot may still hold.
-                    if (allocation.origin == AllocationOrigin.ONE_OF) {
-                        allocation.mayBe.forEach(candidate -> selectBlocked(candidate, reason));
+                    if (!allocation.mayBe.isEmpty()) {
+                        allocation.mayBe.forEach(candidate -> selectBlocked(candidate));
                     } else {
-                        selectBlocked(allocation, reason);
+                        selectBlocked(allocation);
                     }
                 }
             });
@@ -11159,47 +10659,26 @@ final class FunctionAnalyzer {
 
     }
 
-    private record JoinPath(OwnershipSnapshot snapshot, String label,
-                            SourceFile anchorSource, SourceSpan anchorSpan) {
-    }
-
-    private void mergeFlowOwnership(List<BranchFlow> incoming) {
-        mergeFlowOwnership(incoming, List.of());
-    }
-
-    private void mergeFlowOwnership(List<BranchFlow> incoming, List<JoinPath> paths) {
+    private void mergeFlowProtocols(List<BranchFlow> incoming) {
         if (!incoming.isEmpty()) {
-            mergeOwnership(incoming.getFirst().ownership(),
-                    incoming.stream().map(BranchFlow::ownership).toList(),
-                    "allocation has conflicting ownership across control-flow paths", paths);
+            mergeProtocols(incoming.getFirst().protocols(),
+                    incoming.stream().map(BranchFlow::protocols).toList());
         }
     }
 
-    private void mergeLoopOwnership(List<BranchFlow> exits, List<BranchFlow> backEdges) {
-        mergeLoopOwnership(exits, backEdges, List.of());
-    }
-
-    private void mergeLoopOwnership(List<BranchFlow> exits, List<BranchFlow> backEdges,
-                                    List<JoinPath> joinPaths) {
+    private void mergeLoopProtocols(List<BranchFlow> exits, List<BranchFlow> backEdges) {
         List<BranchFlow> paths = new ArrayList<>(exits);
-        paths.addAll(backEdges);
-        mergeFlowOwnership(paths, joinPaths);
-    }
 
-    private List<JoinPath> loopContinuationPaths(List<BranchFlow> flows,
-                                                 BranchFlow normalBody,
-                                                 String kind, SourceSpan bodySpan) {
-return List.of();
-}
+        mergeFlowProtocols(paths);
+    }
 
     // A body-local allocation is recreated on each iteration. An allocation already
-    // visible at entry is not: replaying a free requires the same live ownership
     // and identity on every back edge, including edges from nested labeled jumps.
     /**
      * Settles the identity of each loop-header phi from the entry value and the values
      * every back edge carries, through the ordinary identity merge (D091): a value
      * that differs on a back edge blocks the allocations flowing in, so a local
-     * carried out of the loop cannot free one of them by name. The phi was bound to
+     * carried out of the loop preserves conservative protocol provenance. The phi was bound to
      * the entry allocation while the body was analyzed, so that binding is dropped
      * first and restored only when every source agrees.
      */
@@ -11217,7 +10696,7 @@ return List.of();
             if (sources.stream().anyMatch(java.util.Objects::isNull)) continue;
             // A local the body never rebinds carries the phi itself, which is bound to
             // the entry allocation; decide before dropping that binding.
-            AllocationInfo initial = allocationOf(entryValue);
+            ReferenceIdentity initial = allocationOf(entryValue);
             boolean rebound = sources.stream().anyMatch(value -> allocationOf(value) != initial);
             if (!rebound) continue;
             allocationsByOperand.remove(entry.getValue().result);
@@ -11231,17 +10710,19 @@ return List.of();
         if (!array.type().isArray() || !array.type().elementType().isReference()) {
             return;
         }
-        AllocationInfo container = allocationOf(array);
+        ReferenceIdentity container = allocationOf(array);
         Integer constantIndex = constantArrayIndex(index);
-        AllocationInfo stored = allocationOf(value);
+        ReferenceIdentity stored = allocationOf(value);
         if (container == null || constantIndex == null
-                || container.state != AllocationState.ACTIVE) {
-            markEscaped(value, "allocation escapes through reference-array element",
-                    valueSpan);
+                || container.state != IdentityState.ACTIVE) {
+            markEscaped(value);
             return;
         }
         ArraySlot slot = new ArraySlot(container, constantIndex);
         knownArraySlots.remove(slot);
+        arrayPoolOrigins.remove(slot);
+        ReferenceIdentity poolOrigin = poolValueOwner(value);
+        if (poolOrigin != null) arrayPoolOrigins.put(slot, poolOrigin);
 
         if (stored != null) {
             knownArraySlots.put(slot, stored);
@@ -11249,47 +10730,42 @@ return List.of();
         }
     }
 
-
     private void trackArrayElementLoad(IrOperand result, IrOperand array, IrOperand index) {
-        if (result.type().isReference() && !isDependentBorrow(array)
-                && escapeSummaries.isDetachedFreshArrayElement(function.linkageName(), result.sourceSpan())) {
-            AllocationInfo element = AllocationInfo.freshCall(controlFlowDepth);
-            allocations.add(element);
-
-            allocationsByOperand.put(result, element);
-
-            return;
-        }
         if (result.type().isReference() && isDependentBorrow(array)) {
-            AllocationInfo owner = allocationOf(array);
+            ReferenceIdentity owner = allocationOf(array);
             if (owner != null) {
                 allocationsByOperand.put(result, owner);
-                ownedHelperBorrows.add(result);
+                helperBorrows.add(result);
             }
             return;
         }
-        AllocationInfo container = allocationOf(array);
+        ReferenceIdentity container = allocationOf(array);
         Integer constantIndex = constantArrayIndex(index);
-        if (container != null && container.origin == AllocationOrigin.ONE_OF) {
+        if (container != null && !container.mayBe.isEmpty()) {
             trackArrayLoadFromOneOf(result, container, constantIndex);
             return;
         }
         if (container == null || constantIndex == null) {
-            exposeContainerContents(array, "inexact array load can expose stored data-structure references");
+            exposeContainerContents(array);
             if (container != null) {
-                cancelTemporaryArray(container);
+
                 if (result.type().isReference()) {
-                    // The value is some element of the array. It cannot be freed
-                    // itself, and while anything holds it, the elements it may be
-                    // cannot be freed by name (elementAliasOf).
+                    // A computed index can select any known element origin.
                     bindOneOf(result, knownElements(container), result.sourceSpan());
                 }
             }
             return;
         }
-        AllocationInfo stored = knownArraySlots.get(new ArraySlot(container, constantIndex));
+        if (container.state != IdentityState.ACTIVE) return;
+        ArraySlot slot = new ArraySlot(container, constantIndex);
+        ReferenceIdentity stored = knownArraySlots.get(slot);
         if (stored != null) {
             allocationsByOperand.put(result, stored);
+            ReferenceIdentity origin = arrayPoolOrigins.get(slot);
+            if (origin != null) {
+                helperBorrows.add(result);
+                poolValueOwners.put(result, origin);
+            }
         }
     }
 
@@ -11297,37 +10773,31 @@ return List.of();
      * Every element the analyzer knows the array holds, and every element of a known
      * array stored in one: what a value loaded with a non-constant index may be.
      */
-    private Set<AllocationInfo> knownElements(AllocationInfo container) {
-        Set<AllocationInfo> elements = identitySet();
+    private Set<ReferenceIdentity> knownElements(ReferenceIdentity container) {
+        Set<ReferenceIdentity> elements = identitySet();
         collectKnownElements(knownArraySlots, container, elements);
         return elements;
     }
 
-    private static void collectKnownElements(Map<ArraySlot, AllocationInfo> slots,
-                                             AllocationInfo container, Set<AllocationInfo> elements) {
-        for (Map.Entry<ArraySlot, AllocationInfo> entry : slots.entrySet()) {
+    private static void collectKnownElements(Map<ArraySlot, ReferenceIdentity> slots,
+                                             ReferenceIdentity container, Set<ReferenceIdentity> elements) {
+        for (Map.Entry<ArraySlot, ReferenceIdentity> entry : slots.entrySet()) {
             if (entry.getKey().container() == container && elements.add(entry.getValue())) {
                 collectKnownElements(slots, entry.getValue(), elements);
             }
         }
     }
 
-    /**
-     * A value that may be one of several allocations has left the analyzer's sight,
-     * through an escape or a merged identity. The allocations it may be can no longer
-     * be proved unobserved, so freeing one by its own name is rejected from now on.
-     */
-    private void observeElements(AllocationInfo identity) {
-        identity.mayBe.forEach(candidate -> selectUncertain(candidate,
-                "allocation may still be observed through an element loaded "
-                        + "with a non-constant index"));
+    /** An uncertain alias invalidates exact container/protocol provenance. */
+    private void observeElements(ReferenceIdentity identity) {
+        identity.mayBe.forEach(candidate -> selectUncertain(candidate));
     }
 
     /** The allocations a set may stand for, with one-of identities replaced by theirs. */
-    private static Set<AllocationInfo> flattened(Set<AllocationInfo> candidates) {
-        Set<AllocationInfo> result = identitySet();
-        for (AllocationInfo candidate : candidates) {
-            if (candidate.origin == AllocationOrigin.ONE_OF) {
+    private static Set<ReferenceIdentity> flattened(Set<ReferenceIdentity> candidates) {
+        Set<ReferenceIdentity> result = identitySet();
+        for (ReferenceIdentity candidate : candidates) {
+            if (!candidate.mayBe.isEmpty()) {
                 result.addAll(candidate.mayBe);
             } else {
                 result.add(candidate);
@@ -11336,46 +10806,30 @@ return List.of();
         return result;
     }
 
-    /**
-     * Gives {@code operand} an identity that may be any of {@code mayBe}. It cannot be
-     * freed itself, and while anything holds it, none of those allocations can be
-     * freed by name (elementAliasOf). An empty set means nothing the analyzer knows.
-     */
-    private void bindOneOf(IrOperand operand, Set<AllocationInfo> candidates, SourceSpan span) {
-        Set<AllocationInfo> mayBe = flattened(candidates);
+    /** Preserve possible value origins without claiming an exact allocation. */
+    private void bindOneOf(IrOperand operand, Set<ReferenceIdentity> candidates, SourceSpan span) {
+        Set<ReferenceIdentity> mayBe = flattened(candidates);
         if (mayBe.isEmpty()) return;
-        AllocationInfo identity = AllocationInfo.oneOf(controlFlowDepth, mayBe);
+        ReferenceIdentity identity = ReferenceIdentity.oneOf(mayBe);
         allocations.add(identity);
 
-        selectUncertain(identity, "value is an element loaded with a non-constant "
-                + "index and may be any element of that array");
+        selectUncertain(identity);
         allocationsByOperand.put(operand, identity);
     }
 
-    private static Set<AllocationInfo> identitySet() {
+    private static Set<ReferenceIdentity> identitySet() {
         return java.util.Collections.newSetFromMap(new IdentityHashMap<>());
     }
 
-    /**
-     * A field read from a value that may be one of several allocations: the rule for
-     * a single known receiver (trackOwnedFieldLoad) applied to each, collecting the
-     * allocations the loaded value may be: the exact child of a final encapsulated
-     * field, the receiver itself for a field its destructor frees, and every retained
-     * child otherwise.
-     */
-    private void trackFieldLoadFromOneOf(IrOperand loaded, AllocationInfo receiver,
+    private void trackFieldLoadFromOneOf(IrOperand loaded, ReferenceIdentity receiver,
                                          FieldSymbol field) {
-        Set<AllocationInfo> mayBe = identitySet();
-        for (AllocationInfo candidate : receiver.mayBe) {
+        Set<ReferenceIdentity> mayBe = identitySet();
+        for (ReferenceIdentity candidate : receiver.mayBe) {
 
-            Set<AllocationInfo> children = retainedBorrows.getOrDefault(candidate, Set.of());
+            Set<ReferenceIdentity> children = retainedBorrows.getOrDefault(candidate, Set.of());
 
-            if (ownedArrayFields.isOwned(field)) {
-                mayBe.add(candidate);
-                continue;
-            }
-            AllocationInfo child = field.isFinal()
-                    ? candidate.finalBorrowedFields.get(ownedFieldKey(field)) : null;
+            ReferenceIdentity child = field.isFinal()
+                    ? candidate.containedFields.get(fieldKey(field)) : null;
             if (child != null) {
                 mayBe.add(child);
                 continue;
@@ -11389,95 +10843,64 @@ return List.of();
      * An element read from a value that may be one of several arrays: a constant
      * index selects that slot of each, a computed index every known element of each.
      */
-    private void trackArrayLoadFromOneOf(IrOperand result, AllocationInfo container,
+    private void trackArrayLoadFromOneOf(IrOperand result, ReferenceIdentity container,
                                          Integer constantIndex) {
-        Set<AllocationInfo> mayBe = identitySet();
-        for (AllocationInfo candidate : container.mayBe) {
+        Set<ReferenceIdentity> mayBe = identitySet();
+        for (ReferenceIdentity candidate : container.mayBe) {
             exposeContainerContents(candidate,
-                    "inexact array load can expose stored data-structure references",
                     identitySet());
-            cancelTemporaryArray(candidate);
+
             if (!result.type().isReference()) continue;
             if (constantIndex == null) {
                 mayBe.addAll(knownElements(candidate));
             } else {
-                AllocationInfo stored = knownArraySlots.get(new ArraySlot(candidate, constantIndex));
+                ReferenceIdentity stored = knownArraySlots.get(new ArraySlot(candidate, constantIndex));
                 if (stored != null) mayBe.add(stored);
             }
         }
         bindOneOf(result, mayBe, result.sourceSpan());
     }
 
-    /**
-     * An element loaded with a non-constant index carries no allocation identity, so
-     * the loaded value may observe any known element after the statement. Neither
-     * the array nor its known elements, nor the elements of those, are temporaries.
-     */
-    private void cancelTemporaryArray(AllocationInfo container) {
-
-        knownArraySlots.entrySet().stream()
-                .filter(entry -> entry.getKey().container() == container)
-                .map(Map.Entry::getValue)
-                .toList()
-                .forEach(this::cancelTemporaryArray);
-    }
-
-    private static Integer constantArrayIndex(IrOperand index) {
+private static Integer constantArrayIndex(IrOperand index) {
         return index instanceof IrConstant constant && constant.type().equals(IrType.I32)
                 ? constant.value().intValue() : null;
     }
 
-    private void exposeArrayElements(IrOperand array, String reason) {
-        AllocationInfo container = allocationOf(array);
+    private void exposeArrayElements(IrOperand array) {
+        ReferenceIdentity container = allocationOf(array);
         if (container == null) {
             return;
         }
-        Set<AllocationInfo> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        Set<ReferenceIdentity> visited = Collections.newSetFromMap(new IdentityHashMap<>());
         knownArraySlots.entrySet().stream()
                 .filter(entry -> entry.getKey().container() == container)
                 .map(Map.Entry::getValue)
-                .forEach(allocation -> markEscaped(allocation, reason, visited));
+                .forEach(allocation -> markEscaped(allocation, visited));
     }
 
-    private void markEscaped(IrOperand operand, String reason) {
-        markEscaped(operand, reason, null);
+    private void markEscaped(IrOperand operand) {
+        ReferenceIdentity allocation = allocationOf(operand);
+        if (allocation != null) markEscaped(allocation, identitySet());
     }
 
-    private void markEscaped(IrOperand operand, String reason, SourceSpan eventSpan) {
-        AllocationInfo allocation = allocationOf(operand);
-        if (allocation != null) markEscaped(allocation, reason, identitySet(), eventSpan);
-    }
-
-    private void markEscaped(AllocationInfo allocation, String reason, Set<AllocationInfo> visited) {
-        markEscaped(allocation, reason, visited, null);
-    }
-
-    private void markEscaped(AllocationInfo allocation, String reason,
-                             Set<AllocationInfo> visited, SourceSpan eventSpan) {
+    private void markEscaped(ReferenceIdentity allocation, Set<ReferenceIdentity> visited) {
         if (!visited.add(allocation)) return;
-        allocation.escape(reason);
-        if (allocation.origin == AllocationOrigin.ONE_OF) observeElements(allocation);
-        retainedBorrows.getOrDefault(allocation, Set.of()).forEach(child ->
-                markEscaped(child, "allocation is borrowed by an escaped wrapper", visited, eventSpan));
+        allocation.escape();
+        if (!allocation.mayBe.isEmpty()) observeElements(allocation);
+        retainedBorrows.getOrDefault(allocation, Set.of()).forEach(child -> markEscaped(child, visited));
         knownArraySlots.entrySet().stream()
                 .filter(entry -> entry.getKey().container() == allocation)
-                .map(Map.Entry::getValue)
-                .forEach(child -> markEscaped(child,
-                        "allocation escapes through an element of an escaped array", visited, eventSpan));
+                .map(Map.Entry::getValue).forEach(child -> markEscaped(child, visited));
     }
 
-    private boolean selectUncertain(AllocationInfo allocation, String reason) {
-        boolean selected = allocation.makeUncertain(reason);
+    private boolean selectUncertain(ReferenceIdentity allocation) {
+        boolean selected = allocation.makeUncertain();
 
         return selected;
     }
 
-    private void selectBlocked(AllocationInfo allocation, String reason) {
-        allocation.blockReclamation(reason);
-    }
-
-    private void selectBlocked(AllocationInfo allocation, String reason, SourceSpan site) {
-        allocation.blockReclamation(reason);
+    private void selectBlocked(ReferenceIdentity allocation) {
+        allocation.makeUncertain();
     }
 
     private LinkedHashMap<LocalSymbol, IrOperand> copyEnvironment() {
@@ -11508,7 +10931,7 @@ return List.of();
         return Diagnostic.error(source, span, message);
     }
 
-    private void ownershipVerdict(Diagnostic diagnostic) {
+    private void protocolError(Diagnostic diagnostic) {
         diagnostics.add(diagnostic);
     }
 
@@ -12088,7 +11511,7 @@ return List.of();
     }
 
     private record DispatchEdges(Map<String, List<MutableBlock>> predecessors,
-                                 OwnershipSnapshot ownership) {
+                                 ProtocolSnapshot protocols) {
         private DispatchEdges {
             Map<String, List<MutableBlock>> copy = new LinkedHashMap<>();
             predecessors.forEach((key, value) -> copy.put(key, List.copyOf(value)));
@@ -12098,7 +11521,7 @@ return List.of();
 
     private record YieldFlow(MutableBlock block,
                              LinkedHashMap<LocalSymbol, IrOperand> environment,
-                             TypedValue value, SourceSpan span, OwnershipSnapshot ownership) {
+                             TypedValue value, SourceSpan span, ProtocolSnapshot protocols) {
         private YieldFlow {
             environment = new LinkedHashMap<>(environment);
         }
@@ -12152,16 +11575,6 @@ return List.of();
         }
     }
 
-    private record CallSites(SourceSpan receiver, List<SourceSpan> arguments) {
-        private CallSites {
-            arguments = List.copyOf(arguments);
-        }
-
-        private SourceSpan argument(int index) {
-            return index < arguments.size() ? arguments.get(index) : null;
-        }
-    }
-
     private record LocalSymbol(int id, String name, IrType type, boolean isFinal,
                                int declarationControlFlowDepth,
                                LocalClassSemantics.VariableIdentity variableIdentity) {
@@ -12177,113 +11590,58 @@ return List.of();
         }
     }
 
-    private enum AllocationState {
+    private enum IdentityState {
         ACTIVE, UNCERTAIN, ESCAPED
     }
 
-    private enum AllocationOrigin {
-        LOCAL_NEW,
-        FRESH_CALL,
-        OWNED_FIELD,
-        /** One of several known allocations, such as an element loaded with a non-constant index. */
-        ONE_OF
-    }
-
-    /**
-     * Outcome of the side-effect-free reclamation proof for one operand. A rejection
-     * carries the witness its diagnostic renders; it records nothing itself.
+    /** Per-function reference identity for pool origins and contained inputs.
+     * No state here grants managed reclamation authority.
      */
-
-    private static final class AllocationInfo {
-        private final int creationControlFlowDepth;
-        private final AllocationOrigin origin;
-        private final String ownedFieldName;
-        private final Map<String, AllocationInfo> finalBorrowedFields = new LinkedHashMap<>();
+    private static final class ReferenceIdentity {
+        private final Map<String, ReferenceIdentity> containedFields = new LinkedHashMap<>();
+        private final Map<String, ReferenceIdentity> containedPoolOrigins = new LinkedHashMap<>();
         private IrType constructedType;
-        private boolean copiedContainerItems;
-        // Monotonic observation metadata, independent of path restoration.
-        // Used only to expose possible key contents, intersected with current
-        // retained loans. It never establishes ownership or permits a free.
-        private Set<AllocationInfo> possibleMapKeys;
-        /** For a ONE_OF identity, the allocations it may be, as known where it was made. */
-        private Set<AllocationInfo> mayBe = Set.of();
-        private boolean detached;
+        private Set<ReferenceIdentity> mayBe = Set.of();
         private boolean present = true;
-        private AllocationState state = AllocationState.ACTIVE;
-        private String blockingReason = "compiler could not prove allocation identity";
+        private IdentityState state = IdentityState.ACTIVE;
 
-        private AllocationInfo(int creationControlFlowDepth) {
-            this(creationControlFlowDepth, AllocationOrigin.LOCAL_NEW, null);
-        }
-
-        private AllocationInfo(int creationControlFlowDepth, AllocationOrigin origin,
-                               String ownedFieldName) {
-            this.creationControlFlowDepth = creationControlFlowDepth;
-            this.origin = origin;
-            this.ownedFieldName = ownedFieldName;
-        }
-
-        private static AllocationInfo borrowedField(int controlFlowDepth, String fieldName) {
-            return new AllocationInfo(controlFlowDepth, AllocationOrigin.OWNED_FIELD, fieldName);
-        }
-
-        private static AllocationInfo freshCall(int controlFlowDepth) {
-            return new AllocationInfo(controlFlowDepth, AllocationOrigin.FRESH_CALL, null);
-        }
-
-        private static AllocationInfo oneOf(int controlFlowDepth, Set<AllocationInfo> mayBe) {
-            AllocationInfo identity = new AllocationInfo(controlFlowDepth,
-                    AllocationOrigin.ONE_OF, null);
-            identity.mayBe = mayBe;
+        private static ReferenceIdentity oneOf(Set<ReferenceIdentity> alternatives) {
+            ReferenceIdentity identity = new ReferenceIdentity();
+            identity.mayBe = alternatives;
             return identity;
         }
 
-        private boolean makeUncertain(String reason) {
-            if (origin == AllocationOrigin.OWNED_FIELD) {
-                return false;
-            }
-            return blockReclamation(reason);
-        }
-
-        private boolean blockReclamation(String reason) {
-            if (state == AllocationState.ACTIVE) {
-                state = AllocationState.UNCERTAIN;
-                blockingReason = reason;
-                return true;
-            }
-            return false;
-        }
-
-        private boolean escape(String reason) {
-            state = AllocationState.ESCAPED;
-            blockingReason = reason;
+        private boolean makeUncertain() {
+            if (state != IdentityState.ACTIVE) return false;
+            state = IdentityState.UNCERTAIN;
             return true;
         }
+
+        private void escape() { state = IdentityState.ESCAPED; }
     }
 
-    private record AllocationStateSnapshot(AllocationState state, String blockingReason,
-                                           boolean detached) {
+    private record IdentityStateSnapshot(IdentityState state) {
     }
 
-    private record OwnershipSnapshot(
-            Map<AllocationInfo, AllocationStateSnapshot> states,
-            Map<ArraySlot, AllocationInfo> knownArraySlots,
-            Map<String, AllocationInfo> borrowedOwnedFields,
-            Map<AllocationInfo, Set<AllocationInfo>> retainedBorrows,
-            Map<AllocationInfo, AllocationInfo> poolOwners,
-            Set<AllocationInfo> exposedContainerContents) {
-        private OwnershipSnapshot {
+    private record ProtocolSnapshot(
+            Map<ReferenceIdentity, IdentityStateSnapshot> states,
+            Map<ArraySlot, ReferenceIdentity> knownArraySlots,
+            Map<ArraySlot, ReferenceIdentity> arrayPoolOrigins,
+            Map<ReferenceIdentity, Set<ReferenceIdentity>> retainedBorrows,
+            Map<ReferenceIdentity, ReferenceIdentity> poolOwners,
+            Set<ReferenceIdentity> exposedContainerContents) {
+        private ProtocolSnapshot {
             states = Map.copyOf(states);
             knownArraySlots = copyArraySlots(knownArraySlots);
-            borrowedOwnedFields = Map.copyOf(borrowedOwnedFields);
+            arrayPoolOrigins = Map.copyOf(arrayPoolOrigins);
             retainedBorrows = Map.copyOf(retainedBorrows);
             poolOwners = Map.copyOf(poolOwners);
             exposedContainerContents = Set.copyOf(exposedContainerContents);
         }
 
-        private static Map<ArraySlot, AllocationInfo> copyArraySlots(
-                Map<ArraySlot, AllocationInfo> source) {
-            Map<ArraySlot, AllocationInfo> copy = new LinkedHashMap<>();
+        private static Map<ArraySlot, ReferenceIdentity> copyArraySlots(
+                Map<ArraySlot, ReferenceIdentity> source) {
+            Map<ArraySlot, ReferenceIdentity> copy = new LinkedHashMap<>();
             source.forEach((slot, allocation) -> copy.put(
                     java.util.Objects.requireNonNull(slot),
                     java.util.Objects.requireNonNull(allocation)));
@@ -12294,7 +11652,7 @@ return List.of();
     private record FieldTarget(IrOperand receiver, FieldSymbol field) {
     }
 
-    private record ArraySlot(AllocationInfo container, int index) {
+    private record ArraySlot(ReferenceIdentity container, int index) {
     }
 
     private record SuperTarget(TypeSymbol symbol, IrType type, IrOperand receiver) {
@@ -12319,14 +11677,14 @@ return List.of();
 
     private record BranchFlow(boolean reachable, MutableBlock block,
                               LinkedHashMap<LocalSymbol, IrOperand> environment,
-                              OwnershipSnapshot ownership) {
+                              ProtocolSnapshot protocols) {
     }
 
     /** Candidates of one full-expression statement, with its entry environment for unwind pads. */
 
     private record ExceptionEdge(MutableBlock block,
                                  LinkedHashMap<LocalSymbol, IrOperand> environment,
-                                 OwnershipSnapshot ownership) {
+                                 ProtocolSnapshot protocols) {
     }
 
     private record CatchAlternative(String typeName, int typeId, IrType type,

@@ -10,7 +10,7 @@ import ironwood.util.Enumeration;
  * Captured interface structure with live status queries. Individual lookup results own their
  * snapshot; enumeration elements borrow the enumeration's snapshot. Names, addresses, parents and
  * subinterfaces remain tied to that owner. Free caller-owned cursors and lists before the snapshot
- * owner, and never free borrowed entries separately. Status, MTU and hardware queries consult the
+ * owner through ordinary references. Status, MTU and hardware queries consult the
  * current host by the captured interface name and can fail if it disappears.
  */
 public final class NetworkInterface {

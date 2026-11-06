@@ -27,7 +27,6 @@ public final class Wget {
         }
         try {
             Config config = new Config(args);
-            defer free config;
             try {
                 Download.run(config);
                 return 0;

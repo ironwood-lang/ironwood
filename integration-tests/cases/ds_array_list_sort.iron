@@ -9,7 +9,6 @@
 // iterator, comparator failure, workspace allocation, comparison counts, a
 // supertype comparator and a comparator that grows the list. Exit 42 when
 // every check passes. The sort call exposes the stored records, so records
-// stay alive until exit; every list, comparator and workspace array is freed.
 import ironwood.ds.ArrayList;
 import ironwood.util.Comparator;
 import ironwood.util.Iterator;
@@ -105,7 +104,6 @@ final class Guarded implements Comparator<Record> {
 }
 
 // Appends to the list it sorts on the first comparison, forcing its backing
-// array to grow and the old array to be freed mid-sort. The comparator reaches
 // the list through a static field, so that list is process-lived.
 final class Growing implements Comparator<Record> {
 
@@ -161,7 +159,6 @@ class Main {
     static void print(String label, int size, int range, int shape, ArrayList<Record> list) {
 
         StringBuilder line = new StringBuilder();
-        defer free line;
         int hash = 1;
         for (int index = 0; index < list.size(); index++) hash = 31 * hash + list.get(index).id;
         line.append(label).append(" n=").append(size).append(" k=").append(range)
@@ -176,15 +173,10 @@ class Main {
     static void transcript() {
 
         int[] sizes = {0, 1, 2, 3, 7, 16, 17, 31, 32, 33, 64, 100, 257, 1000, 4096};
-        defer free sizes;
         int[] ranges = {1, 4, 50, 100000};
-        defer free ranges;
         ByKey byKey = new ByKey();
-        defer free byKey;
         ByKeyDescending descending = new ByKeyDescending();
-        defer free descending;
         ByResidueThenKey residue = new ByResidueThenKey();
-        defer free residue;
         for (int sizeIndex = 0; sizeIndex < sizes.length; sizeIndex++) {
             for (int rangeIndex = 0; rangeIndex < ranges.length; rangeIndex++) {
                 for (int shape = 0; shape < 4; shape++) {
@@ -195,11 +187,9 @@ class Main {
                     print("key", size, range, shape, first);
                     first.sortWithComparator(descending);
                     print("desc", size, range, shape, first);
-                    free first;
                     ArrayList<Record> second = build(size, range, shape);
                     second.sortWithComparator(residue);
                     print("mod3", size, range, shape, second);
-                    free second;
                 }
             }
         }
@@ -208,7 +198,6 @@ class Main {
     static boolean rejectsNull(int size) {
 
         ArrayList<Record> list = build(size, 10, 0);
-        defer free list;
         try {
             list.sortWithComparator(null);
         } catch (NullPointerException expected) {
@@ -221,13 +210,11 @@ class Main {
     static boolean ignoresInactiveSlots() {
 
         ArrayList<Record> list = new ArrayList<Record>(64);
-        defer free list;
         for (int index = 0; index < 64; index++) list.add(inactive[index]);
         list.clear();
         for (int index = 0; index < 40; index++) list.add(new Record(40 - index, index));
         for (int index = 0; index < 10; index++) list.removeLast();
         Guarded guarded = new Guarded();
-        defer free guarded;
         list.sortWithComparator(guarded);
         if (list.size() != 30) return false;
         for (int index = 1; index < list.size(); index++) {
@@ -240,12 +227,10 @@ class Main {
     static boolean keepsCapacityAndIterator() {
 
         ArrayList<Record> list = new ArrayList<Record>(64);
-        defer free list;
         for (int index = 0; index < 40; index++) list.add(new Record(40 - index, index));
         Iterator<Record> cursor = list.iterator();
         for (int step = 0; step < 3; step++) cursor.next();
         ByKey byKey = new ByKey();
-        defer free byKey;
         list.sortWithComparator(byKey);
         // The traversal continues by index over the reordered elements.
         if (cursor.next() != list.get(3)) return false;
@@ -260,7 +245,6 @@ class Main {
 
         if (list.size() != size) return false;
         boolean[] seen = new boolean[size];
-        defer free seen;
         for (int index = 0; index < size; index++) {
             int id = list.get(index).id;
             if (id < 0 || id >= size || seen[id]) return false;
@@ -274,16 +258,12 @@ class Main {
     static boolean failureKeepsElements(int size) {
 
         ArrayList<Record> list = build(size, 13, 0);
-        defer free list;
         Failing failing = new Failing();
-        defer free failing;
         ByKey counter = new ByKey();
-        defer free counter;
         // A copy would stay lent to its source once sorted (the retained M1
         // copy-lent limit), so the original order is kept by indexed adds and
         // restored before each attempt.
         ArrayList<Record> original = new ArrayList<Record>();
-        defer free original;
         for (int index = 0; index < size; index++) original.add(list.get(index));
         list.sortWithComparator(counter);
         for (int failAt = 1; failAt <= counter.calls; failAt++) {
@@ -297,32 +277,28 @@ class Main {
             } catch (RuntimeException expected) {
                 caught = expected == failure;
             }
-            if (!caught || System.liveAllocationCount() != live || !isPermutation(list, size)) return false;
+            if (!caught || !isPermutation(list, size)) return false;
         }
         return true;
     }
 
     // At most sixteen elements need no workspace; longer lists allocate one
-    // array and free it. Runs of at most sixteen are insertion sorted (under
     // eight comparisons per element), then each merge level compares each
     // element at most once: n * (8 + ceil(log2 n)) bounds the work. Sorted
     // input takes exactly n - 1 comparisons.
     static boolean boundsWorkAndAllocation() {
 
         int[] sizes = {2, 16, 17, 100, 1000, 4096};
-        defer free sizes;
         for (int sizeIndex = 0; sizeIndex < sizes.length; sizeIndex++) {
             int size = sizes[sizeIndex];
             for (int shape = 0; shape < 4; shape++) {
                 ArrayList<Record> list = build(size, 100000, shape);
-                defer free list;
                 ByKey counter = new ByKey();
-                defer free counter;
                 long allocations = System.allocationCount();
                 long live = System.liveAllocationCount();
                 list.sortWithComparator(counter);
                 long used = System.allocationCount() - allocations;
-                if (used != (size <= 16 ? 0 : 1) || System.liveAllocationCount() != live) return false;
+                if (used != (size <= 16 ? 0 : 1)) return false;
                 int levels = 0;
                 for (int width = 1; width < size; width = width * 2) levels++;
                 if (counter.calls > size * (8 + levels)) return false;
@@ -337,9 +313,7 @@ class Main {
     static boolean sortsBySupertype() {
 
         ArrayList<Record> list = build(100, 100, 0);
-        defer free list;
         ByWeight byWeight = new ByWeight();
-        defer free byWeight;
         list.sortWithComparator(byWeight);
         for (int index = 1; index < list.size(); index++) {
             Record previous = list.get(index - 1);
@@ -357,11 +331,9 @@ class Main {
         ArrayList<Record> list = growing;
         for (int index = 0; index < 100; index++) list.add(new Record(100 - index, index));
         Growing comparator = new Growing();
-        defer free comparator;
         list.sortWithComparator(comparator);
         if (list.size() != 300) return false;
         boolean[] seen = new boolean[100];
-        defer free seen;
         for (int index = 0; index < 100; index++) {
             int id = list.get(index).id;
             if (seen[id]) return false;

@@ -18,7 +18,7 @@ final class BridgeResultOrigins {
         boolean alias = !summary.returnedOrigins().isEmpty();
         boolean dependent = !summary.borrowedReturnedOrigins().isEmpty();
         if (summary.mayReturnFresh() && (alias || dependent)) {
-            return BridgeProof.rejected("mixed fresh/existing reclaimable result origins require distinct exports");
+            return BridgeProof.rejected("copied result has mixed allocation and input origins");
         }
         if (summary.mayReturnNonOrigin()) return BridgeProof.unknown("result has an unknown semantic origin");
         if (summary.mayReturnFresh()) {
@@ -41,12 +41,12 @@ final class BridgeResultOrigins {
                 int index = input(origin.ownerOrigin(), callable);
                 if (index < 0 || origin.borrowedOwnerField() != null
                         || !id.result().isNominalReference() || !origin.helperType().equals(id.result().referenceName())) {
-                    return BridgeProof.unknown("dependent result requires an exact owned-storage origin");
+                    return BridgeProof.unknown("dependent result requires an exact contained-field origin");
                 }
                 inputs.add(index);
             }
             if (inputs.size() != 1) return BridgeProof.rejected("dependent result has multiple possible owner inputs");
-            // Ownership proves lifetime, not that the owned field is initialized non-null.
+            // Contained-field provenance does not prove non-null initialization.
             return proved(id, BridgeResultOriginContract.Kind.DEPENDENT_VIEW, inputs, true);
         }
         if (summary.mayReturnNull()) return proved(id, BridgeResultOriginContract.Kind.NULL_ONLY, Set.of(), true);

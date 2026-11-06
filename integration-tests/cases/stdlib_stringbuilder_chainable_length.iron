@@ -10,11 +10,8 @@ class Main {
     }
 
     public static int main(String[] args) {
-
-        long initial = System.liveAllocationCount();
         StringBuilder builder = new StringBuilder(8);
         long allocations = System.allocationCount();
-        long live = System.liveAllocationCount();
         builder.append("old");
         if (builder.setLength(0) != builder) return 1;
         builder.setLength(0).append("Hi");
@@ -26,14 +23,13 @@ class Main {
         }
         builder.setLength(2).append('!');
         if (builder.setLength(3) != builder || builder.charAt(2) != '!') return 6;
-        if (System.allocationCount() != allocations || System.liveAllocationCount() != live) return 7;
+        if (System.allocationCount() != allocations) return 7;
         if (builder.setLength(32) != builder) return 8;
         if (builder.charAt(2) != '!' || builder.charAt(31) != (char) 0) return 9;
         builder.setLength(31).append('Z');
         if (builder.length() != 32 || builder.charAt(31) != 'Z') return 10;
-        if (System.allocationCount() != allocations + 1 || System.liveAllocationCount() != live) return 11;
+        if (System.allocationCount() != allocations + 1) return 11;
         builder.setLength(0);
-        free builder;
-        return System.liveAllocationCount() == initial ? 42 : 12;
+        return 42;
     }
 }

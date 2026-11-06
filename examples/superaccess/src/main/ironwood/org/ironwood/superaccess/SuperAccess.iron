@@ -38,7 +38,6 @@ public class SuperAccess {
 
         SuperChild child = new SuperChild();
         int result = child.value != 100 ? 1 : child.answer();
-        free child;
         return result;
     }
 }

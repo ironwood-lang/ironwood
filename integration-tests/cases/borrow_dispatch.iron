@@ -45,26 +45,18 @@ class Owner {
         }
         return this.bytes[0];
     }
-    destructor {
 
-        free this.bytes;
-    }
 }
 class Main {
 
     public static int main(String[] args) {
-
-        long before = System.liveAllocationCount();
         SafeSink sink = new SafeSink();
         RetainingSink unrelated = new RetainingSink();
         Owner owner = new Owner(sink);
         int answer = 0;
         try { answer = owner.work(args.length == 0); }
-        finally { free owner; }
-        // Freeing the wrapper ends its retained borrow; close would not do so.
-        free sink;
-        free unrelated;
-        if (System.liveAllocationCount() != before || Saved.value != null) return 1;
+        finally { ; }
+        if (Saved.value != null) return 1;
         return answer;
     }
 }

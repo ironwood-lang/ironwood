@@ -28,8 +28,8 @@ final class BridgeCompanionTests {
                 }
                 """);
         Path host = directory.resolve("host/engine.jar"), assembled = directory.resolve("assembled.jar");
-        BridgeProducerTests.command(directory, "produce", 0, new String[]{"--java-bridge", "--export", "distributed", "-O3", "-o", host.toString(), source.toString()});
-        BridgeProducerTests.command(directory, "assemble", 0, new String[]{"--java-bridge-assemble", "-o", assembled.toString(), host.toString()});
+        GcTestProcesses.command(directory, "produce", 0, new String[]{"--java-bridge", "--export", "distributed", "-O3", "-o", host.toString(), source.toString()});
+        GcTestProcesses.command(directory, "assemble", 0, new String[]{"--java-bridge-assemble", "-o", assembled.toString(), host.toString()});
         for (Path input : List.of(host, assembled)) {
             Path output = directory.resolve(input == host ? "host-distribution" : "assembled-distribution");
             distribute(directory, "package-" + output.getFileName(), 0, input, output, "org.ironwood.example");
@@ -87,7 +87,7 @@ final class BridgeCompanionTests {
     }
 
     private static void distribute(Path directory, String name, int status, Path input, Path output, String group) throws Exception {
-        BridgeProducerTests.command(directory, name, status, new String[]{"--java-bridge-distribution", "--input", input.toString(),
+        GcTestProcesses.command(directory, name, status, new String[]{"--java-bridge-distribution", "--input", input.toString(),
                 "--group-id", group, "--artifact-id", "engine", "--version", "1.0", "-d", output.toString()});
     }
 

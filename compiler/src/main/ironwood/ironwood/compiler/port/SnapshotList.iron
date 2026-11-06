@@ -7,8 +7,8 @@ import ironwood.ds.ArrayList;
 /**
  * Compiler-owned independent ordered membership with a narrow read interface.
  * Items are borrowed and retain their identity; construction neither clones
- * nor owns them. The owner must keep them alive through all snapshot reads.
- * Destroying the snapshot reclaims only its private list storage and iterator.
+ * nor owns them. Exact layouts keep the elements reachable through snapshot reads.
+ * The snapshot retains its elements through ordinary managed references.
  *
  * @param <E> the borrowed item type
  */
@@ -19,7 +19,7 @@ public final class SnapshotList<E extends Object> {
     /**
      * Copies source membership without touching its reusable iterator.
      * Null source is rejected. The source can be mutated independently after
-     * construction. Partial construction reclaims all private storage.
+     * construction. Partial construction uses ordinary managed reachability.
      *
      * @param source the non-null ordered builder, borrowed during construction
      * @throws NullPointerException if source is null
@@ -56,8 +56,4 @@ public final class SnapshotList<E extends Object> {
         return this.membership.isEmpty();
     }
 
-    destructor {
-
-        free this.membership;
-    }
 }

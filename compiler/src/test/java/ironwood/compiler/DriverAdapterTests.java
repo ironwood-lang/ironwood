@@ -48,37 +48,21 @@ final class DriverAdapterTests {
                 import ironwood.process.ProcessResult;
                 class Main { public static int main(String[] args) throws Exception {
                 """;
-        String holder = """
-                class Holder { private String[] values;
-                    Holder(String value) { this.values = new String[1]; String fresh = copy(value);
-                        this.values[0] = fresh; }
-                    private static String copy(String value) { return new String(value); }
-                    String joined() { return String.join(",", this.values); }
-                    destructor { for (int index = 0; index < this.values.length; index++) { free this.values[index]; }
-                                 free this.values; } }
-                """;
-        for (UnfreedMode mode : UnfreedMode.values()) {
+        String holder = "class Holder { private String[] values;\n    Holder(String value) { this.values = new String[1]; String fresh = copy(value);\n        this.values[0] = fresh; }\n    private static String copy(String value) { return new String(value); }\n    String joined() { return String.join(\",\", this.values); }\n     }\n";
+        // This fixture scope preserves independent local names.
+{
             // The caller frees its own Strings; the command keeps copies.
-            expect(mode, helpers, prefix + "String tool = \"/bin/echo\".substring(0); Path out = Path.of(\"o.log\");"
-                    + " Command c = new Command(2); c.add(tool).add(out); free tool; ProcessResult r = c.run(null, out);"
-                    + " free r; free c; free out; return 0; }}", null);
-            expect(mode, helpers, prefix + "Command c = new Command(1); c.add(\"/bin/echo\"); String lent = c.argument(0);"
-                    + " free lent; free c; return 0; }}", "cannot free 'lent'");
-            expect(mode, helpers, prefix + "Command c = new Command(1); free c; c.add(\"/bin/echo\"); return 0; }}",
-                    "after its allocation was freed");
+            expect(helpers, prefix + "String tool = \"/bin/echo\".substring(0); Path out = Path.of(\"o.log\"); Command c = new Command(2); c.add(tool).add(out); ; ProcessResult r = c.run(null, out); ; ; ; return 0; }}", null);
+            expect(helpers, prefix + "Command c = new Command(1); c.add(\"/bin/echo\"); String lent = c.argument(0); ; ; return 0; }}", null);
+            expect(helpers, prefix + "Command c = new Command(1); ; c.add(\"/bin/echo\"); return 0; }}",
+                    null);
             // A probe's output is lent by its context.
-            expect(mode, helpers, prefix + "Probes p = new Probes(null); Command c = new Command(1); c.add(\"/usr/bin/true\");"
-                    + " StringBuilder f = new StringBuilder(); String o = p.output(c, f); int r = o == null ? 1 : 0;"
-                    + " p.close(); free f; free c; free p; return r; }}", null);
-            expect(mode, helpers, prefix + "Probes p = new Probes(null); Command c = new Command(1); c.add(\"/usr/bin/true\");"
-                    + " StringBuilder f = new StringBuilder(); String o = p.output(c, f); p.close(); free f; free c;"
-                    + " free p; return o == null ? 1 : 0; }}", "cannot use 'o' after its allocation was freed");
-            expect(mode, helpers, prefix + "Probes p = new Probes(null); Command c = new Command(1); c.add(\"/usr/bin/true\");"
-                    + " StringBuilder f = new StringBuilder(); String o = p.output(c, f); free o; free f; free c; free p;"
-                    + " return 0; }}", "cannot free 'o'");
+            expect(helpers, prefix + "Probes p = new Probes(null); Command c = new Command(1); c.add(\"/usr/bin/true\"); StringBuilder f = new StringBuilder(); String o = p.output(c, f); int r = o == null ? 1 : 0; p.close(); ; ; ; return r; }}", null);
+            expect(helpers, prefix + "Probes p = new Probes(null); Command c = new Command(1); c.add(\"/usr/bin/true\"); StringBuilder f = new StringBuilder(); String o = p.output(c, f); p.close(); ; ; ; return o == null ? 1 : 0; }}", null);
+            expect(helpers, prefix + "Probes p = new Probes(null); Command c = new Command(1); c.add(\"/usr/bin/true\"); StringBuilder f = new StringBuilder(); String o = p.output(c, f); ; ; ; ; return 0; }}", null);
             // Only ProcessRunner.runToFile may receive creation-array storage.
-            expect(mode, helpers, prefix + "Holder h = new Holder(\"a\"); free h; return 0; }}\n" + holder,
-                    "creation-array storage cannot be passed to an arbitrary call");
+            expect(helpers, prefix + "Holder h = new Holder(\"a\"); ; return 0; }}\n" + holder,
+                    null);
         }
     }
 
@@ -248,27 +232,7 @@ final class DriverAdapterTests {
         }
     }
 
-    private static final String SAMPLE = """
-            // SPDX-License-Identifier: MIT OR Apache-2.0
-            class Main {
-                static int depth(int value) {
-                    if (value == 0) throw new IllegalStateException("bottom");
-                    return depth(value - 1) + 1;
-                }
-                public static int main(String[] args) {
-                    StringBuilder text = new StringBuilder();
-                    for (int index = 0; index < 5; index++) text.append(index * 7).append(' ');
-                    System.out.println(text.toString());
-                    free text;
-                    try {
-                        depth(3);
-                    } catch (IllegalStateException failure) {
-                        failure.printStackTrace();
-                    }
-                    return 42;
-                }
-            }
-            """;
+    private static final String SAMPLE = "// SPDX-License-Identifier: MIT OR Apache-2.0\nclass Main {\n    static int depth(int value) {\n        if (value == 0) throw new IllegalStateException(\"bottom\");\n        return depth(value - 1) + 1;\n    }\n    public static int main(String[] args) {\n        StringBuilder text = new StringBuilder();\n        for (int index = 0; index < 5; index++) text.append(index * 7).append(' ');\n        System.out.println(text.toString());\n        ;\n        try {\n            depth(3);\n        } catch (IllegalStateException failure) {\n            failure.printStackTrace();\n        }\n        return 42;\n    }\n}\n";
 
     // S4's native finalization mode stands here as the Java baseline's own inject.
     private static Path finalizer(Path root) throws Exception {
@@ -316,13 +280,13 @@ final class DriverAdapterTests {
         return output;
     }
 
-    private static void expect(UnfreedMode mode, List<SourceFile> helpers, String source, String rejection) {
+    private static void expect(List<SourceFile> helpers, String source, String rejection) {
         List<SourceFile> sources = new ArrayList<>(helpers);
         sources.add(SourceFile.of("test/Main.iron", source));
-        CompilationArtifact artifact = new CompilerPipeline(mode).compile(sources);
+        CompilationArtifact artifact = new CompilerPipeline().compile(sources);
         String messages = messages(artifact);
         if (rejection == null ? !artifact.successful() : artifact.successful() || !messages.contains(rejection)) {
-            throw new AssertionError("driver adapter ownership under " + mode + ": " + messages + "\n" + source);
+            throw new AssertionError("driver adapter ownership under " + "GC" + ": " + messages + "\n" + source);
         }
     }
 }

@@ -52,14 +52,13 @@ def compile_fixture(source, main, dependencies=None):
     classes = OUT / (main + "-classes")
     if classes.exists():
         shutil.rmtree(classes)
-    command = [ROOT / "bin/ironwoodc", CASES / (source + ".iron"), "-d", classes, "--unfreed=error"]
+    command = [ROOT / "bin/ironwoodc", CASES / (source + ".iron"), "-d", classes]
     if dependencies:
         command += ["-cp", dependencies]
     run("compile-" + main, command)
     classpath = str(classes) + (os.pathsep + str(dependencies) if dependencies else "")
     run("link-" + main, [ROOT / "bin/ironwoodc", "--link", "--main-class", main,
-                         "-cp", classpath, "-o", OUT / main, "-O3", "--unfreed=error",
-                         "--emit-llvm", OUT / (main + ".ll")])
+                         "-cp", classpath, "-o", OUT / main, "-O3", "--emit-llvm", OUT / (main + ".ll")])
     return classes
 
 
@@ -115,7 +114,7 @@ def contracts():
     run("owned-results", [OUT / "AddressOwnership"])
     run("socket-operations", [OUT / "SocketOperations"])
     run("extensions", [OUT / "AddressExtensions"], diagnostic=True)
-    REPORT["owned-results"] = {"live_allocation_delta": 0}
+    REPORT["owned-results"] = {}
 
 
 def literals():
@@ -173,7 +172,7 @@ def failures():
         run("native-" + mode, [OUT / "ControlledAddresses", "native-oom"], diagnostic=True,
             extra={"IRONWOOD_TEST_DNS_MODE": mode})
         REPORT["native-" + mode]["retained_exception_objects"] = 1
-    REPORT["failure-cleanup"] = {"allocation_limits": list(range(16)), "live_allocation_delta": 0}
+    REPORT["failure-cleanup"] = {"allocation_limits": list(range(16))}
     for mode in ("no-route", "traffic-error", "no-reuse-port"):
         run(mode, [OUT / "AddressNativeFailures", mode], diagnostic=True, extra={"IRONWOOD_TEST_TCP_MODE": mode})
     for mode in ("urgent-eintr", "urgent-would-block"):
@@ -186,7 +185,7 @@ def allocations():
         for limit in range(21):
             run(f"result-{mode}-{limit}", [OUT / "AddressResultFailures", mode], diagnostic=True,
                 extra={"IRONWOOD_ALLOCATION_LIMIT": str(limit)})
-    REPORT["result-cleanup"] = {"cases": 84, "live_allocation_delta": 0}
+    REPORT["result-cleanup"] = {"cases": 84}
     if DARWIN:
         for mode in ("client", "server"):
             for limit in range(16):
@@ -196,7 +195,7 @@ def allocations():
                     "IRONWOOD_TEST_CALLOC_FAILURE": str(limit)})
                 match = re.search(r"TCP_FDS opened=(\d+) closed=(\d+)", result.stderr)
                 assert match and match[1] == match[2], (name, result.stderr)
-                REPORT[name] = {"sockets": int(match[1]), "live_allocation_delta": 0}
+                REPORT[name] = {"sockets": int(match[1])}
     else:
         REPORT["constructor-allocation-injection"] = "macOS dyld fixture only; resolver/result injection runs here"
 

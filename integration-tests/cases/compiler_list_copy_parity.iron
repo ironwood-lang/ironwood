@@ -6,11 +6,8 @@
 // copy and a second source copy. After every operation it prints every list;
 // the transcript must equal ListCopyParityTests' Java 21 transcript from
 // java.util.ArrayList's copy constructor. Literal labels are borrowed by every
-// list. Exit 42 with every list freed.
 //
-// Each copy generation lives in its own frame and is freed there before its
 // lenders. Passing a lender and then its copy to helpers in one frame makes the
-// lender's later free a conservative rejection (see the M1 checkpoint).
 import ironwood.ds.ArrayList;
 
 class Main {
@@ -46,7 +43,6 @@ class Main {
     }
 
     // Copies the source and its copy after the first phase; both copies are
-    // freed here, before the caller frees their lenders.
     static void secondPhase(StringBuilder out, ArrayList<String> source, ArrayList<String> first) {
 
         ArrayList<String> second = first.copy();
@@ -66,8 +62,6 @@ class Main {
             print(out, third);
             out.append('\n');
         }
-        free third;
-        free second;
     }
 
     static void firstPhase(StringBuilder out, ArrayList<String> source) {
@@ -85,7 +79,6 @@ class Main {
             out.append('\n');
         }
         secondPhase(out, source, first);
-        free first;
     }
 
     public static int main(String[] args) {
@@ -96,8 +89,6 @@ class Main {
         StringBuilder out = new StringBuilder();
         firstPhase(out, source);
         System.out.print(out.toString());
-        free out;
-        free source;
         return 42;
     }
 }

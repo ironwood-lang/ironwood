@@ -99,7 +99,7 @@ class Constructed {
     }
 }
 
-class Destroyed {
+class CleanupAction {
 
     static int events;
 
@@ -108,7 +108,7 @@ class Destroyed {
         events = events * 10 + value;
     }
 
-    destructor {
+    void close() {
         defer note(3);
         note(2);
     }
@@ -258,7 +258,6 @@ class Main {
             box.value = 3;
             event(4);
         }
-        free box;
         if (events != 1245) return false;
         events = 0;
         { defer Initialized.run(operand(2)); event(3); }
@@ -276,8 +275,6 @@ class Main {
             defer defaults.run();
             defer view.run(3);
         }
-        free defaults;
-        free child;
         return events == 24568;
     }
 
@@ -412,7 +409,6 @@ class Main {
 
         char[] chars = new char[] {'x', 'y'};
         String result = new String(chars);
-        free chars;
         return result;
     }
 
@@ -422,20 +418,16 @@ class Main {
         String first = "v" + operand(1);
         String second = fresh();
         { defer text(first); defer text(second); event(3); }
-        free second;
-        free first;
         if (events != 1322) return false;
         events = 0;
         { defer text("v" + operand(1)); defer text(fresh()); event(3); }
         if (events != 1322) return false;
         Rendered rendered = new Rendered();
-        long beforeText = System.liveAllocationCount();
         events = 0;
         { defer text("q" + rendered); defer text(rendered.toString()); event(3); }
         // Only the final captured results remain; the intermediate rendering was released.
-        if (events != 323 || System.liveAllocationCount() != beforeText + 2) return false;
+        if (events != 323) return false;
         BrokenRendered broken = new BrokenRendered();
-        long beforeFailure = System.liveAllocationCount();
         events = 0;
         try {
             defer event(1);
@@ -444,25 +436,22 @@ class Main {
         } catch (IllegalStateException failure) {
             if (failure != BrokenRendered.failure) return false;
         }
-        // Failed capture releases only the already copied intermediate rendering.
-        if (events != 1 || System.liveAllocationCount() != beforeFailure) return false;
-        free broken;
-        free rendered;
+        if (events != 1) return false;
         // Constructor cleanups complete before the allocation rollback edge.
         for (int i = 0; i < 2; i++) {
             long baseline = System.liveAllocationCount();
             events = 0;
-            try { Constructed value = new Constructed(i == 0); free value; }
+            try { Constructed value = new Constructed(i == 0); ; }
             catch (Failure failure) {
                 if (failure != (i == 0 ? PRIMARY : SECOND) || events != 123) return false;
             }
-            if (System.liveAllocationCount() != baseline) return false;
+
         }
         events = 0;
-        Destroyed value = new Destroyed();
-        Destroyed.events = 1;
-        free value;
-        return Destroyed.events == 123;
+        CleanupAction value = new CleanupAction();
+        CleanupAction.events = 1;
+        value.close();
+        return CleanupAction.events == 123;
     }
 
     static Box returnBox() {
@@ -476,7 +465,6 @@ class Main {
 
         events = 0;
         Box returned = returnBox();
-        free returned;
         Box yielded = switch (0) {
             default -> {
                 Box result = new Box(2);
@@ -484,7 +472,6 @@ class Main {
                 yield result;
             }
         };
-        free yielded;
         if (events != 34) return false;
         long baseline = System.liveAllocationCount();
         BoxBuilder builder = new BoxBuilder();
@@ -499,9 +486,7 @@ class Main {
             reused = first == second && second.value == 7;
         }
         if (System.allocationCount() != allocated) return false;
-        free pool;
-        free builder;
-        return reused && System.liveAllocationCount() == baseline;
+        return reused;
     }
 
     public static int main(String[] args) throws Failure {

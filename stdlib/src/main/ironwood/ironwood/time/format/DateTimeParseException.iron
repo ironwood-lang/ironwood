@@ -22,7 +22,6 @@ public class DateTimeParseException extends DateTimeException {
         super(message, cause);
         this.errorIndex = errorIndex;
         String rendered = parsedData.toString();
-        defer releaseRenderedString(parsedData, rendered);
         if (rendered != null) {
             this.parsed = new char[rendered.length()];
             for (int index = 0; index < this.parsed.length; index++) {
@@ -45,9 +44,6 @@ public class DateTimeParseException extends DateTimeException {
         return this.parsed == null ? null : new String(this.parsed, 0, this.parsed.length);
     }
 
-    private static void releaseRenderedString(Object object, String rendered) {
-
-    }
 
 
 }

@@ -38,7 +38,7 @@ final class BridgeObjectApiTests {
     private BridgeObjectApiTests() {}
 
     static void signatures() throws Exception {
-        var compiler = new CompilerPipeline(UnfreedMode.OFF);
+        var compiler = new CompilerPipeline();
         var source = SourceFile.of("Cell.iron", SOURCE);
         var artifact = compiler.analyzeForBridge(List.of(source));
         check(artifact.valid(), artifact.diagnostics().toString());
@@ -89,20 +89,10 @@ final class BridgeObjectApiTests {
                 boundary.bridgeConstructionFacts(), artifact.bridgeApiFacts());
         check(select(stale).surface().isEmpty(), "stale final-program API facts admitted");
         check(select(compiler.analyze(List.of(source))).surface().isEmpty(), "missing bridge facts admitted");
-        for (var mode : UnfreedMode.values()) {
-            var unsafe = new CompilerPipeline(mode).analyzeForBridge(List.of(SourceFile.of("Bad.iron", """
-                    package objectapi;
-                    public final class Bad {
-                        public Bad() {}
-                        public static int unsafe() {
-                            Bad value = new Bad();
-                            free value;
-                            return value.read();
-                        }
-                        public int read() { return 1; }
-                    }
-                    """)));
-            check(!unsafe.valid() && select(unsafe).surface().isEmpty(), "unsafe free admitted in " + mode);
+        // This fixture scope preserves independent local names.
+{
+            var unsafe = new CompilerPipeline().analyzeForBridge(List.of(SourceFile.of("Bad.iron", "package objectapi;\npublic final class Bad {\n    public Bad() {}\n    public static int unsafe() {\n        Bad value = new Bad();\n        ;\n        return value.read();\n    }\n    public int read() { return 1; }\n}\n")));
+            check(!unsafe.valid() && select(unsafe).surface().isEmpty(), "unsafe free admitted in " + "GC");
         }
     }
 
@@ -123,7 +113,7 @@ final class BridgeObjectApiTests {
             for (Path input : List.of(classes, archive)) {
                 var loaded = new SourceSetLoader(List.of(), List.of(input)).loadBridge(List.of(), List.of("objectapi"));
                 check(loaded.diagnostics().isEmpty(), loaded.diagnostics().toString());
-                var actual = select(new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(loaded.sources()));
+                var actual = select(new CompilerPipeline().analyzeForBridge(loaded.sources()));
                 check(actual.surface().isPresent() == expected.surface().isPresent(), "admission changed for " + input);
                 check(actual.diagnostics().stream().map(diagnostic -> diagnostic.message()).toList().equals(
                         expected.diagnostics().stream().map(diagnostic -> diagnostic.message()).toList()),

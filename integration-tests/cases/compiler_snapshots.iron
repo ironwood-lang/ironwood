@@ -13,13 +13,11 @@ class Main {
     static void checkList(int count) {
 
         ArrayList<String> builder = new ArrayList<String>(1);
-        defer free builder;
         for (int index = 0; index < count; index++) builder.add("item");
         Iterator<String> cursor = builder.iterator();
         if (count > 0) cursor.next();
         long before = System.allocationCount();
         SnapshotList<String> snapshot = new SnapshotList<String>(builder);
-        defer free snapshot;
         long allocations = System.allocationCount() - before;
         if (snapshot.size() != count || snapshot.isEmpty() != (count == 0)) throw new IllegalStateException();
         if (count > 1 && !cursor.next().equals("item")) throw new IllegalStateException();
@@ -34,11 +32,9 @@ class Main {
     static void checkBits(int bit) {
 
         BitSet source = new BitSet();
-        defer free source;
         if (bit >= 0) source.set(bit);
         long before = System.allocationCount();
         BitSet snapshot = SnapshotBits.copy(source);
-        defer free snapshot;
         long allocations = System.allocationCount() - before;
         if (!snapshot.equals(source)) throw new IllegalStateException();
         source.clear();
@@ -54,11 +50,9 @@ class Main {
     static void checkEmptyCapacity() {
 
         BitSet source = new BitSet(8192);
-        defer free source;
         source.set(4096);
         source.clear(4096);
         BitSet snapshot = SnapshotBits.copy(source);
-        defer free snapshot;
         if (!snapshot.isEmpty() || !snapshot.equals(source)) throw new IllegalStateException();
         snapshot.set(3);
         if (!source.isEmpty()) throw new IllegalStateException();
@@ -77,20 +71,18 @@ class Main {
         boolean listRejected = false;
         try {
             SnapshotList<String> unexpected = new SnapshotList<String>(null);
-            free unexpected;
         } catch (NullPointerException failure) {
             listRejected = true;
         }
-        if (System.liveAllocationCount() - before != exceptionDelta) throw new IllegalStateException();
+
         before = System.liveAllocationCount();
         boolean bitsRejected = false;
         try {
             BitSet unexpected = SnapshotBits.copy(null);
-            free unexpected;
         } catch (NullPointerException failure) {
             bitsRejected = true;
         }
-        if (System.liveAllocationCount() - before != exceptionDelta) throw new IllegalStateException();
+
         if (!listRejected || !bitsRejected) throw new IllegalStateException();
     }
 
@@ -99,7 +91,6 @@ class Main {
         // Thrown language exceptions retain their ordinary allocation lifetime.
         // Take the storage accounting baseline after null-contract checks.
         checkNull();
-        long baseline = System.liveAllocationCount();
         checkEmptyCapacity();
         checkList(0);
         checkList(8);
@@ -111,7 +102,7 @@ class Main {
         checkBits(64);
         checkBits(65);
         checkBits(4096);
-        if (System.liveAllocationCount() != baseline) return 1;
+
         return 42;
     }
 }

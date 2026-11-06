@@ -10,7 +10,7 @@ import ironwood.ds.IntArrayList;
  * semantics over snapshots. A generic shared empty instance would need an
  * unchecked cast, which Ironwood rejects, so each element type that needs one
  * stores the result of {@link #empty()} in its own process-lived static
- * constant; holders borrow it and never free it. {@code List.of} with one to
+ * constant; holders keep ordinary managed references. {@code List.of} with one to
  * four items has a fixed-arity factory; longer literals fill a builder.
  */
 public final class Lists {
@@ -20,8 +20,7 @@ public final class Lists {
 
     /**
      * Returns a fresh immutable empty list, for a process-lived per-type
-     * constant. The caller owns the list; the temporary builder is freed on
-     * every exit.
+     * constant. The caller owns the list; the temporary builder follows managed reachability.
      *
      * @return the new empty list
      */
@@ -29,13 +28,12 @@ public final class Lists {
 
         ArrayList<E> builder = new ArrayList<E>(1);
         // Retires the builder even if the list's own allocation fails.
-        defer free builder;
         return new SnapshotList<E>(builder);
     }
 
     /**
      * Returns a fresh immutable list holding one borrowed item. The caller
-     * owns the list, not the item; the temporary builder is freed on every exit.
+     * owns the list, not the item; the temporary builder follows managed reachability.
      *
      * @param item the borrowed non-null item
      * @return the new list
@@ -46,7 +44,6 @@ public final class Lists {
         if (item == null) throw new NullPointerException();
         ArrayList<E> builder = new ArrayList<E>(1);
         // Retires the builder even if the list's own allocation fails.
-        defer free builder;
         builder.add(item);
         return new SnapshotList<E>(builder);
     }
@@ -62,7 +59,6 @@ public final class Lists {
         if (first == null || second == null) throw new NullPointerException();
         ArrayList<E> builder = new ArrayList<E>(2);
         // Retires the builder even if the list's own allocation fails.
-        defer free builder;
         builder.add(first);
         builder.add(second);
         return new SnapshotList<E>(builder);
@@ -79,7 +75,6 @@ public final class Lists {
         if (first == null || second == null || third == null) throw new NullPointerException();
         ArrayList<E> builder = new ArrayList<E>(3);
         // Retires the builder even if the list's own allocation fails.
-        defer free builder;
         builder.add(first);
         builder.add(second);
         builder.add(third);
@@ -97,7 +92,6 @@ public final class Lists {
         if (first == null || second == null || third == null || fourth == null) throw new NullPointerException();
         ArrayList<E> builder = new ArrayList<E>(4);
         // Retires the builder even if the list's own allocation fails.
-        defer free builder;
         builder.add(first);
         builder.add(second);
         builder.add(third);
@@ -144,7 +138,6 @@ public final class Lists {
         if (count < 0 || count > source.size()) throw new IndexOutOfBoundsException();
         ArrayList<E> builder = new ArrayList<E>(count > 0 ? count : 1);
         // Retires the builder even if the list's own allocation fails.
-        defer free builder;
         for (int index = 0; index < count; index++) builder.add(source.get(index));
         return new SnapshotList<E>(builder);
     }
@@ -160,7 +153,6 @@ public final class Lists {
         if (count < 0 || count > source.size()) throw new IndexOutOfBoundsException();
         IntArrayList builder = new IntArrayList(count > 0 ? count : 1);
         // Retires the builder even if the copy's own allocation fails.
-        defer free builder;
         for (int index = 0; index < count; index++) builder.add(source.get(index));
         return new SnapshotInts(builder);
     }

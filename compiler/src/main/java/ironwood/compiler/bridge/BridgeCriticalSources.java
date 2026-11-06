@@ -29,17 +29,14 @@ public final class BridgeCriticalSources {
     enum Carrier {
         /** jint status. */
         STATUS,
-        /** jlong address; 1 is never an object address. */
-        ADDRESS,
         /** jlong with the value in its low half; any high bit reports failure. */
         NARROW,
         /** The exact long or double; failure is observed through the pending count. */
         WIDE;
 
-        static Carrier of(boolean address, IrType result) {
-            if (address) return ADDRESS;
+        static Carrier of(IrType result) {
             if (result.equals(IrType.VOID)) return STATUS;
-            if (result.isReference()) throw new IllegalArgumentException("critical result requires a primitive or permanent address");
+            if (result.isReference()) throw new IllegalArgumentException("critical result requires a primitive or void");
             return switch (result.kind()) {
                 case I64, F64 -> WIDE;
                 default -> NARROW;
@@ -73,16 +70,16 @@ public final class BridgeCriticalSources {
 
         Reserved reserve() {
             int index = plan.next++;
-            return new Reserved(index, BridgePermanentJavaSources.unique(occupied, "$ironwood$critical$" + index),
-                    BridgePermanentJavaSources.unique(occupied, "$ironwood$call$" + index));
+            return new Reserved(index, BridgeFacadeSources.unique(occupied, "$ironwood$critical$" + index),
+                    BridgeFacadeSources.unique(occupied, "$ironwood$call$" + index));
         }
 
         /** The helper has the native declaration's exact carriers and selects JNI when no handle was linked. */
         void emit(StringBuilder text, Reserved reserved, String nativeName, List<String> nativeFormals,
                 String nativeResult, Carrier carrier, String throwsClause, String indent) {
             if (value == null) {
-                value = BridgePermanentJavaSources.unique(occupied, "$ironwood$value");
-                failure = BridgePermanentJavaSources.unique(occupied, "$ironwood$failure");
+                value = BridgeFacadeSources.unique(occupied, "$ironwood$value");
+                failure = BridgeFacadeSources.unique(occupied, "$ironwood$failure");
             }
             var carriers = new ArrayList<String>(); var names = new ArrayList<String>();
             for (String formal : nativeFormals) {
@@ -93,7 +90,7 @@ public final class BridgeCriticalSources {
             String arguments = String.join(", ", names);
             String transported = switch (carrier) {
                 case STATUS -> "int";
-                case ADDRESS, NARROW -> "long";
+                case NARROW -> "long";
                 case WIDE -> nativeResult;
             };
             text.append(indent).append("    private static final java.lang.invoke.MethodHandle ").append(reserved.handle()).append(" = ")
@@ -111,7 +108,7 @@ public final class BridgeCriticalSources {
                     .append(plan.type).append(".unexpected(").append(failure).append("); }\n").append(indent).append("        ");
             switch (carrier) {
                 case STATUS -> text.append("if (").append(value).append(" != 0) throw ").append(plan.type).append(".raise();\n");
-                case ADDRESS -> text.append("if (").append(value).append(" == 1L) throw ").append(plan.type).append(".raise();\n");
+
                 case NARROW -> text.append("if (").append(value).append(" >>> 32 != 0L) throw ").append(plan.type).append(".raise();\n");
                 case WIDE -> text.append("if (").append(plan.type).append(".failed()) ").append(plan.type).append(".pending();\n");
             }
@@ -154,15 +151,12 @@ public final class BridgeCriticalSources {
     }
 
     /** Appended after the JNI adapters, whose failure translation it reuses. */
-    static String nativeSupport(int count) {
-        return nativeSupport(count, false);
-    }
 
-    static String nativeSupport(int count, boolean managed) {
+    static String nativeSupport(int count) {
         var table = new StringBuilder();
         for (int index = 0; index < count; index++) table.append(index == 0 ? "" : ", ").append("(void *)iw_critical_").append(index);
         String source = NATIVE.replace("@TABLE@", table).replace("@COUNT@", Integer.toString(count));
-        if (!managed) return source;
+
         return source.replace("iw_critical_pending.status = 0; iw_critical_pending.exception = NULL;",
                 "void *slots[] = {&exception}; struct iw_gc_foreign_root roots __attribute__((cleanup(iw_gc_foreign_root_close))) = {0};\n"
                 + "    if (!iw_gc_foreign_root_open(&roots, slots, 1)) iw_gc_transition_refuse();\n"
@@ -208,7 +202,7 @@ public final class BridgeCriticalSources {
                 void *exception = iw_critical_pending.exception;
                 iw_critical_pending.status = 0; iw_critical_pending.exception = NULL;
                 __atomic_fetch_sub(&iw_critical_failures, 1, __ATOMIC_SEQ_CST);
-                iw_permanent_failure(env, status, exception);
+                iw_managed_failure(env, status, exception);
             }
             """;
 

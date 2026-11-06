@@ -49,14 +49,6 @@ class Main {
         int values = bytes[1] + shorts[1] + chars[1] + ints[1]
                 + (int) (longs[1] >>> 60) + (int) floats[1] + (int) doubles[1];
         boolean storedBoolean = booleans[1];
-        free bytes;
-        free shorts;
-        free chars;
-        free ints;
-        free longs;
-        free floats;
-        free doubles;
-        free booleans;
         if (defaults != 0 || defaultBoolean || !storedBoolean) return -1;
         return values;
     }
@@ -92,13 +84,11 @@ class Main {
         float floatNan = floatInfinity - floatInfinity;
         if (!(infinity > 0.0) || !(negativeInfinity < 0.0) || nan == nan || !(nan != nan)) return 9;
         if (!(floatInfinity > 0.0f) || floatNan == floatNan || (int) floatNan != 0) return 9;
-        if ((int) infinity != 2147483647 || (int) negativeInfinity != -2147483648
-                || (int) nan != 0) {
+        if ((int) infinity != 2147483647 || (int) negativeInfinity != -2147483648 || (int) nan != 0) {
 
             return 10;
         }
-        if ((long) infinity != maximumLong || (long) negativeInfinity != minimumLong
-                || (long) nan != 0L) {
+        if ((long) infinity != maximumLong || (long) negativeInfinity != minimumLong || (long) nan != 0L) {
 
             return 11;
         }
@@ -106,10 +96,7 @@ class Main {
         double negativeZero = -0.0;
         if (negativeZero != 0.0 || !(negativeZero <= 0.0) || !(negativeZero >= 0.0)) return 13;
 
-        if (NumericOverloads.pick(maximumByte) != 1
-                || NumericOverloads.pick(1L) != 2
-                || NumericOverloads.pick(1.0f) != 3
-                || NumericOverloads.pick(1.0) != 4) {
+        if (NumericOverloads.pick(maximumByte) != 1 || NumericOverloads.pick(1L) != 2 || NumericOverloads.pick(1.0f) != 3 || NumericOverloads.pick(1.0) != 4) {
 
             return 14;
         }

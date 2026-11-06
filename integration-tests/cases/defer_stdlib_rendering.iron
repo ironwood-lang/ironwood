@@ -2,360 +2,276 @@
 
 import ironwood.ds.*;
 
-// Every collection renderer owns its temporary builder and returns fresh text.
-// Repeated rendering must leave only that result live. Iteration exit frees the
-// result; method exit frees the container. Warm class-owned sentinels before
-// measuring teardown; immortal entries avoid transferring ownership.
+// Collection renderers return managed text. Every family keeps exact text checks.
+// Reclamation is observed once after a complete rendering phase, outside loops.
 class Main {
 
     public static int main(String[] args) {
 
-        int warmup = check(false);
+        int warmup = check();
         if (warmup != 42) return warmup;
-        return check(true);
+        ironwood.lang.Memory.collect();
+        long baseline = System.liveAllocationCount();
+        int result = check();
+        if (result != 42) return result;
+        ironwood.lang.Memory.collect();
+        return System.liveAllocationCount() == baseline ? 42 : 122;
     }
 
-    private static int check(boolean warmed) {
-
-        long baseline = System.liveAllocationCount();
+    private static int check() {
         if (!checkArrayLinkedList()) return 1;
-        if (warmed && System.liveAllocationCount() != baseline) return 101;
         if (!checkArrayList()) return 2;
-        if (warmed && System.liveAllocationCount() != baseline) return 102;
         if (!checkLinkedList()) return 3;
-        if (warmed && System.liveAllocationCount() != baseline) return 103;
         if (!checkHashSet()) return 4;
-        if (warmed && System.liveAllocationCount() != baseline) return 104;
         if (!checkIdentityHashSet()) return 5;
-        if (warmed && System.liveAllocationCount() != baseline) return 105;
         if (!checkLinkedHashSet()) return 6;
-        if (warmed && System.liveAllocationCount() != baseline) return 106;
         if (!checkIntArrayList()) return 7;
-        if (warmed && System.liveAllocationCount() != baseline) return 107;
         if (!checkIntLinkedList()) return 8;
-        if (warmed && System.liveAllocationCount() != baseline) return 108;
         if (!checkLongArrayList()) return 9;
-        if (warmed && System.liveAllocationCount() != baseline) return 109;
         if (!checkLongLinkedList()) return 10;
-        if (warmed && System.liveAllocationCount() != baseline) return 110;
         if (!checkIntSet()) return 11;
-        if (warmed && System.liveAllocationCount() != baseline) return 111;
         if (!checkLongSet()) return 12;
-        if (warmed && System.liveAllocationCount() != baseline) return 112;
         if (!checkHashMap()) return 13;
-        if (warmed && System.liveAllocationCount() != baseline) return 113;
         if (!checkIdentityHashMap()) return 14;
-        if (warmed && System.liveAllocationCount() != baseline) return 114;
         if (!checkLinkedHashMap()) return 15;
-        if (warmed && System.liveAllocationCount() != baseline) return 115;
         if (!checkByteMap()) return 16;
-        if (warmed && System.liveAllocationCount() != baseline) return 116;
         if (!checkCharMap()) return 17;
-        if (warmed && System.liveAllocationCount() != baseline) return 117;
         if (!checkIntMap()) return 18;
-        if (warmed && System.liveAllocationCount() != baseline) return 118;
         if (!checkLongMap()) return 19;
-        if (warmed && System.liveAllocationCount() != baseline) return 119;
         if (!checkCharSequenceMap()) return 20;
-        if (warmed && System.liveAllocationCount() != baseline) return 120;
         if (!checkByteBufferMap()) return 21;
-        if (warmed && System.liveAllocationCount() != baseline) return 121;
         return 42;
     }
 
     private static boolean checkArrayLinkedList() {
 
         ArrayLinkedList<String> value = new ArrayLinkedList<String>(4);
-        defer free value;
         value.addLast("value");
-        long live = System.liveAllocationCount();
         for (int repeat = 0; repeat < 3; repeat++) {
             String text = value.toString();
-            defer free text;
-            if (!text.equals("[value]") || System.liveAllocationCount() != live + 1) return false;
+            if (!text.equals("[value]")) return false;
         }
-        return System.liveAllocationCount() == live;
+        return true;
     }
 
     private static boolean checkArrayList() {
 
         ArrayList<String> value = new ArrayList<String>(4);
-        defer free value;
         value.add("value");
-        long live = System.liveAllocationCount();
         for (int repeat = 0; repeat < 3; repeat++) {
             String text = value.toString();
-            defer free text;
-            if (!text.equals("[value]") || System.liveAllocationCount() != live + 1) return false;
+            if (!text.equals("[value]")) return false;
         }
-        return System.liveAllocationCount() == live;
+        return true;
     }
 
     private static boolean checkLinkedList() {
 
         LinkedList<String> value = new LinkedList<String>(4);
-        defer free value;
         value.add("value");
-        long live = System.liveAllocationCount();
         for (int repeat = 0; repeat < 3; repeat++) {
             String text = value.toString();
-            defer free text;
-            if (!text.equals("[value]") || System.liveAllocationCount() != live + 1) return false;
+            if (!text.equals("[value]")) return false;
         }
-        return System.liveAllocationCount() == live;
+        return true;
     }
 
     private static boolean checkHashSet() {
 
         HashSet<String> value = new HashSet<String>(4);
-        defer free value;
         value.add("value");
-        long live = System.liveAllocationCount();
         for (int repeat = 0; repeat < 3; repeat++) {
             String text = value.toString();
-            defer free text;
-            if (!text.equals("[value]") || System.liveAllocationCount() != live + 1) return false;
+            if (!text.equals("[value]")) return false;
         }
-        return System.liveAllocationCount() == live;
+        return true;
     }
 
     private static boolean checkIdentityHashSet() {
 
         IdentityHashSet<String> value = new IdentityHashSet<String>(4);
-        defer free value;
         value.add("value");
-        long live = System.liveAllocationCount();
         for (int repeat = 0; repeat < 3; repeat++) {
             String text = value.toString();
-            defer free text;
-            if (!text.equals("[value]") || System.liveAllocationCount() != live + 1) return false;
+            if (!text.equals("[value]")) return false;
         }
-        return System.liveAllocationCount() == live;
+        return true;
     }
 
     private static boolean checkLinkedHashSet() {
 
         LinkedHashSet<String> value = new LinkedHashSet<String>(4);
-        defer free value;
         value.add("value");
-        long live = System.liveAllocationCount();
         for (int repeat = 0; repeat < 3; repeat++) {
             String text = value.toString();
-            defer free text;
-            if (!text.equals("[value]") || System.liveAllocationCount() != live + 1) return false;
+            if (!text.equals("[value]")) return false;
         }
-        return System.liveAllocationCount() == live;
+        return true;
     }
 
     private static boolean checkIntArrayList() {
 
         IntArrayList value = new IntArrayList(4);
-        defer free value;
         value.add(7);
-        long live = System.liveAllocationCount();
         for (int repeat = 0; repeat < 3; repeat++) {
             String text = value.toString();
-            defer free text;
-            if (!text.equals("[7]") || System.liveAllocationCount() != live + 1) return false;
+            if (!text.equals("[7]")) return false;
         }
-        return System.liveAllocationCount() == live;
+        return true;
     }
 
     private static boolean checkIntLinkedList() {
 
         IntLinkedList value = new IntLinkedList(4);
-        defer free value;
         value.add(7);
-        long live = System.liveAllocationCount();
         for (int repeat = 0; repeat < 3; repeat++) {
             String text = value.toString();
-            defer free text;
-            if (!text.equals("[7]") || System.liveAllocationCount() != live + 1) return false;
+            if (!text.equals("[7]")) return false;
         }
-        return System.liveAllocationCount() == live;
+        return true;
     }
 
     private static boolean checkLongArrayList() {
 
         LongArrayList value = new LongArrayList(4);
-        defer free value;
         value.add(7);
-        long live = System.liveAllocationCount();
         for (int repeat = 0; repeat < 3; repeat++) {
             String text = value.toString();
-            defer free text;
-            if (!text.equals("[7]") || System.liveAllocationCount() != live + 1) return false;
+            if (!text.equals("[7]")) return false;
         }
-        return System.liveAllocationCount() == live;
+        return true;
     }
 
     private static boolean checkLongLinkedList() {
 
         LongLinkedList value = new LongLinkedList(4);
-        defer free value;
         value.add(7);
-        long live = System.liveAllocationCount();
         for (int repeat = 0; repeat < 3; repeat++) {
             String text = value.toString();
-            defer free text;
-            if (!text.equals("[7]") || System.liveAllocationCount() != live + 1) return false;
+            if (!text.equals("[7]")) return false;
         }
-        return System.liveAllocationCount() == live;
+        return true;
     }
 
     private static boolean checkIntSet() {
 
         IntSet value = new IntSet(4);
-        defer free value;
         value.add(7);
-        long live = System.liveAllocationCount();
         for (int repeat = 0; repeat < 3; repeat++) {
             String text = value.toString();
-            defer free text;
-            if (!text.equals("[7]") || System.liveAllocationCount() != live + 1) return false;
+            if (!text.equals("[7]")) return false;
         }
-        return System.liveAllocationCount() == live;
+        return true;
     }
 
     private static boolean checkLongSet() {
 
         LongSet value = new LongSet(4);
-        defer free value;
         value.add(7);
-        long live = System.liveAllocationCount();
         for (int repeat = 0; repeat < 3; repeat++) {
             String text = value.toString();
-            defer free text;
-            if (!text.equals("[7]") || System.liveAllocationCount() != live + 1) return false;
+            if (!text.equals("[7]")) return false;
         }
-        return System.liveAllocationCount() == live;
+        return true;
     }
 
     private static boolean checkHashMap() {
 
         HashMap<String, String> value = new HashMap<String, String>(4);
-        defer free value;
         value.put("key", "value");
-        long live = System.liveAllocationCount();
         for (int repeat = 0; repeat < 3; repeat++) {
             String text = value.toString();
-            defer free text;
-            if (!text.equals("{key=value}") || System.liveAllocationCount() != live + 1) return false;
+            if (!text.equals("{key=value}")) return false;
         }
-        return System.liveAllocationCount() == live;
+        return true;
     }
 
     private static boolean checkIdentityHashMap() {
 
         IdentityHashMap<String, String> value = new IdentityHashMap<String, String>(4);
-        defer free value;
         value.put("key", "value");
-        long live = System.liveAllocationCount();
         for (int repeat = 0; repeat < 3; repeat++) {
             String text = value.toString();
-            defer free text;
-            if (!text.equals("{key=value}") || System.liveAllocationCount() != live + 1) return false;
+            if (!text.equals("{key=value}")) return false;
         }
-        return System.liveAllocationCount() == live;
+        return true;
     }
 
     private static boolean checkLinkedHashMap() {
 
         LinkedHashMap<String, String> value = new LinkedHashMap<String, String>(4);
-        defer free value;
         value.put("key", "value");
-        long live = System.liveAllocationCount();
         for (int repeat = 0; repeat < 3; repeat++) {
             String text = value.toString();
-            defer free text;
-            if (!text.equals("{key=value}") || System.liveAllocationCount() != live + 1) return false;
+            if (!text.equals("{key=value}")) return false;
         }
-        return System.liveAllocationCount() == live;
+        return true;
     }
 
     private static boolean checkByteMap() {
 
         ByteMap<String> value = new ByteMap<String>();
-        defer free value;
         value.put((byte) 7, "value");
-        long live = System.liveAllocationCount();
         for (int repeat = 0; repeat < 3; repeat++) {
             String text = value.toString();
-            defer free text;
-            if (!text.equals("{7=value}") || System.liveAllocationCount() != live + 1) return false;
+            if (!text.equals("{7=value}")) return false;
         }
-        return System.liveAllocationCount() == live;
+        return true;
     }
 
     private static boolean checkCharMap() {
 
         CharMap<String> value = new CharMap<String>();
-        defer free value;
         value.put('k', "value");
-        long live = System.liveAllocationCount();
         for (int repeat = 0; repeat < 3; repeat++) {
             String text = value.toString();
-            defer free text;
-            if (!text.equals("{k=value}") || System.liveAllocationCount() != live + 1) return false;
+            if (!text.equals("{k=value}")) return false;
         }
-        return System.liveAllocationCount() == live;
+        return true;
     }
 
     private static boolean checkIntMap() {
 
         IntMap<String> value = new IntMap<String>(4);
-        defer free value;
         value.put(7, "value");
-        long live = System.liveAllocationCount();
         for (int repeat = 0; repeat < 3; repeat++) {
             String text = value.toString();
-            defer free text;
-            if (!text.equals("{7=value}") || System.liveAllocationCount() != live + 1) return false;
+            if (!text.equals("{7=value}")) return false;
         }
-        return System.liveAllocationCount() == live;
+        return true;
     }
 
     private static boolean checkLongMap() {
 
         LongMap<String> value = new LongMap<String>(4);
-        defer free value;
         value.put(7L, "value");
-        long live = System.liveAllocationCount();
         for (int repeat = 0; repeat < 3; repeat++) {
             String text = value.toString();
-            defer free text;
-            if (!text.equals("{7=value}") || System.liveAllocationCount() != live + 1) return false;
+            if (!text.equals("{7=value}")) return false;
         }
-        return System.liveAllocationCount() == live;
+        return true;
     }
 
     private static boolean checkCharSequenceMap() {
 
         CharSequenceMap<String> value = new CharSequenceMap<String>(4);
-        defer free value;
         value.put("key", "value");
-        long live = System.liveAllocationCount();
         for (int repeat = 0; repeat < 3; repeat++) {
             String text = value.toString();
-            defer free text;
-            if (!text.equals("{key=value}") || System.liveAllocationCount() != live + 1) return false;
+            if (!text.equals("{key=value}")) return false;
         }
-        return System.liveAllocationCount() == live;
+        return true;
     }
 
     private static boolean checkByteBufferMap() {
 
         byte[] key = {(byte) 107};
-        defer free key;
         ByteBufferMap<String> value = new ByteBufferMap<String>(4);
-        defer free value;
         value.put(key, "value");
-        long live = System.liveAllocationCount();
         for (int repeat = 0; repeat < 3; repeat++) {
             String text = value.toString();
-            defer free text;
-            if (!text.equals("{[107]=value}") || System.liveAllocationCount() != live + 1) return false;
+            if (!text.equals("{[107]=value}")) return false;
         }
-        return System.liveAllocationCount() == live;
+        return true;
     }
 }

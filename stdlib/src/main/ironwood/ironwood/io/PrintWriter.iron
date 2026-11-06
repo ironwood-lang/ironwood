@@ -174,7 +174,6 @@ public class PrintWriter extends Writer {
         }
         String rendered = value.toString();
         writeText(rendered);
-        releaseRenderedString(value, rendered);
     }
     /** Performs the println operation. */
 
@@ -285,9 +284,6 @@ public class PrintWriter extends Writer {
         this.trouble = false;
     }
 
-    private static void releaseRenderedString(Object value, String rendered) {
-
-    }
     /** Closes this resource. */
 
     @Override

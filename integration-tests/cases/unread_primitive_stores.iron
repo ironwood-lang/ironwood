@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-// Exit 42 proves that deleting unread stores preserves effects, null failures,
-// inherited/hidden live fields, generic storage, virtual reads and destruction.
 class StoreBase {
 
     int live;
@@ -54,8 +52,6 @@ class StoreCell<T> {
 }
 
 class StoreObserved {
-
-    static int destroyed;
     int observed;
 
     StoreObserved(int value) {
@@ -63,10 +59,6 @@ class StoreObserved {
         this.observed = value;
     }
 
-    destructor {
-
-        destroyed++;
-    }
 }
 
 class Main {
@@ -95,13 +87,9 @@ class Main {
     static int run() {
 
         StoreChild child = new StoreChild();
-        defer free child;
         StoreCell<int> number = new StoreCell<int>(9);
-        defer free number;
         StoreCell<String> text = new StoreCell<String>("reference");
-        defer free text;
         StoreObserved watch = new StoreObserved(7);
-        defer free watch;
         store(child);
         try {
             store(null);
@@ -127,6 +115,6 @@ class Main {
     public static int main(String[] args) {
 
         int result = run();
-        return result == 42 && StoreObserved.destroyed == 1 ? 42 : 6;
+        return result == 42 ? 42 : 6;
     }
 }

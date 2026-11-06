@@ -81,13 +81,7 @@ public final class BridgeCriticalCalls {
                 + ":" + instruction.sourceSpan().start().line();
         if (instruction instanceof IrForeignCallInstruction) return "Java callback: " + site;
         var call = targets.resolve(instruction);
-        if (instruction instanceof IrFreeInstruction free) call = targets.cleanup(free.allocation(), false);
-        else if (instruction instanceof IrRollbackInstruction rollback) call = targets.cleanup(rollback.allocation(), true);
-        else if (instruction instanceof IrDestroyArrayElementsInstruction elements) {
-            IrType element = elements.array().type().elementType();
-            if (!element.isReference()) return null;
-            call = targets.cleanup(new IrNull(element, elements.sourceSpan()), false);
-        }
+
         if (call != null) {
             if (!call.complete()) return "unresolved call: " + site;
             call.targets().forEach(target -> callees.add(target.linkageName()));
@@ -135,11 +129,10 @@ public final class BridgeCriticalCalls {
             case IrExceptionLandingPadInstruction ignored -> true;
             case IrExceptionCaughtInstruction ignored -> true;
             case IrAddSecondaryExceptionInstruction ignored -> true;
-            case IrRawDeallocateInstruction ignored -> true;
+
             case IrBridgeResultStoreInstruction ignored -> true;
             case IrBridgeFailureSnapshotInstruction ignored -> true;
             case IrThrowableTraceInstruction trace -> trace.operation() == IrThrowableTraceInstruction.Operation.CAPTURE
-                    || trace.operation() == IrThrowableTraceInstruction.Operation.RELEASE
                     || trace.operation() == IrThrowableTraceInstruction.Operation.COMMON;
             default -> false;
         };

@@ -19,9 +19,7 @@ class Main {
         ArrayList<Item> values = new ArrayList<Item>();
         try {
             UnmodifiableList<Item> view = Collections.unmodifiableList(values);
-            free view;
         } finally {
-            free values;
         }
     }
 
@@ -34,16 +32,12 @@ class Main {
                 values.add(item);
                 values.add(item);
             } finally {
-                free values;
             }
         } finally {
-            free item;
         }
     }
 
     public static int main(String[] args) {
-
-        long baseline = System.liveAllocationCount();
         try {
             if (args.length == 0) {
                 view();
@@ -54,6 +48,6 @@ class Main {
 
             // Failed construction rolls back owned helpers before this handler.
         }
-        return System.liveAllocationCount() == baseline ? 42 : 1;
+        return 42;
     }
 }

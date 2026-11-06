@@ -9,7 +9,7 @@ import ironwood.util.NoSuchElementException;
  * borrowed and must stay alive under their real owners while queued; taking
  * an item removes only membership. Consumed slots are reused, so the backing
  * storage is bounded by the largest simultaneous membership rather than by
- * every historical request. Destruction reclaims only the ring.
+ * every historical request. The ring follows ordinary managed reachability.
  */
 public final class WorkQueue<E extends Object> {
 
@@ -71,7 +71,7 @@ public final class WorkQueue<E extends Object> {
         return this.count;
     }
 
-    /** Removes all membership; queued items are not freed. */
+    /** Removes all membership; queued items retain ordinary managed lifetime. */
     public void clear() {
 
         this.head = 0;
@@ -90,11 +90,6 @@ public final class WorkQueue<E extends Object> {
         System.arraycopy(previous, this.head, this.slots, 0, tail);
         System.arraycopy(previous, 0, this.slots, tail, this.head);
         this.head = 0;
-        free previous;
     }
 
-    destructor {
-
-        free this.slots;
-    }
 }

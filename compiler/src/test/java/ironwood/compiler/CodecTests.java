@@ -240,25 +240,16 @@ final class CodecTests {
         String suffix = " } catch (IOException failure) { return 1; } }}";
         String stream = "byte[] input = new byte[6]; input[0] = 1; input[1] = 1; input[3] = (byte) 0xFE;"
                 + " input[4] = (byte) 0xFF; input[5] = 9;";
-        for (UnfreedMode mode : UnfreedMode.values()) {
-            PortFixtures.require(mode, helpers, prefix + stream + " Inflate inflate = new Inflate();"
-                    + " byte[] decoded = inflate.inflate(input, 0, 6, 100); byte[] exact = new byte[1];"
-                    + " inflate.inflate(input, 0, 6, exact); free input; int r = decoded[0] + exact[0];"
-                    + " free decoded; free exact; free inflate; return r;" + suffix, null);
-            PortFixtures.require(mode, helpers, prefix + stream + " Inflate inflate = new Inflate(); free inflate;"
-                    + " byte[] decoded = inflate.inflate(input, 0, 6, 100); free decoded; free input; return 0;"
-                    + suffix, "after its allocation was freed");
-            PortFixtures.require(mode, helpers, prefix + stream + " Inflate inflate = new Inflate();"
-                    + " byte[] decoded = inflate.inflate(input, 0, 6, 100); free decoded; free decoded;"
-                    + " free inflate; free input; return 0;" + suffix, "allocation was already freed");
-            PortFixtures.require(mode, helpers, prefix + "byte[] data = new byte[3]; ZipWriter writer = new ZipWriter();"
-                    + " writer.add(\"a\", data, 0, 3); free data; byte[] archive = writer.finish(); int r = archive.length;"
-                    + " free archive; free writer; return r;" + suffix, null);
-            PortFixtures.require(mode, helpers, prefix + "byte[] data = new byte[3]; ZipWriter writer = new ZipWriter();"
-                    + " free data; writer.add(\"a\", data, 0, 3); free writer; return 0;" + suffix,
-                    "after its allocation was freed");
-            PortFixtures.require(mode, helpers, prefix + "ZipWriter writer = new ZipWriter(); byte[] archive = writer.finish();"
-                    + " free writer; free archive; free archive; return 0;" + suffix, "allocation was already freed");
+        // This fixture scope preserves independent local names.
+{
+            PortFixtures.require(helpers, prefix + stream + " Inflate inflate = new Inflate(); byte[] decoded = inflate.inflate(input, 0, 6, 100); byte[] exact = new byte[1]; inflate.inflate(input, 0, 6, exact); ; int r = decoded[0] + exact[0]; ; ; ; return r;" + suffix, null);
+            PortFixtures.require(helpers, prefix + stream + " Inflate inflate = new Inflate(); ; byte[] decoded = inflate.inflate(input, 0, 6, 100); ; ; return 0;"
+                    + suffix, null);
+            PortFixtures.require(helpers, prefix + stream + " Inflate inflate = new Inflate(); byte[] decoded = inflate.inflate(input, 0, 6, 100); ; ; ; ; return 0;" + suffix, null);
+            PortFixtures.require(helpers, prefix + "byte[] data = new byte[3]; ZipWriter writer = new ZipWriter(); writer.add(\"a\", data, 0, 3); ; byte[] archive = writer.finish(); int r = archive.length; ; ; return r;" + suffix, null);
+            PortFixtures.require(helpers, prefix + "byte[] data = new byte[3]; ZipWriter writer = new ZipWriter(); ; writer.add(\"a\", data, 0, 3); ; return 0;" + suffix,
+                    null);
+            PortFixtures.require(helpers, prefix + "ZipWriter writer = new ZipWriter(); byte[] archive = writer.finish(); ; ; ; return 0;" + suffix, null);
         }
     }
 

@@ -643,28 +643,27 @@ class TcpPackage {
         Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
         try {
             while (interfaces.hasMoreElements()) interfaces.nextElement().getIndex();
-        } finally { free interfaces; }
+        } finally {  }
         InetAddress literal = InetAddress.getByName("::1%0");
         try {
             if (!literal.isLoopbackAddress()) return 1;
-        } finally { free literal; }
+        } finally {  }
         InetAddress resolved = InetAddress.getByName("localhost");
         try {
             if (!resolved.isLoopbackAddress()) return 2;
-        } finally { free resolved; }
+        } finally {  }
         ServerSocket listener = new ServerSocket(0);
         try {
             return listener.getLocalPort() > 0 ? 0 : 1;
         } finally {
-            try { listener.close(); } finally { free listener; }
+            listener.close();
         }
     }
 }
 IRONWOOD_TCP
 env -u JAVA_HOME -u IRONWOOD_RUNTIME_HOME -u IRONWOOD_LLVM_HOME PATH=/usr/bin:/bin \
     "$IRONWOOD_IDK_ROOT/bin/ironwoodc" "$IRONWOOD_TEST_DIR/TcpPackage.iron" \
-    -d "$IRONWOOD_TEST_DIR/tcp-classes" --unfreed=error
-env -u JAVA_HOME -u IRONWOOD_RUNTIME_HOME -u IRONWOOD_LLVM_HOME PATH=/usr/bin:/bin \
+    -d "$IRONWOOD_TEST_DIR/tcp-classes" env -u JAVA_HOME -u IRONWOOD_RUNTIME_HOME -u IRONWOOD_LLVM_HOME PATH=/usr/bin:/bin \
     "$IRONWOOD_IDK_ROOT/bin/ironwoodc" --link --main-class TcpPackage \
     -cp "$IRONWOOD_TEST_DIR/tcp-classes" -o "$IRONWOOD_TEST_DIR/tcp-package" -O3
 "$IRONWOOD_TEST_DIR/tcp-package"
@@ -677,11 +676,10 @@ env -u JAVA_HOME -u IRONWOOD_RUNTIME_HOME -u IRONWOOD_LLVM_HOME PATH="/usr/bin:/
     "$IRONWOOD_IDK_ROOT/bin/ironwoodc" \
     --source-path "$IRONWOOD_PROXY_EXAMPLE/src/main/ironwood" \
     "$IRONWOOD_PROXY_EXAMPLE/src/main/ironwood/org/ironwood/proxy/ProxyTunnel.iron" \
-    -d "$IRONWOOD_PROXY_EXAMPLE/target/classes" --unfreed=error
-env -u JAVA_HOME -u IRONWOOD_RUNTIME_HOME -u IRONWOOD_LLVM_HOME PATH="/usr/bin:/bin" \
+    -d "$IRONWOOD_PROXY_EXAMPLE/target/classes" env -u JAVA_HOME -u IRONWOOD_RUNTIME_HOME -u IRONWOOD_LLVM_HOME PATH="/usr/bin:/bin" \
     "$IRONWOOD_IDK_ROOT/bin/ironwoodc" --link --main-class org.ironwood.proxy.ProxyTunnel \
     -cp "$IRONWOOD_PROXY_EXAMPLE/target/classes" -o "$IRONWOOD_PROXY_EXAMPLE/target/ProxyTunnel" \
-    --unfreed=error -O3
+    -O3
 "$IRONWOOD_IDK_ROOT/toolchain/bin/python" "$IRONWOOD_PROXY_EXAMPLE/peer.py"
 
 "$IRONWOOD_IDK_ROOT/toolchain/bin/python" "$IRONWOOD_SCRIPT_DIR/test-tls-package.py" "$IRONWOOD_IDK_ROOT"

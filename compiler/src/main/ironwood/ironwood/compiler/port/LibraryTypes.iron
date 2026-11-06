@@ -77,10 +77,8 @@ public final class LibraryTypes {
 
         try {
             IronJarArchive archive = new IronJarArchive(path, inflate);
-            defer free archive;
             for (int type = 0; type < archive.typeCount(); type++) {
                 String name = archive.type(type);
-                defer free name;
                 this.add(name);
             }
         } catch (IOException skipped) {
@@ -94,17 +92,12 @@ public final class LibraryTypes {
 
         try {
             FileCollector files = new FileCollector(root, extension);
-            defer free files;
             String spelling = root.toString();
             for (int index = 0; index < files.size(); index++) {
                 String relative = files.relative(index, spelling);
-                defer free relative;
                 String stem = relative.substring(0, relative.length() - extension.length());
-                defer free stem;
                 String slashed = stem.replace('\\', '/');
-                defer free slashed;
                 String name = slashed.replace('/', '.');
-                defer free name;
                 if (!name.isBlank()) this.add(name);
             }
         } catch (IOException skipped) {
@@ -113,8 +106,4 @@ public final class LibraryTypes {
         }
     }
 
-    destructor {
-
-        free this.types;
-    }
 }

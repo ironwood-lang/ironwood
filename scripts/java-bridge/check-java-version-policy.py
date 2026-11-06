@@ -151,7 +151,7 @@ def main():
         directory.mkdir()
         jar = directory / "version-probe.jar"
         run(directory, "producer", [jdks[21]["java"], "-cp", compiler, "ironwood.compiler.Main",
-            "--java-bridge", "--export", "versionprobe", "--unfreed=off", "-" + level,
+            "--java-bridge", "--export", "versionprobe", "-" + level,
             "-o", jar, Path(__file__).with_name("VersionProbe.iron")])
         manifest = properties(jar)
         if manifest["java.supported"] != "21,22,23,24,25":

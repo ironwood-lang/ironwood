@@ -17,13 +17,9 @@ public class ProxyTunnel {
     private static Socket configured(int port, boolean http) {
 
         InetSocketAddress endpoint = new InetSocketAddress("127.0.0.1", port);
-        defer free endpoint;
         byte[] user = {100, 101, 109, 111};
-        defer free user;
         byte[] password = {112, 97, 115, 115};
-        defer free password;
         Proxy proxy = route(endpoint, user, password, http);
-        defer free proxy;
         // Each connection owns a separate copy. All original
         // configuration below is reclaimed before connecting.
         return new Socket(proxy);
@@ -33,12 +29,9 @@ public class ProxyTunnel {
 
         if (args.length != 2) return 2;
         Socket socket = configured(Integer.parseInt(args[1]), args[0].equals("http"));
-        // close releases the TCP resource; free reclaims the socket graph.
-        defer free socket;
         defer socket.close();
         // The destination is deliberately unresolved: the proxy resolves it.
         InetSocketAddress target = InetSocketAddress.createUnresolved("service.invalid", 80);
-        defer free target;
         socket.connect(target, 2000);
         socket.setSoTimeout(2000);
         socket.getOutputStream().write(42);
@@ -46,7 +39,6 @@ public class ProxyTunnel {
         socket.shutdownOutput();
         if (socket.getInputStream().read() != -1) return 3;
         SocketAddress remote = socket.getRemoteSocketAddress();
-        defer free remote;
         if (!((InetSocketAddress) remote).getHostString().equals("service.invalid")) return 4;
         System.out.print("Tunnel reply: ");
         System.out.println(reply);

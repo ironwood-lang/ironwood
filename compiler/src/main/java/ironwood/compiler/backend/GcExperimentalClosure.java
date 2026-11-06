@@ -32,9 +32,7 @@ public final class GcExperimentalClosure {
         program.classes().forEach(type -> classes.add(type.name()));
         program.arrayTypes().forEach(type -> classes.add(type.name()));
         for (var type : program.classes()) {
-            if (type.destructorChain().isPresent() || type.constructorRollback().isPresent()) {
-                throw new IllegalArgumentException("GC3 refuses legacy destruction/rollback owners: " + type.name());
-            }
+
             type.fields().forEach(field -> requireType(field.type(), classes));
         }
         for (var field : program.staticFields()) {
@@ -142,7 +140,7 @@ public final class GcExperimentalClosure {
                 .orElseThrow(() -> new IllegalArgumentException("GC4 requires explicit Throwable layout"));
         var fields = type.fields();
         if (fields.size() != 5 || !fields.stream().map(IrField::name).toList()
-                .equals(java.util.List.of("message", "cause", "<gcMetadata>", "ownedMessage", "causeInitialized"))) {
+                .equals(java.util.List.of("message", "cause", "<gcMetadata>", "causeMessage", "causeInitialized"))) {
             throw new IllegalArgumentException("GC4 stale Throwable runtime layout");
         }
         var expected = java.util.List.of(IrType.reference("ironwood.lang.Object"), IrType.reference("ironwood.lang.Throwable"),

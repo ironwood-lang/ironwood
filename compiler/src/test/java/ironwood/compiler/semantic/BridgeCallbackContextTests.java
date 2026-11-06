@@ -3,7 +3,6 @@
 package ironwood.compiler.semantic;
 
 import ironwood.compiler.CompilerPipeline;
-import ironwood.compiler.UnfreedMode;
 import ironwood.compiler.bridge.BridgeCallableId;
 import ironwood.compiler.bridge.BridgeListenerProxies;
 import ironwood.compiler.bridge.BridgeRootSet;
@@ -39,7 +38,7 @@ public final class BridgeCallbackContextTests {
 
     public static void proofs() {
         var sources = List.of(SourceFile.of("Listener.iron", SOURCE));
-        var pipeline = new CompilerPipeline(UnfreedMode.ERROR);
+        var pipeline = new CompilerPipeline();
         var initial = pipeline.analyzeForBridge(sources);
         check(initial.valid(), initial.diagnostics().toString());
         var proxies = BridgeListenerProxies.discover(initial, List.of("contextfixture"));
@@ -104,12 +103,7 @@ public final class BridgeCallbackContextTests {
     }
 
     private static void implicitPaths() {
-        var artifact = new CompilerPipeline(UnfreedMode.ERROR).analyzeForBridge(List.of(SourceFile.of("Hooks.iron", """
-                class Hooks { static int fire() { return 1; } }
-                class Cold { static int value = Hooks.fire(); static int read() { return 42; } }
-                class Cleanup { destructor { Hooks.fire(); } }
-                class Caller { static void run() { Cleanup value = new Cleanup(); free value; } }
-                """)));
+        var artifact = new CompilerPipeline().analyzeForBridge(List.of(SourceFile.of("Hooks.iron", "class Hooks { static int fire() { return 1; } }\nclass Cold { static int value = Hooks.fire(); static int read() { return 42; } }\nclass Cleanup {  }\nclass Caller { static void run() { Cleanup value = new Cleanup(); ; } }\n")));
         check(artifact.valid(), artifact.diagnostics().toString());
         var original = artifact.program().orElseThrow();
         var hook = function(original, "fire");

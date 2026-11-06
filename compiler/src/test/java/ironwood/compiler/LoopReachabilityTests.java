@@ -116,7 +116,7 @@ final class LoopReachabilityTests {
                 }
                 """);
         // Lowering terminates impossible exits; later passes may remove those blocks.
-        CompilationArtifact analyzed = new CompilerPipeline(UnfreedMode.OFF).analyze(List.of(source));
+        CompilationArtifact analyzed = new CompilerPipeline().analyze(List.of(source));
         require(analyzed.valid(), analyzed.diagnostics().toString());
         for (var function : endlessLoops(analyzed)) {
             require(function.blocks().stream().noneMatch(block ->
@@ -128,7 +128,7 @@ final class LoopReachabilityTests {
                     "missing terminated unreachable exit: " + function.sourceName());
         }
 
-        CompilationArtifact optimized = new CompilerPipeline(UnfreedMode.OFF).compile(source);
+        CompilationArtifact optimized = new CompilerPipeline().compile(source);
         require(optimized.successful(), optimized.diagnostics().toString());
         for (var function : endlessLoops(optimized)) {
             var labels = function.blocks().stream().map(block -> block.label()).toList();
@@ -145,16 +145,16 @@ final class LoopReachabilityTests {
                 + "static int value() { Box value = new Box(); ";
         for (String loop : List.of("while (true)", "for (;;)", "do")) {
             String suffix = loop.equals("do") ? " while (true);" : "";
-            String freed = prefix + loop + " { free value; break; }" + suffix;
+            String freed = prefix + loop + " { ; break; }" + suffix;
             CompilationArtifact safe = compile(freed + " return 42; } }");
             require(safe.successful(), safe.diagnostics().toString());
-            for (String tail : List.of("return value.number;", "free value; return 42;")) {
+            for (String tail : List.of("return value.number;", "; return 42;")) {
                 CompilationArtifact unsafe = compile(freed + tail + " } }");
                 require(!unsafe.successful() && unsafe.diagnostics().stream().anyMatch(diagnostic ->
                                 diagnostic.isError() && diagnostic.message().contains("freed")),
                         "reused freed allocation was accepted: " + unsafe.diagnostics());
             }
-            CompilationArtifact backEdge = compile(prefix + loop + " { free value; continue; }"
+            CompilationArtifact backEdge = compile(prefix + loop + " { ; continue; }"
                     + suffix + " } }");
             require(!backEdge.successful() && backEdge.diagnostics().stream().anyMatch(diagnostic ->
                             diagnostic.isError() && diagnostic.message().contains("loop back edge")),
@@ -172,7 +172,7 @@ final class LoopReachabilityTests {
     }
 
     private static CompilationArtifact compile(String source) {
-        return new CompilerPipeline(UnfreedMode.OFF).compile(SourceFile.of("test/Main.iron", source));
+        return new CompilerPipeline().compile(SourceFile.of("test/Main.iron", source));
     }
 
     private static void require(boolean condition, String message) {

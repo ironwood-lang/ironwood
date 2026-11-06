@@ -17,7 +17,6 @@ public final class NativeBench {
         int size = Integer.parseInt(args[1]);
         int iterations = Integer.parseInt(args[2]);
         int[] values = new int[size];
-        defer free values;
         System.out.println("scenario,operation,size,sample,calls,elapsed_ns,checksum,native_allocations,java_bytes");
         for (int sample = -3; sample < 7; sample++) {
             int seed = 17;
@@ -36,7 +35,6 @@ public final class NativeBench {
                 } else {
                     int[] result = ArrayOps.fresh(size, seed);
                     checksum += result[size - 1];
-                    free result;
                 }
             }
             long elapsed = System.nanoTime() - start;

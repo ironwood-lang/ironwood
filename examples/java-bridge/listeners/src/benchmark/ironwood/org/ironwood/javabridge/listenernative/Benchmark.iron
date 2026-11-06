@@ -9,7 +9,6 @@ import org.ironwood.javabridge.listeners.ResultProcessor;
 public final class Benchmark {
 
     // One process-lifetime listener, reused for all samples. Registration escapes
-    // the reference, so this driver does not claim a source free proof for it.
     private static final Collector LISTENER = new Collector();
 
     private Benchmark() {
@@ -26,7 +25,6 @@ public final class Benchmark {
         Collector listener = LISTENER;
         ResultProcessor processor = new ResultProcessor();
         // The processor is reclaimed; its registered listener has static lifetime.
-        defer free processor;
         processor.setListener(listener);
         System.out.println("scenario,sample,events,elapsed_ns,checksum,last_value,native_allocations,java_bytes");
         for (int sample = -warmups; sample < samples; sample++) {

@@ -38,10 +38,8 @@ final class BridgePackageManifest {
     static byte[] create(BridgeGeneration generation, BridgeGeneration.NativeBuild build, BridgeJavaSources java,
             Map<String, String> platform, String imagePath, Map<String, byte[]> entries) {
         var properties = new TreeMap<>(generation.manifest());
-        if (generation.managedHeap()) {
-            BridgeGeneration.validateManagedBuild(build.target(), build.inputs());
-            properties.put("gc.config.sha256", build.inputs().get("gc.config.sha256"));
-        }
+        BridgeGeneration.validateManagedBuild(build.target(), build.inputs());
+        properties.put("gc.config.sha256", build.inputs().get("gc.config.sha256"));
         properties.put("java.module", moduleName(generation));
         properties.put("java.ensure", java.ensureMethod());
         properties.put("native.target", build.target()); properties.put("native.build", build.identity());
@@ -54,23 +52,6 @@ final class BridgePackageManifest {
             var binding = java.bindings().get(i); String prefix = "java.binding." + i;
             properties.put(prefix + ".type", binding.binaryName()); properties.put(prefix + ".name", binding.nativeName());
             properties.put(prefix + ".descriptor", binding.descriptor()); properties.put(prefix + ".entry", binding.entrySymbol());
-        }
-        var conversions = java.bindings().stream().filter(BridgeJavaSources.Binding::returnsPermanentAddress)
-                .map(BridgeJavaSources.Binding::conversionDeclaration).distinct().toList();
-        for (int i = 0; i < conversions.size(); i++) {
-            var binding = conversions.get(i); String prefix = "java.permanent.conversion." + i;
-            properties.put(prefix + ".type", binding.binaryName()); properties.put(prefix + ".name", binding.nativeName());
-            properties.put(prefix + ".descriptor", binding.descriptor());
-        }
-        for (int i = 0; i < java.facadeRegistrations().size(); i++) {
-            var binding = java.facadeRegistrations().get(i); String prefix = "java.facade.registration." + i;
-            properties.put(prefix + ".type", binding.binaryName()); properties.put(prefix + ".name", binding.nativeName());
-            properties.put(prefix + ".descriptor", binding.descriptor());
-        }
-        for (int i = 0; i < java.rootDestructions().size(); i++) {
-            var binding = java.rootDestructions().get(i); String prefix = "java.root.destruction." + i;
-            properties.put(prefix + ".type", binding.binaryName()); properties.put(prefix + ".name", binding.nativeName());
-            properties.put(prefix + ".descriptor", binding.descriptor());
         }
         for (int i = 0; i < java.supportNatives().size(); i++) {
             var binding = java.supportNatives().get(i); String prefix = "java.support.native." + i;

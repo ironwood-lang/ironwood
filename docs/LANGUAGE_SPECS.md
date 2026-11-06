@@ -36,7 +36,7 @@ Canonical Memory.collect() is the only reclamation point. There is no source
 free, destructor, implicit temporary destruction or managed constructor rollback.
 General defer, initialization, native resource and pool protocols remain.
 Historical proof discussions and examples mentioning those removed forms are
-pre-GC5 records awaiting GC7 consumer migration, not alternate supported semantics.
+superseded by the completed GC7 consumer migration, not alternate supported semantics.
 Managed bridge output requires [GC6 admission and isolated images](GC6_IMPLEMENTATION.md),
 root ABI 3 / owner ABI 2 and schema 2. macOS arm64 and Linux x86-64 are qualified.
 Ordinary executables retain root ABI 2 / owner ABI 1. Linux arm64 and arm64e remain
@@ -279,13 +279,10 @@ Supported today:
   invariant array descriptor.
 - Exact collection of array containers and their reference elements by reachability.
 
-The compiler can prove direct child detachment through a known local constant
-slot: an explicitly created or initializer-created child remains live until
-that slot is overwritten with `null` or the outer container is freed. Dynamic
-indices, observable calls, copies, and escaped containers remain conservative.
-Java array covariance is deliberately excluded because it is statically
-unsound and requires runtime store failures. Additional array APIs remain
-separately deferred.
+Array slots retain referenced children, including aliases and cycles, until
+reachability changes. Collection follows exact descriptors without exclusive
+ownership or detachment proofs. Java array covariance remains excluded because
+it needs runtime array-store checks. Additional APIs remain separately deferred.
 
 ### Strings, mutable text, and basic I/O
 
@@ -316,8 +313,8 @@ Supported today:
 - Mutable `ironwood.lang.StringBuilder` with Java-shaped constructors, capacity
   and length operations, character access/mutation, growth, append/insert
   overloads, deletion/replacement, surrogate-aware reversal, substring search,
-  `isEmpty`, caller-owned `substring`/`subSequence`/`toString` snapshots,
-  deterministic backing-array destruction, and failed-construction rollback.
+  `isEmpty`, independent managed `substring`/`subSequence`/`toString` snapshots,
+  and backing arrays traced by exact layouts.
 - Synchronous UTF-8 primitive/Object `print`/`println`, allocation-free
   `CharSequence` output, flush, and error-state checks through distinct immortal
   `System.out` and `System.err` PrintStreams.
@@ -585,14 +582,12 @@ open promotion decision with its current unsupported status.
 
 ### Memory analysis and optimization
 
-- Broaden safe-`free` proofs for consumed parameters, more precise dynamic array
-  element provenance, and additional closed-world polymorphic call patterns.
-- Escape-driven stack allocation, scalar replacement, dead-allocation removal,
-  and safe-`free`-aware optimization while preserving observable identity.
-- Method-level reachability and dead-code elimination, broader
-  devirtualization/inlining, and proven bounds-check elimination.
-- Optional debug poisoning or quarantine of explicitly freed allocations as a
-  compiler/runtime bug detector, never as a substitute for static proof.
+- Escape-driven stack allocation, scalar replacement and dead-allocation removal
+  remain possible when identity, collection and exception behavior are preserved.
+- Reachability, dispatch, initialization, devirtualization, inlining and proven
+  bounds/null-check elimination remain distinct from managed reclamation.
+- Pool-origin and foreign/native confinement facts stay conservative. No managed
+  must-free or temporary-destruction fixed point remains.
 
 ### Runtime, libraries, platforms, and tooling
 
@@ -635,16 +630,11 @@ complete a roadmap item.
 
 ### Garbage collection and GC-dependent behavior
 
-- No tracing, reference-counting, or other automatic reachability-based
-  reclamation of ordinary objects.
-- No silent reclamation merely because an allocation becomes unreachable.
-- No Java finalization model or GC-dependent `SoftReference`, `WeakReference`,
-  `PhantomReference`, `ReferenceQueue`, or `System.gc()` semantics.
-- No hidden collector fallback when `free` is omitted or rejected.
-
-Ironwood may optimize a proven nonescaping allocation into stack storage or
-eliminate it entirely when observable semantics do not change. That is a
-compile-time storage optimization, not garbage collection.
+Only canonical Memory.collect() synchronously reclaims unreachable managed
+storage. Allocation and counter reads never collect. Exact layouts and roots
+cover ordinary aliases, cycles, pending values and partially constructed graphs.
+There is no finalization, weak-reference subsystem, automatic fallback or
+System.gc() alias. Native resource closure remains explicit.
 
 ### Variable-arity parameters
 
@@ -654,9 +644,8 @@ compile-time storage optimization, not garbage collection.
 - Libraries use explicit arrays or selected fixed-arity overloads instead of
   compiler-created argument arrays.
 
-This is a deliberate explicit-ownership rule, not an unimplemented JVM
-compatibility feature. It prevents call syntax from creating a hidden allocation
-that source code may be unable to reclaim.
+This explicit-allocation convention avoids hidden argument arrays on hot paths.
+It remains a separate language choice from managed reclamation.
 
 ### Hidden allocation and legacy type-safety compromises
 
@@ -709,14 +698,13 @@ dispatch may provide useful equivalents without making the runtime open-ended.
 ### Unsafe ordinary source and Java compatibility baggage
 
 - No general annotation syntax, annotation types, or annotation processing.
-  Mandatory `@Override`, testing-only `@Test`, and local `@SuppressUnfreed` are
+  Mandatory `@Override` and testing-only `@Test` are
   narrow built-in directives, not annotation instances or general annotation grammar.
 - No raw pointers or pointer arithmetic in ordinary source code.
 - No JNI compatibility requirement. Native interoperability will use an
   Ironwood-specific FFI and explicit unsafe boundary if and when it is designed.
-- No Rust-style ownership, borrow, or lifetime syntax imposed merely to make
-  `free` possible. Ironwood keeps Java-like reference aliases and places the
-  proof obligation on explicit reclamation.
+- Ordinary managed references use Java-shaped aliases. Explicit resource and
+  foreign lifetimes have their own contracts, without source lifetime syntax.
 - No promise to compile arbitrary Java source, consume Java class/JAR files, or
   reproduce APIs whose meaning depends on JVM internals.
 - No class loader, bytecode verifier, runtime compiler, or hidden JVM-like

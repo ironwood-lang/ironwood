@@ -21,7 +21,7 @@ final class Gc5IntrinsicTests {
     static void resolution() throws Exception {
         SourceFile canonical = SourceFile.read(Path.of("stdlib/src/main/ironwood/ironwood/lang/Memory.iron"));
         for (SourceFile source : reconstructed(canonical, TYPE)) {
-            var artifact = new CompilerPipeline(UnfreedMode.OFF).analyze(List.of(source));
+            var artifact = new CompilerPipeline().analyze(List.of(source));
             check(artifact.valid(), artifact.diagnostics().toString());
             var program = artifact.program().orElseThrow();
             var function = program.functions().stream().filter(f -> f.ownerClass().equals(TYPE)
@@ -44,7 +44,7 @@ final class Gc5IntrinsicTests {
             SourceFile source = SourceFile.of("spoof-Memory.iron", bad);
             for (SourceFile loaded : reconstructed(source, TYPE)) rejected(loaded, "collection intrinsic");
         }
-        var ordinary = new CompilerPipeline(UnfreedMode.OFF).analyze(List.of(SourceFile.of("user/Memory.iron", """
+        var ordinary = new CompilerPipeline().analyze(List.of(SourceFile.of("user/Memory.iron", """
                 package user;
                 public class Memory { public static void collect() {} }
                 """)));
@@ -85,7 +85,7 @@ final class Gc5IntrinsicTests {
     }
 
     static void effects() {
-        var artifact = new CompilerPipeline(UnfreedMode.OFF).analyze(List.of(SourceFile.of("gc5-effects.iron", """
+        var artifact = new CompilerPipeline().analyze(List.of(SourceFile.of("gc5-effects.iron", """
                 import ironwood.lang.Memory;
                 interface Step { void step(); }
                 class Collecting implements Step {
@@ -140,7 +140,7 @@ final class Gc5IntrinsicTests {
             check(program.functions().stream().filter(f -> f.ownerClass().equals("Box") && f.linkageName().contains("$specialization$"))
                     .anyMatch(f -> effects.function(f.linkageName()).mayCollect()), "generic specialization lost collection");
         }
-        var oldDestructor = new CompilerPipeline(UnfreedMode.OFF).analyze(List.of(SourceFile.of("Old.iron", """
+        var oldDestructor = new CompilerPipeline().analyze(List.of(SourceFile.of("Old.iron", """
                 import ironwood.lang.Memory;
                 class Old { destructor { Memory.collect(); } }
                 """)));
@@ -150,7 +150,7 @@ final class Gc5IntrinsicTests {
     }
 
     static void refusal() {
-        var artifact = new CompilerPipeline(UnfreedMode.OFF).compile(SourceFile.of("Main.iron", """
+        var artifact = new CompilerPipeline().compile(SourceFile.of("Main.iron", """
                 import ironwood.lang.Memory;
                 public class Main {
                     public static void main(String[] args) { Memory.collect(); }
@@ -162,7 +162,7 @@ final class Gc5IntrinsicTests {
                 "normal compiler lost collection or root ABI");
         check(!llvm.contains("@ironwood_deallocate") && !llvm.contains("ironwood.destroy"),
                 "normal emission retained managed deallocation");
-        var names = new CompilerPipeline(UnfreedMode.OFF).analyze(List.of(SourceFile.of("Names.iron", """
+        var names = new CompilerPipeline().analyze(List.of(SourceFile.of("Names.iron", """
                 class Names {
                     static void free(Object destructor) {}
                     static int destructor(int free) { free++; return free; }
@@ -188,14 +188,14 @@ final class Gc5IntrinsicTests {
                     }
                 }
                 """;
-        var samePool = new CompilerPipeline(UnfreedMode.OFF).analyze(List.of(SourceFile.of("Pools.iron", poolSource.formatted("pool"))));
+        var samePool = new CompilerPipeline().analyze(List.of(SourceFile.of("Pools.iron", poolSource.formatted("pool"))));
         check(samePool.valid(), samePool.diagnostics().toString());
-        var wrongPool = new CompilerPipeline(UnfreedMode.OFF).analyze(List.of(SourceFile.of("Pools.iron", poolSource.formatted("other"))));
+        var wrongPool = new CompilerPipeline().analyze(List.of(SourceFile.of("Pools.iron", poolSource.formatted("other"))));
         check(!wrongPool.valid() && wrongPool.diagnostics().stream().anyMatch(d -> d.message().contains("owned by another pool")),
                 "wrong-pool return lost its protocol diagnostic: " + wrongPool.diagnostics());
         for (String form : List.of("free this.value;", "defer free value;", "destructor {}", "@SuppressUnfreed Object value;")) {
             String member = form.startsWith("destructor") ? form : "void old() { " + form + " }";
-            var rejected = new CompilerPipeline(UnfreedMode.OFF).analyze(List.of(SourceFile.of("Old.iron",
+            var rejected = new CompilerPipeline().analyze(List.of(SourceFile.of("Old.iron",
                     "class Old { Object value; " + member + " }")));
             check(!rejected.valid() && rejected.diagnostics().stream().anyMatch(d -> d.message().contains("removed")),
                     "missing reclamation migration diagnostic: " + form + " " + rejected.diagnostics());
@@ -214,14 +214,12 @@ final class Gc5IntrinsicTests {
         NativeLinkPipeline.finish(clean);
         var span = clean.functions().getFirst().sourceSpan();
         var object = new IrNull(IrType.reference("ironwood.lang.Throwable"), span);
-        for (IrInstruction legacy : List.of(new IrFreeInstruction(object, span), new IrRawDeallocateInstruction(object, span),
-                new IrRollbackInstruction(object, span),
-                new IrDestroyArrayElementsInstruction(new IrNull(IrType.array(object.type()), span), span),
-                new IrReleaseOwnedToStringResultInstruction(object, object, span),
-                new IrReleaseOwnedThrowableMessageInstruction(object, object, span),
-                new IrThrowableTraceInstruction(java.util.Optional.empty(), IrThrowableTraceInstruction.Operation.RELEASE, List.of(object), span))) {
+        for (String symbol : List.of("free", "ironwood_deallocate", "ironwood_release_owned_to_string_result",
+                "ironwood_release_owned_throwable_message", "ironwood_destroy_array_elements", "ironwood_throwable_trace_release", "ironwood_destructor_failed", "ironwood.destroy",
+                "ironwood.rollback", "ironwood.destroy_array_elements")) {
+            var legacy = new IrCallInstruction(java.util.Optional.empty(), symbol, IrType.VOID, List.of(object), span);
             var function = new IrFunction("Gc5", "legacy", "gc5_legacy", IrType.VOID, List.of(),
-                    List.of(new IrBasicBlock("entry", List.of(new IrGcCollectInstruction(span), legacy),
+                    List.of(new IrBasicBlock("entry", List.of(legacy),
                             new IrReturnTerminator(java.util.Optional.empty(), span), span)), span);
             var functions = new java.util.ArrayList<>(clean.functions());
             functions.add(function);
@@ -230,27 +228,9 @@ final class Gc5IntrinsicTests {
             var mixed = new IrProgram(clean.moduleName(), clean.classes(), clean.staticFields(), clean.typeInitializations(),
                     clean.arrayTypes(), clean.stringConstants(), clean.dispatchSlots(), functions, clean.entryPoint(),
                     clean.allocationFailure(), exports);
-            try {
-                NativeLinkPipeline.finish(mixed);
-                throw new AssertionError("final native link accepted " + legacy.getClass().getSimpleName());
-            } catch (IllegalArgumentException expected) {
+            try { NativeLinkPipeline.finish(mixed); throw new AssertionError("accepted legacy symbol " + symbol); }
+            catch (IllegalArgumentException expected) {
                 check(expected.getMessage().contains("legacy managed deallocation"), expected.getMessage());
-            }
-        }
-        for (boolean rollback : List.of(false, true)) {
-            var classes = clean.classes().stream().map(type -> type.name().equals("Node")
-                    ? new IrClass(type.name(), type.kind(), type.superclass(), type.interfaces(), type.fields(), type.typeId(),
-                    type.typeMembership(), type.dispatchEntries(), rollback ? java.util.Optional.empty() : java.util.Optional.of("legacy"),
-                    rollback ? java.util.Optional.of("legacy") : java.util.Optional.empty(),
-                    type.toStringReturnsOwnedFresh(), type.localizedMessageReturnsOwnedFresh(), type.sourceSpan()) : type).toList();
-            var stale = new IrProgram(clean.moduleName(), classes, clean.staticFields(), clean.typeInitializations(),
-                    clean.arrayTypes(), clean.stringConstants(), clean.dispatchSlots(), clean.functions(), clean.entryPoint(),
-                    clean.allocationFailure(), clean.exportRoots());
-            try {
-                NativeLinkPipeline.finish(stale);
-                throw new AssertionError("legacy managed cleanup descriptor accepted");
-            } catch (IllegalArgumentException expected) {
-                check(expected.getMessage().contains("legacy managed destruction metadata"), expected.getMessage());
             }
         }
     }
@@ -267,7 +247,7 @@ final class Gc5IntrinsicTests {
     }
 
     private static void rejected(SourceFile source, String expected) {
-        var artifact = new CompilerPipeline(UnfreedMode.OFF).analyze(List.of(source));
+        var artifact = new CompilerPipeline().analyze(List.of(source));
         check(!artifact.valid(), "unrecognized collection declaration accepted: " + source.path());
         check(artifact.diagnostics().stream().anyMatch(d -> d.message().contains(expected)
                         && d.source() != null && d.source().path().equals(source.path())), artifact.diagnostics().toString());

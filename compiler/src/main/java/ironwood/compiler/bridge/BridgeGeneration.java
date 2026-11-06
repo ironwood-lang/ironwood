@@ -3,8 +3,6 @@
 package ironwood.compiler.bridge;
 
 import ironwood.compiler.BridgeObjectAdmission;
-import ironwood.compiler.BridgeOwnedCallbackAdmission;
-import ironwood.compiler.BridgeCallbackAdmission;
 import ironwood.compiler.CompilationArtifact;
 import ironwood.compiler.ir.IrCallableKind;
 import ironwood.compiler.ir.IrConstant;
@@ -52,12 +50,11 @@ public final class BridgeGeneration {
                 "compiler.sha256", "runtime.sha256", "program", "api")) {
             String value = packaged.get(key); requireText(value, "generation " + key); manifest.put(key, value);
         }
-        if (packaged.containsKey("projection")) {
-            if (!Set.of("objects-v1", "objects-gc-v1", "callbacks-v1", "owner-callbacks-v1").contains(packaged.get("projection"))) throw new IllegalArgumentException("unsupported bridge projection");
-            manifest.put("projection", packaged.get("projection"));
-        }
+        if (!"objects-gc-v1".equals(packaged.get("projection")))
+            throw new IllegalArgumentException("removed bridge memory contract; schema 2 / objects-gc-v1 is required");
+        manifest.put("projection", "objects-gc-v1");
         if (packaged.containsKey("calls")) {
-            if (!CRITICAL_CALLS.equals(packaged.get("calls")) || !Set.of("objects-v1", "objects-gc-v1").contains(packaged.get("projection"))) {
+            if (!CRITICAL_CALLS.equals(packaged.get("calls"))) {
                 throw new IllegalArgumentException("unsupported bridge call transport");
             }
             manifest.put("calls", CRITICAL_CALLS);
@@ -67,7 +64,7 @@ public final class BridgeGeneration {
             throw new IllegalArgumentException("unsupported bridge generation contract");
         }
         for (String key : List.of("compiler.sha256", "runtime.sha256", "program", "api")) requireHash(manifest.get(key));
-        if ("objects-gc-v1".equals(manifest.get("projection"))) {
+        {
             managedContract().forEach((key, value) -> {
                 if (!value.equals(packaged.get(key))) throw new IllegalArgumentException("incompatible managed bridge field: " + key);
                 manifest.put(key, value);
@@ -79,64 +76,11 @@ public final class BridgeGeneration {
         return new BridgeGeneration(manifest);
     }
 
-    public boolean matches(CompilationArtifact artifact, BridgeExportSurface surface) {
-        if (manifest.containsKey("projection")) return false;
-        return manifest.equals(create(manifest.get("artifact"), artifact, surface,
-                manifest.get("compiler.version"), manifest.get("compiler.sha256"), manifest.get("runtime.sha256")).manifest);
-    }
-
     public boolean matchesObjects(CompilationArtifact artifact, BridgeObjectAdmission admission) {
-        return (admission.managedHeap() ? managedHeap() : "objects-v1".equals(manifest.get("projection"))) && admission.matches(artifact, admission.surface())
+        return admission.matches(artifact, admission.surface())
                 && manifest.equals(createObjects(manifest.get("artifact"), artifact, admission,
                         manifest.get("compiler.version"), manifest.get("compiler.sha256"), manifest.get("runtime.sha256"),
                         criticalCalls()).manifest);
-    }
-
-    public boolean matchesCallbacks(BridgeCallbackAdmission admission) {
-        return "callbacks-v1".equals(manifest.get("projection"))
-                && manifest.equals(createCallbacks(manifest.get("artifact"), admission,
-                        manifest.get("compiler.version"), manifest.get("compiler.sha256"), manifest.get("runtime.sha256")).manifest);
-    }
-
-    public static BridgeGeneration createCallbacks(String artifactName, BridgeCallbackAdmission admission,
-            String compilerVersion, String compilerHash, String runtimeHash) {
-        if (!admission.matches(admission.artifact(), admission.surface())) {
-            throw new IllegalArgumentException("callback generation requires matching complete admission");
-        }
-        return create(artifactName, admission.artifact(), compilerVersion, compilerHash, runtimeHash,
-                api(admission.artifact(), admission.surface(), false), Map.of("projection", "callbacks-v1"));
-    }
-
-    public boolean matchesOwnedCallbacks(BridgeOwnedCallbackAdmission admission) {
-        return "owner-callbacks-v1".equals(manifest.get("projection"))
-                && manifest.equals(createOwnedCallbacks(manifest.get("artifact"), admission,
-                        manifest.get("compiler.version"), manifest.get("compiler.sha256"), manifest.get("runtime.sha256")).manifest);
-    }
-
-    public static BridgeGeneration createOwnedCallbacks(String artifactName, BridgeOwnedCallbackAdmission admission,
-            String compilerVersion, String compilerHash, String runtimeHash) {
-        if (!admission.matches(admission.artifact(), admission.surface())) {
-            throw new IllegalArgumentException("owner callback generation requires matching complete native admission");
-        }
-        var api = api(admission.artifact(), admission.surface(), true);
-        for (var type : admission.surface().types()) {
-            String role = type.kind() == BridgeApiFacts.Kind.INTERFACE ? "listener"
-                    : admission.lifetime().protocol().constructedRootTypes().contains(IrType.reference(type.binaryName())) ? "root" : "container";
-            api.put("type." + type.binaryName() + ".projection", role);
-        }
-        return create(artifactName, admission.artifact(), compilerVersion, compilerHash, runtimeHash,
-                api, Map.of("projection", "owner-callbacks-v1"));
-    }
-
-    /** Producer hashes must identify actual compiler content and complete runtime source inputs. */
-    public static BridgeGeneration create(String artifactName, CompilationArtifact artifact,
-            BridgeExportSurface surface, String compilerVersion, String compilerHash, String runtimeHash) {
-        var packages = surface.types().stream().map(BridgeApiFacts.Type::packageName).distinct().sorted().toList();
-        var selected = BridgeExportSurface.staticValues(artifact, packages);
-        if (selected.surface().isEmpty() || !selected.surface().orElseThrow().equals(surface)) {
-            throw new IllegalArgumentException("generation requires the complete current resolved export surface");
-        }
-        return create(artifactName, artifact, compilerVersion, compilerHash, runtimeHash, api(artifact, surface, false), Map.of());
     }
 
     /** Object identities require the final admission, not a signature-only selection or a caller's lifetime label. */
@@ -158,16 +102,14 @@ public final class BridgeGeneration {
             String role;
             if (type.throwable()) role = "snapshot";
             else if (type.kind() == BridgeApiFacts.Kind.ENUM) role = "enum";
-            else if (admission.lifetime().references().containsKey(reference)) role = "permanent";
             else {
                 var roots = admission.entries().rootRetention();
                 boolean root = roots.map(value -> value.constructedRootTypes().contains(reference)).orElse(false);
-                boolean view = roots.map(value -> value.borrowedResultTypes().contains(reference)).orElse(false);
-                role = root ? view ? "root-and-view" : "root" : view ? "view" : "container";
+                role = root ? "root" : "container";
             }
             api.put("type." + type.binaryName() + ".projection", role);
         }
-        String projection = admission.managedHeap() ? "objects-gc-v1" : "objects-v1";
+        String projection = "objects-gc-v1";
         return create(artifactName, artifact, compilerVersion, compilerHash, runtimeHash, api,
                 criticalCalls ? Map.of("projection", projection, "calls", CRITICAL_CALLS) : Map.of("projection", projection));
     }
@@ -196,7 +138,7 @@ public final class BridgeGeneration {
         manifest.put("program", digest(programInputs));
         manifest.put("api", digest(api));
         manifest.putAll(projection);
-        if ("objects-gc-v1".equals(projection.get("projection"))) manifest.putAll(managedContract());
+        manifest.putAll(managedContract());
         manifest.put("generation", digest(manifest));
         return new BridgeGeneration(manifest);
     }
@@ -205,7 +147,7 @@ public final class BridgeGeneration {
     public NativeBuild nativeBuild(String target, Map<String, String> buildInputs) {
         requireText(target, "native target");
         if (buildInputs.isEmpty()) throw new IllegalArgumentException("native build requires its input inventory");
-        if (managedHeap()) validateManagedBuild(target, buildInputs);
+        validateManagedBuild(target, buildInputs);
         var inputs = new TreeMap<String, String>();
         buildInputs.forEach((key, value) -> {
             requireText(key, "native input key");

@@ -8,7 +8,6 @@
 // prints the reference's transcript: isName, isIdentifier and isKeyword for
 // each name, the packages and diagnostics both export callers give for each
 // group, and the identifier start and part ranges over every code point.
-// Every result is freed after it is printed, so the live allocation count
 // returns to its baseline. Exit 42.
 import ironwood.compiler.port.BridgeExports;
 import ironwood.compiler.port.JavaIdentifiers;
@@ -25,7 +24,6 @@ class Main {
 
         if (text.isEmpty()) return new String("-");
         StringBuilder out = new StringBuilder();
-        defer free out;
         for (int index = 0; index < text.length(); index++) {
             int unit = text.charAt(index);
             for (int shift = 12; shift >= 0; shift = shift - 4) out.append("0123456789abcdef".charAt((unit >>> shift) & 15));
@@ -37,7 +35,6 @@ class Main {
 
         if (line.equals("-")) return new String("");
         char[] units = new char[line.length() / 4];
-        defer free units;
         for (int index = 0; index < units.length; index++) {
             int value = 0;
             for (int digit = 0; digit < 4; digit++) value = value * 16 + Character.digit(line.charAt(index * 4 + digit), 16);
@@ -49,7 +46,6 @@ class Main {
     static void name(String name) {
 
         String encoded = hex(name);
-        defer free encoded;
         System.out.println("name " + encoded + " " + JavaNames.isName(name) + " "
                 + JavaNames.isIdentifier(name, 0, name.length()) + " " + JavaNames.isKeyword(name, 0, name.length()));
     }
@@ -57,20 +53,15 @@ class Main {
     static void selection(String label, TextList group, boolean surface) {
 
         BridgeExports exports = new BridgeExports(group, surface);
-        defer free exports;
         System.out.println(label + " " + exports.packageCount() + " " + exports.diagnosticCount());
         for (int index = 0; index < exports.packageCount(); index++) {
             String name = exports.packageName(index);
-            defer free name;
             String encoded = hex(name);
-            defer free encoded;
             System.out.println("  package " + encoded);
         }
         for (int index = 0; index < exports.diagnosticCount(); index++) {
             String message = exports.diagnostic(index);
-            defer free message;
             String encoded = hex(message);
-            defer free encoded;
             System.out.println("  diagnostic " + encoded);
         }
     }
@@ -79,12 +70,9 @@ class Main {
     static void group(String corpus, int[] lines, int from, int to) {
 
         TextList group = new TextList();
-        defer free group;
         for (int line = from; line < to; line++) {
             String text = Splits.field(corpus, lines, line);
-            defer free text;
             String value = decode(text);
-            defer free value;
             group.add(value);
         }
         System.out.println("group " + group.size());
@@ -107,9 +95,7 @@ class Main {
                     code++;
                 }
                 String low = Integer.toHexString(first);
-                defer free low;
                 String high = Integer.toHexString(code - 1);
-                defer free high;
                 System.out.println(low + " " + high);
             }
         }
@@ -119,14 +105,11 @@ class Main {
     static void corpus(String corpus) {
 
         int[] lines = Splits.bounds(corpus, '\n', 0);
-        defer free lines;
         int count = Splits.count(lines);
         int line = 0;
         while (line < count && !isLine(corpus, lines, line, "exports")) {
             String text = Splits.field(corpus, lines, line);
-            defer free text;
             String value = decode(text);
-            defer free value;
             name(value);
             line++;
         }
@@ -143,7 +126,6 @@ class Main {
     static boolean isLine(String corpus, int[] lines, int line, String marker) {
 
         String text = Splits.field(corpus, lines, line);
-        defer free text;
         return text.equals(marker);
     }
 
@@ -151,18 +133,15 @@ class Main {
 
         // The identifier tables and keyword list are process-lived after their first use.
         if (!JavaNames.isName("a") || !JavaIdentifiers.isJavaIdentifierStart(0x4e2d)) return 3;
-        long live = System.liveAllocationCount();
         try {
             Path path = Path.of(args[0]);
-            defer free path;
             String text = Files.readString(path);
-            defer free text;
             corpus(text);
         } catch (IOException failure) {
             return 1;
         }
         ranges("start ranges", true);
         ranges("part ranges", false);
-        return System.liveAllocationCount() == live ? 42 : 2;
+        return 42;
     }
 }

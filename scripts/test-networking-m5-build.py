@@ -56,11 +56,11 @@ import ironwood.net.tls.TlsClient;
 class Plain {
     static void unused() throws Exception {
         TlsClient value = new TlsClient();
-        try { value.connect("localhost", 443, 1); } finally { try { value.close(); } finally { free value; } }
+        try { value.connect("localhost", 443, 1); } finally { value.close(); }
     }
     public static int main(String[] args) throws Exception {
         Socket value = new Socket();
-        try { value.close(); return 42; } finally { free value; }
+        try { value.close(); return 42; } finally {  }
     }
 }''')
     classes = OUT / 'classes'
@@ -71,8 +71,8 @@ class Forge { static long value() { return TlsClient.TlsNative.readByte(1L); } }
 ''')
     rejected = run('private-native-access', [cli, private_caller, '-d', OUT / 'rejected'], 1)
     assert 'not accessible' in rejected.stderr or 'private' in rejected.stderr
-    run('plain-class-only', [cli, plain, '-d', classes, '--unfreed=error'])
-    run('tls-class-only', [cli, ROOT / 'integration-tests/cases/tls_client/Client.iron', '-d', classes, '--unfreed=error'])
+    run('plain-class-only', [cli, plain, '-d', classes])
+    run('tls-class-only', [cli, ROOT / 'integration-tests/cases/tls_client/Client.iron', '-d', classes])
     assert trace.read_text() == '', 'class-only compilation invoked native tools'
     archive = OUT / 'callers.ironjar'
     run('archive', [ROOT / 'bin/ironjar', '--create', '--file', archive, classes])

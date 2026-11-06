@@ -14,8 +14,8 @@ import ironwood.util.Random;
 /**
  * Selects a greeting word at random.
  *
- * <p>Each instance owns its {@link Random} generator and reclaims it when the
- * instance is destroyed.</p>
+ * <p>Each instance retains its {@link Random} generator through an ordinary
+ * managed field.</p>
  *
  * @since 1.0.0
  */
@@ -37,9 +37,7 @@ public class Chatter {
         return WORDS[index];
     }
 
-    destructor {
-        free this.rand;
-    }
+
 }
 ```
 

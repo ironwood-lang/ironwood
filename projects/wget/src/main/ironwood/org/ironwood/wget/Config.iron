@@ -116,27 +116,21 @@ final class Config {
         boolean v5 = value.startsWith("socks5://");
         boolean http = value.startsWith("http://");
         if (!v4 && !v5 && !http) throw new IllegalArgumentException("Proxy scheme must be socks4, socks5 or http");
-        if (v4 && (username != null || password != null) || !v4 && userId != null
-                || (username == null) != (password == null)) throw new IllegalArgumentException("Invalid proxy credential option combination");
+        if (v4 && (username != null || password != null) || !v4 && userId != null || (username == null) != (password == null)) throw new IllegalArgumentException("Invalid proxy credential option combination");
         int start = http ? 7 : 9;
         for (int index = start; index < value.length(); index++) {
             char ch = value.charAt(index);
             if (ch == '/' || ch == '?' || ch == '#') throw new IllegalArgumentException("Proxy requires only a host and explicit port");
         }
         String authority = value.substring(start);
-        defer free authority;
         int colon = authority.lastIndexOf(':');
         if (colon <= authority.lastIndexOf(']') || colon + 1 == authority.length()) throw new IllegalArgumentException("Proxy requires an explicit port");
         String text = "http://" + authority;
-        defer free text;
         Url parsed = Url.parse(text);
-        defer free parsed;
         InetSocketAddress endpoint = parsed.endpoint(false);
-        defer free endpoint;
         if (v4) {
             if (userId == null) return Proxy.socks(endpoint, Proxy.SocksVersion.V4);
             byte[] bytes = credential(userId, 255);
-            defer free bytes;
             return Proxy.socks4(endpoint, bytes);
         }
         if (username == null) {
@@ -144,9 +138,7 @@ final class Config {
             return new Proxy(Proxy.Type.HTTP, endpoint);
         }
         byte[] user = credential(username, v5 ? 255 : 4096);
-        defer free user;
         byte[] pass = credential(password, v5 ? 255 : 4096);
-        defer free pass;
         if (v5) return Proxy.socks5(endpoint, user, pass);
         return Proxy.httpConnectBasic(endpoint, user, pass);
     }
@@ -154,7 +146,6 @@ final class Config {
     private static byte[] credential(String name, int limit) throws IOException {
 
         byte[] scratch = new byte[limit + 1];
-        defer free scratch;
         int count = 0;
         FileInputStream file = new FileInputStream(name);
         try {
@@ -168,7 +159,6 @@ final class Config {
         } finally {
             try { file.close(); } catch (IOException secondary) {
             }
-            free file;
         }
         if (count > limit) throw new IllegalArgumentException("Proxy credential file exceeds its octet limit");
         byte[] result = new byte[count];
@@ -217,11 +207,4 @@ final class Config {
         return this.readTimeout;
     }
 
-    destructor {
-
-        free this.proxy;
-        free this.caBundle;
-        free this.output;
-        free this.initial;
-    }
 }

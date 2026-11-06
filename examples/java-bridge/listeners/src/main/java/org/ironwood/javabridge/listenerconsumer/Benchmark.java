@@ -4,6 +4,7 @@ package org.ironwood.javabridge.listenerconsumer;
 import java.lang.management.ManagementFactory;
 import org.ironwood.javabridge.listeners.ResultListener;
 import org.ironwood.javabridge.listeners.ResultProcessor;
+import org.ironwood.javabridge.support.BridgeLifetime;
 
 /** Identical event recurrence and listener work for Java/Java and native/Java. */
 public final class Benchmark {
@@ -44,9 +45,10 @@ public final class Benchmark {
         long thread = Thread.currentThread().threadId();
         Collector listener = new Collector();
         JavaProcessor java = new JavaProcessor(listener);
-        ResultProcessor nativeProcessor = bridge ? new ResultProcessor() : null;
-        try {
-            if (bridge) nativeProcessor.setListener(listener);
+        try (var anchor = bridge ? BridgeLifetime.<ResultProcessor>construct(ResultProcessor.class) : null;
+             var registration = bridge ? BridgeLifetime.registration(ResultProcessor.class) : null) {
+            ResultProcessor nativeProcessor = anchor == null ? null : anchor.get();
+            if (bridge) registration.setter(ResultProcessor.class, "setListener", ResultListener.class).set(nativeProcessor, listener);
             System.out.println("scenario,sample,events,elapsed_ns,checksum,last_value,native_allocations,java_bytes");
             for (int sample = -warmups; sample < samples; sample++) {
                 listener.reset();
@@ -61,8 +63,6 @@ public final class Benchmark {
                 if (sample >= 0) System.out.println(args[0] + "," + sample + "," + count + "," + elapsed + ","
                         + listener.checksum + "," + last + ",-1," + allocated);
             }
-        } finally {
-            if (nativeProcessor != null) nativeProcessor.free();
         }
     }
 }

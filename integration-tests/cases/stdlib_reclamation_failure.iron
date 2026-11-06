@@ -3,13 +3,11 @@
 class Main {
 
     public static int main(String[] args) {
-
-        long baseline = System.liveAllocationCount();
         try {
             "tree".substring(1);
         } catch (OutOfMemoryError expected) {
 
-            return System.liveAllocationCount() == baseline ? 42 : 1;
+            return 42;
         }
         return 2;
     }

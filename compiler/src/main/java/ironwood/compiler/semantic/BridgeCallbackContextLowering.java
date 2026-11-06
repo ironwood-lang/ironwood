@@ -51,15 +51,11 @@ public final class BridgeCallbackContextLowering {
         if (!checked.resolved()) throw new IllegalArgumentException("callback context requires resolved roots");
         for (var entry : effects.entries(checked).entrySet()) {
             requireComplete(entry.getValue());
-            // Context-bearing initialization/rollback needs its own protected ABI.
+            // Context-bearing initialization needs its own protected ABI.
             // Until implemented it must not enter the callback-free runtime helper.
             requireNative(targets.initializers(entry.getKey().owner()).targets(), "entry initialization");
             var function = targets.function(entry.getKey().linkage());
-            if (function.kind() == IrCallableKind.CONSTRUCTOR && !function.parameters().isEmpty()) {
-                var rollback = targets.cleanup(function.parameters().getFirst().value(), true);
-                if (!rollback.complete()) throw new IllegalArgumentException("unresolved entry rollback");
-                requireNative(rollback.targets(), "entry rollback");
-            }
+
             if (effect(function).foreign()) select(function);
         }
         for (int index = 0; index < pending.size(); index++) {
@@ -77,11 +73,9 @@ public final class BridgeCallbackContextLowering {
         var dispatchSlots = new ArrayList<>(original.dispatchSlots());
         dispatchSlots.addAll(slots.values());
         var classes = original.classes().stream().map(type -> new IrClass(type.name(), type.kind(), type.superclass(),
-                type.interfaces(), type.fields(), type.typeId(), type.typeMembership(), dispatch(type.dispatchEntries()),
-                type.destructorChain(), type.constructorRollback(), type.toStringReturnsOwnedFresh(),
-                type.localizedMessageReturnsOwnedFresh(), type.sourceSpan())).toList();
+                type.interfaces(), type.fields(), type.typeId(), type.typeMembership(), dispatch(type.dispatchEntries()), type.sourceSpan())).toList();
         var arrays = original.arrayTypes().stream().map(type -> new IrArrayType(type.type(), type.typeId(),
-                type.typeMembership(), dispatch(type.dispatchEntries()), type.toStringReturnsOwnedFresh())).toList();
+                type.typeMembership(), dispatch(type.dispatchEntries()))).toList();
         var program = new IrProgram(original.moduleName(), classes, original.staticFields(), original.typeInitializations(),
                 arrays, original.stringConstants(), dispatchSlots, functions, original.entryPoint(),
                 original.allocationFailure(), original.exportRoots());
@@ -106,11 +100,7 @@ public final class BridgeCallbackContextLowering {
             return;
         }
         var call = targets.resolve(instruction);
-        if (instruction instanceof IrFreeInstruction free) call = targets.cleanup(free.allocation(), false);
-        else if (instruction instanceof IrRollbackInstruction rollback) call = targets.cleanup(rollback.allocation(), true);
-        else if (instruction instanceof IrDestroyArrayElementsInstruction elements && elements.array().type().elementType().isReference()) {
-            call = targets.cleanup(new IrNull(elements.array().type().elementType(), elements.sourceSpan()), false);
-        }
+
         if (call == null) return; // Complete reachability has already audited fixed native operations.
         if (!call.complete()) throw new IllegalArgumentException("unresolved callback context edge");
         boolean needsContext = call.targets().stream().anyMatch(target -> effect(target).requiresContext());

@@ -16,7 +16,6 @@ class Main {
     static void stage(Path scratch, Path target, String content, boolean atomic) throws IOException {
 
         Path staged = Files.createTempFile(scratch, ".staged-", null);
-        defer free staged;
         try {
             Files.writeString(staged, content);
             if (atomic) Files.moveAtomicReplacing(staged, target);
@@ -30,17 +29,13 @@ class Main {
     static void publish(String scratchText) throws IOException {
 
         Path scratch = Path.of(scratchText);
-        defer free scratch;
         Path target = scratch.resolve("published");
-        defer free target;
         Path fresh = scratch.resolve("fresh");
-        defer free fresh;
         try {
             stage(scratch, target, "first", true);
             stage(scratch, target, "second", false);
             Files.moveAtomicNoReplace(target, fresh);
             String text = Files.readString(fresh);
-            defer free text;
             if (!text.equals("second") || Files.exists(target)) throw new IllegalStateException();
         } finally {
             Files.deleteIfExists(target);
@@ -49,8 +44,6 @@ class Main {
     }
 
     public static int main(String[] args) {
-
-        long baseline = System.liveAllocationCount();
         boolean failed = false;
         try {
             publish(args[0]);
@@ -59,7 +52,7 @@ class Main {
         } catch (IOException unexpected) {
             return 2;
         }
-        if (System.liveAllocationCount() != baseline) return 1;
+
         return failed ? 42 : 43;
     }
 }

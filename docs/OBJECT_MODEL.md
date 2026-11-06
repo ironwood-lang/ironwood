@@ -7,7 +7,7 @@ Canonical Memory.collect() is the only reclamation point. There is no source
 free, destructor, implicit temporary destruction or managed constructor rollback.
 General defer, initialization, native resource and pool protocols remain.
 Historical proof discussions and examples mentioning those removed forms are
-pre-GC5 records awaiting GC7 consumer migration, not alternate supported semantics.
+superseded by the completed GC7 consumer migration, not alternate supported semantics.
 [GC6 managed bridges](GC6_IMPLEMENTATION.md) qualify macOS arm64 and Linux
 x86-64 with explicit RootHandle/ListenerRegistration lifetimes, exact suspended
 roots and isolated native images. Linux arm64 and arm64e remain unqualified.
@@ -129,7 +129,7 @@ PASS: 30 object-model examples
 | Effectively-final lexical capture | [`LexicalCapture.iron`](../examples/lexicalcapture/src/main/ironwood/org/ironwood/lexicalcapture/LexicalCapture.iron) | Local and anonymous classes capture explicit-final parameters, effectively-final locals, and their enclosing instance. |
 | Source-nest private access | [`NestAccess.iron`](../examples/nestaccess/src/main/ironwood/org/ironwood/nestaccess/NestAccess.iron) | Member, local, and anonymous classes directly access private members within one top-level source nest. |
 | Member types inside lexical classes | [`LexicalMemberTypes.iron`](../examples/lexicalmembertypes/src/main/ironwood/org/ironwood/lexicalmembertypes/LexicalMemberTypes.iron) | Local and anonymous classes may themselves contain inner classes, interfaces, and implementations. |
-| Historical pre-GC5 captured-alias example | [`CapturedAliases.iron`](../examples/capturedaliases/src/main/ironwood/org/ironwood/capturedaliases/CapturedAliases.iron) | This old manual-heap example awaits GC7 migration; current captured graphs follow MEMORY.md. |
+| Captured shared references | [`CapturedAliases.iron`](../examples/capturedaliases/src/main/ironwood/org/ironwood/capturedaliases/CapturedAliases.iron) | Captured references keep their managed graphs reachable; see MEMORY.md. |
 | Interface fields and method kinds | [`InterfaceMembers.iron`](../examples/interfacemembers/src/main/ironwood/org/ironwood/interfacemembers/InterfaceMembers.iron) | Constants, abstract/default/static/private-instance/private-static methods, generic overrides, and qualified default calls work together. |
 | Interface default resolution | [`InterfaceDefaults.iron`](../examples/interfacedefaults/src/main/ironwood/org/ironwood/interfacedefaults/InterfaceDefaults.iron) | Class-wins, most-specific default, explicit interface-super, re-abstraction, and concrete conflict resolution. |
 | Upper, intersection, dependent, and recursive bounds | [`BoundedGenerics.iron`](../examples/boundedgenerics/src/main/ironwood/org/ironwood/boundedgenerics/BoundedGenerics.iron) | Bound members are callable, intersection constraints are enforced, and an F-bound dispatches with exact substitution. |
@@ -147,7 +147,7 @@ feature is principally a rejection rule, its source contains a commented
 invalid form. The authoritative negative checks, including abstract/final
 misuse, final reassignment, missing enclosing instances, non-final capture,
 default conflicts, invalid bounds, ambiguous inference, unsafe casts, generic
-exception classes, and unsafe captured-reference `free`, run with:
+exception classes, and shared captured references, run with:
 
 ```console
 $ ./scripts/test.sh
@@ -609,17 +609,15 @@ second cast, object, wrapper, ownership transfer, descriptor, or dispatch
 mechanism. Definite-match scope follows Java-shaped boolean, branch, guard, and
 supported-loop control flow. Final and effectively-final pattern locals may be
 captured by local or anonymous classes, and those hidden fields remain ordinary
-aliases under safe-`free`. Non-reifiable generics, primitive patterns, unnamed
+aliases under managed reachability. Non-reifiable generics, primitive patterns, unnamed
 and record patterns, and reference patterns in `switch` remain outside this
 feature.
 
 ### Varargs exclusion
 
-Varargs are not part of Ironwood's source object model. Expanded calls require
-a compiler-created array that may have no source-level owner and therefore no
-reliable explicit-reclamation point. The compiler diagnoses `T...` parameters;
-programs use explicit array parameters or selected fixed-arity overloads. No
-hidden argument array reaches typed IR or native lowering.
+Varargs remain outside the source object model because expanded calls add
+hidden argument-array allocation. Programs use explicit array parameters or
+fixed-arity overloads. GC7 does not change this feature boundary.
 
 ### Deliberate generic limits
 
@@ -637,8 +635,7 @@ create a pointer-ABI escape hatch. Exact specialized parent membership remains
 available to an otherwise source-provable cast. A specialized body is rejected
 if it needs `null`, an `Object` conversion/member, throwing the value, or
 another reference-only operation. Automatic boxing/unboxing remains
-deliberately excluded because it would hide wrapper allocations without
-reliable source-level ownership.
+deliberately excluded because it introduces implicit wrapper allocations.
 
 A generic class cannot directly or indirectly extend `Throwable`. Throws may
 use a type variable only when its bounds prove `Throwable`; catches require a
@@ -667,7 +664,7 @@ are mandatory:
 - field identities include their declaring type so hiding is layout-safe;
 - source and class discovery index nested types without treating them as
   runtime-loadable classes;
-- every synthetic reference participates in escape summaries and safe-`free`
+- every synthetic reference participates in escape summaries and managed alias
   analysis; and
 - enum constants remain explicit immortal operands whose constructor calls,
   source-visible static stores, hidden name/ordinal fields, and switch ordinal
@@ -705,18 +702,18 @@ Completion coverage includes:
   multi-catch alternatives, implicitly-final capture, and precise rethrow;
 - ordinary `AutoCloseable.close()` bounds, explicit `try`/`finally` cleanup,
   first-failure propagation, ordered secondary exceptions, and the separation
-  of `close()` from explicit object-memory `free`;
+  of resource close from explicit collection;
 - fixed-arity overload selection;
 - enum construction order, stable identity/name/ordinal, interface and generic
   use, constant-specific subtype layout/initialization/dispatch, per-constant
   obligations, lookup failures, no-allocation invariants, exact enum-switch
   labels, and rejection of construction/subclassing/mutation;
 - recursive invariant array types, exact reifiable array tests/casts, and
-  visible child allocation/detachment ownership;
+  shared child reachability and exact reference layouts;
 - named `instanceof` bindings across boolean/statement flow, reifiable generic
   and exact-array targets, lexical capture, artifact reconstruction, and typed
-  alias ownership; and
-- safe-`free` rejection for enclosing/captured aliases, plus positive cases
+  managed alias reachability; and
+- managed alias rejection for enclosing/captured aliases, plus positive cases
   where no capture occurs.
 
 Representative programs run natively at every supported optimization level and
@@ -760,8 +757,8 @@ explicit future reversal:
 
 Static imports are implemented under Feature 86 for accessible static fields,
 methods, and member types. They reuse ordinary member access, overload,
-initialization, and safe-`free` behavior and add no object-layout, allocation,
-ownership, dispatch, or runtime rule. Ownership-safe array initializer syntax
+initialization, and managed alias behavior and add no object-layout, allocation,
+managed lifetime, dispatch, or runtime rule. Array initializer syntax
 is implemented under Feature 89. Other unrelated conveniences remain outside
 this object-model decision unless separately classified.
 

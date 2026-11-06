@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 import bridgeperf.PerformanceProbe;
+import org.ironwood.javabridge.support.BridgeLifetime;
 import java.util.Arrays;
 
 /** Separate cold, warmed throughput and sampled latency observations. */
@@ -25,7 +26,7 @@ public final class PerformanceConsumer {
             case "batch" -> PerformanceProbe.batch(256, seed);
             case "string" -> PerformanceProbe.copy("bridge-\u0000-\ud83d\ude00").length() + seed;
             case "object" -> {
-                if (receiver.self() != receiver) throw new AssertionError("cache-hit identity");
+                try (var result = receiver.self()) { if (result.value() != receiver) throw new AssertionError("rooted facade identity"); }
                 yield seed + 1;
             }
             case "exception" -> {
@@ -51,7 +52,7 @@ public final class PerformanceConsumer {
             case "string": for (int i = 0; i < count; i++) seed += PerformanceProbe.copy("bridge-\u0000-\ud83d\ude00").length(); break;
             case "object":
                 for (int i = 0; i < count; i++) {
-                    if (receiver.self() != receiver) throw new AssertionError("cache-hit identity");
+                    try (var result = receiver.self()) { if (result.value() != receiver) throw new AssertionError("rooted facade identity"); }
                     seed++;
                 }
                 break;
@@ -80,8 +81,10 @@ public final class PerformanceConsumer {
             System.out.println("cold-ns=" + elapsed); return;
         }
         if (mode.startsWith("bare")) { System.load(args[1]); address = address(); }
-        if (mode.equals("instance") || mode.equals("object")) receiver = new PerformanceProbe(17).publish();
-        int count = switch (mode) { case "exception" -> 1000; case "string" -> 20000; case "batch" -> 20000; default -> 1000000; };
+        try (var anchor = mode.equals("instance") || mode.equals("object")
+                ? BridgeLifetime.<PerformanceProbe>construct(PerformanceProbe.class, 17L) : null) {
+        if (anchor != null) receiver = anchor.get();
+        int count = Integer.getInteger("ironwood.measure.count", switch (mode) { case "exception" -> 1000; case "string" -> 20000; case "batch" -> 20000; default -> 1000000; });
         int warm = mode.equals("exception") ? 500 : Math.max(20000, count / 2);
         long value = loop(mode, warm, 19);
         sink = value;
@@ -110,5 +113,6 @@ public final class PerformanceConsumer {
         System.out.println("sampled-latency-ns=" + latency[500] + "," + latency[950] + "," + latency[990]);
         System.out.println("checksum=" + sink);
         java.lang.ref.Reference.reachabilityFence(receiver);
+        }
     }
 }

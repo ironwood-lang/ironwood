@@ -12,7 +12,7 @@ final class AllocationResultSemantics {
     private AllocationResultSemantics() {
     }
 
-    static boolean returnsOwnedFresh(CallableSymbol callable) {
+    static boolean returnsFresh(CallableSymbol callable) {
         return isObjectToString(callable) || isThrowableDescription(callable) || isStringFromChars(callable)
                 || isStringFromCharRange(callable) || isStringFromRange(callable)
                 || isStringCase(callable) || isStringRepeat(callable) || isStringReplaceChar(callable)

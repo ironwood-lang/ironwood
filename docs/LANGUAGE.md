@@ -11,7 +11,7 @@ Canonical Memory.collect() is the only reclamation point. There is no source
 free, destructor, implicit temporary destruction or managed constructor rollback.
 General defer, initialization, native resource and pool protocols remain.
 Historical proof discussions and examples mentioning those removed forms are
-pre-GC5 records awaiting GC7 consumer migration, not alternate supported semantics.
+superseded by GC7 consumer migration, not alternate supported semantics.
 [GC6 managed bridges](GC6_IMPLEMENTATION.md) qualify macOS arm64 and Linux
 x86-64 with explicit RootHandle/ListenerRegistration lifetimes, exact suspended
 roots and isolated native images. Linux arm64 and arm64e remain unqualified.
@@ -107,7 +107,7 @@ typeArgument = valueType | "?", [ ( "extends" | "super" ), referenceType ] ;
 
 block = "{", { blockStatement }, "}" ;
 blockStatement = statement | deferStatement ;
-deferStatement = "defer", ( "free", identifier | expression ), ";" ;
+deferStatement = "defer", expression, ";" ;
 statement = block
           | classDeclaration
           | [ "final" ], valueType, identifier, "=", expression, ";"
@@ -586,34 +586,11 @@ current array has been allocated. A nested `{ ... }` is valid only when that
 element type is itself an array and recursively creates one ordinary child
 allocation with its exact written length.
 
-Initializer-created children use the same constant-slot ownership proof as
-separately named children. Loading a child from a known local constant slot
-preserves its allocation identity; overwriting the slot with `null` or freeing
-the outer container detaches it. An attached slot blocks child reclamation,
-escaped containers conservatively escape their children, and outer-array
-reclamation never recursively frees them. Each written brace level is therefore
-an ordinary tracked allocation rather than an unowned hidden rectangular-array
-mechanism.
+Initializer-created children are ordinary managed arrays. Slots, aliases and
+cycles keep referenced children alive; overwriting a slot changes reachability
+without requiring detachment or exclusive ownership. Each written brace level
+is a visible allocation. Exact invariant descriptors govern tests and casts.
 
-Array assignment is invariant: `Child[]` does not convert to `Base[]`, even
-when `Child` extends `Base`. A reference-array element still accepts ordinary
-assignment-compatible values such as a `Child` in a `Base[]`. `null` converts
-to every array type, and array `==`/`!=` compare identity. Every array widens to
-`Object`, supports the three inherited `Object` methods, and may be tested with
-`array instanceof Object`. Java-style array covariance is deliberately absent:
-it is statically unsound, needs runtime store failures, and complicates alias and
-reclamation reasoning. A reifiable array `instanceof` or checked cast compares
-the complete exact descriptor, including every nested array dimension and the
-erased leaf type. `null` fails a test and passes a cast; a non-null mismatch
-throws `ClassCastException`. Array-specific methods beyond the documented
-intrinsics are not implemented.
-
-`System.arraycopy` accepts the arrays through `Object`, then validates null,
-array kind, exact element type/width, signed positions and length, and both
-ranges before copying. A zero-length copy at an array end is valid. Invalid
-calls terminate predictably with `NullPointerException`,
-`IllegalArgumentException`, or `IndexOutOfBoundsException`-named diagnostics at
-the current runtime failure boundary.
 
 ### Strings and standard streams
 
@@ -688,21 +665,12 @@ retain arbitrary ordinary Strings through hidden aliases. A future explicit
 application-owned interner remains ordinary collection design rather than a
 `String` method.
 
-`ironwood.lang.System.out` and `System.err` are non-null `public static final`
-references to distinct immortal `ironwood.io.PrintStream` objects. Their
-`print`/`println` overloads encode String/CharSequence/Object/primitive values to UTF-8
-synchronously; `println` appends one LF and null prints `null`. `flush()` and
-`checkError()` expose the native stream state. The objects are emitted in the
-native image, excluded from allocation counting, and cannot be explicitly
-freed. Passing an object to `print(Object)` or `println(Object)` borrows it when
-every possible closed-world `toString()` target is proven not to publish its
-receiver. Such an object may still be reclaimed afterward. A genuinely
-publishing or unknown target blocks that `free`. `System.lineSeparator()` is
-the immortal LF String on supported macOS
-and Linux hosts. A non-null `System.getenv(String)` result is a fresh
-caller-owned String. `currentTimeMillis()` is wall-clock time and `nanoTime()`
-is a monotonic duration source with an arbitrary origin. `System.in`, stream
-replacement/construction, formatting, and close semantics remain deferred.
+System.out and System.err are distinct immortal PrintStreams. Their synchronous
+UTF-8 print/println overloads render null as null; println appends LF. Object
+rendering follows ordinary virtual dispatch and may publish managed references.
+Exact roots preserve receivers/results when collection occurs. System.lineSeparator()
+is the immortal LF String. Non-null getenv results are ordinary managed Strings.
+Console/resource closure remains separate from collection.
 
 The Ironwood-specific `CharSequence` overloads read `length()` once and then
 stream `charAt(int)` results without calling `toString()` or creating a managed
@@ -777,7 +745,7 @@ null and bounds validation. Thus a right-side exception takes precedence over a
 null or bounds failure at that store. Compound assignments and updates validate
 and read the prior field or element value before evaluating their right operand.
 Storing a tracked reference in a static field publishes it and blocks a later
-safe `free`; a static reference load has unknown allocation provenance.
+managed reachability; static fields are exact roots.
 
 ### Constructors, `super`, `new`, and `this`
 
@@ -844,7 +812,7 @@ interface and abstract obligations are checked on each concrete constant type.
 Each constant is a `public static final` field backed by one compiler-emitted
 immortal object with its concrete enum or hidden-subtype layout and descriptor
 identity. The objects
-do not use the Ironwood allocator, cannot be passed to `free`, and do not change
+do not use the managed allocator and do not change
 `System.allocationCount()`. Enum initialization first constructs constants in
 declaration order, storing a constant field only after its constructor
 completes, then executes source static fields and blocks. Reentrant code can
@@ -859,8 +827,8 @@ valueOf(String)`, and `public static E[] values()`. A source `toString()`
 override replaces the default. Invalid
 index, unknown name, and null name lookups throw
 `ironwood.lang.IllegalArgumentException`. Each `values()` call returns a fresh,
-mutable, caller-owned array in declaration order. Its elements are immortal
-enum constants, so the caller reclaims only the shallow array. Ordered code may
+mutable managed array in declaration order. Its elements are immortal enum
+constants; collection reclaims the array when unreachable. Ordered code may
 still use allocation-free `valueCount()` and `valueAt(int)` traversal.
 
 Enums widen to `Object` and implemented interfaces and otherwise participate
@@ -1051,9 +1019,9 @@ PrintStream overload supports the existing stdout/stderr streams. It uses
 virtual descriptions and causes, common-tail compression and cycle detection;
 cleanup failures are labeled `Secondary:`. No mutable trace replacement is
 exposed. `getStackTrace()` returns a fresh
-caller-owned reference array. Its immutable StackTraceElement values and their
-text fields are compiler-emitted process-lifetime objects, so callers reclaim
-the array but not its elements.
+managed reference array. Its immutable StackTraceElement values and text fields
+are compiler-emitted process-lifetime objects. The array follows ordinary
+managed reachability.
 
 ### Primitive values and operators
 
@@ -1283,7 +1251,7 @@ and null-throw failures while retaining the existing exception allocation,
 trace, catch, `finally`, and secondary-failure contracts. It selects no
 subsequent implementation target.
 D075 implements Feature 66 with definite-match scope, typed SSA aliases,
-capture and safe-`free` integration, reifiable nominal/generic/array targets,
+capture and exact managed roots, reifiable nominal/generic/array targets,
 artifact reconstruction, and native `-O0` through `-O3` behavior. It adds no
 runtime operation or allocation and selects no subsequent implementation
 target.
@@ -1299,7 +1267,7 @@ reconstruction. It adds no hidden allocation or runtime operation and selects
 no subsequent implementation target.
 D078 implements Feature 89 with declaration and `new T[]` initializers,
 contextual element conversion, exact lengths, left-to-right typed stores,
-recursive brace allocations, and constant-slot safe-`free` provenance. It adds
+recursive brace allocations and shared managed references. It adds
 no runtime operation or implicit reclamation, reconstructs from `.ironclass`
 and `.ironjar`, and selects no subsequent implementation target.
 D079 implements Feature 83 with `0b`/`0B` tokens, binary-digit separator

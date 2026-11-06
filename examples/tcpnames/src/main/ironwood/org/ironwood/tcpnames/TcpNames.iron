@@ -14,8 +14,6 @@ public class TcpNames {
     private static InetAddress[] lookup() throws IOException {
 
         String hostname = new String("localhost");
-        // Each result owns its retained name, so the input can be freed now.
-        defer free hostname;
         return InetAddress.getAllByName(hostname);
     }
 
@@ -29,35 +27,27 @@ public class TcpNames {
                 addresses[index] = null;
                 String name = address.getHostName();
                 if (!name.equals("localhost")) {
-                    free address;
                     throw new IOException("Unexpected retained hostname");
                 }
-                // name is borrowed from address and must not be freed separately.
-                free address;
             }
         } finally {
             // Also reclaim unvisited results if inspection fails partway through.
             for (int index = 0; index < addresses.length; index++) {
                 InetAddress remaining = addresses[index];
                 addresses[index] = null;
-                free remaining;
             }
-            free addresses;
         }
     }
 
     private static void exchange() throws IOException {
 
         ServerSocket listener = new ServerSocket(0);
-        defer free listener;
         defer listener.close();
         // Port zero chooses a free port. The backlog permits this small
         // local connection to complete before accept, without threads.
         Socket client = new Socket("localhost", listener.getLocalPort());
-        defer free client;
         defer client.close();
         Socket peer = listener.accept();
-        defer free peer;
         defer peer.close();
         peer.setSoTimeout(2000);
         client.getOutputStream().write(42);

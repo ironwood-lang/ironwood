@@ -15,7 +15,4 @@ class Chatter {
 		return WORDS[index];
 	}
 
-	destructor {
-		free rand; // bye from memory...
-	}
 }

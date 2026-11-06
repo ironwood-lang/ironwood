@@ -18,10 +18,6 @@ class Owner {
         return this.item;
     }
 
-    destructor {
-
-        free this.item;
-    }
 }
 
 class Main {
@@ -32,9 +28,7 @@ class Main {
         ArrayList<Item> list = new ArrayList<Item>(1);
         list.add(owner.item());
         Item retained = list.get(0);
-        free list;
         int result = retained.value;
-        free owner;
         return result;
     }
 }

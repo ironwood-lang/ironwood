@@ -37,22 +37,18 @@ public final class BridgeArrayInputs {
     }
 
     public static BridgeProof<Contract> managedValues(CompilationArtifact artifact, BridgeCallableId callable) {
-        return analyze(artifact, callable, true, true);
+        return analyze(artifact, callable, true);
     }
 
     public static BridgeProof<Contract> managedValues(CompilationArtifact artifact, BridgeCallableId callable, BridgeListenerProxies listeners) {
-        return analyze(artifact, callable, true, true, listeners);
+        return analyze(artifact, callable, true, listeners);
     }
 
     private static BridgeProof<Contract> analyze(CompilationArtifact artifact, BridgeCallableId callable, boolean mutableValues) {
-        return analyze(artifact, callable, mutableValues, false);
+        return analyze(artifact, callable, mutableValues, null);
     }
 
-    private static BridgeProof<Contract> analyze(CompilationArtifact artifact, BridgeCallableId callable, boolean mutableValues, boolean managed) {
-        return analyze(artifact, callable, mutableValues, managed, null);
-    }
-
-    private static BridgeProof<Contract> analyze(CompilationArtifact artifact, BridgeCallableId callable, boolean mutableValues, boolean managed,
+    private static BridgeProof<Contract> analyze(CompilationArtifact artifact, BridgeCallableId callable, boolean mutableValues,
             BridgeListenerProxies listeners) {
         if (!artifact.valid() || artifact.bridgeConstructionFacts().isEmpty()
                 || !artifact.bridgeConstructionFacts().orElseThrow().matches(artifact.program().orElseThrow())) {
@@ -75,10 +71,7 @@ public final class BridgeArrayInputs {
             if (!(arrayResult ? facts.borrowsThroughResult(callable, index) : facts.borrowsInput(callable, index))) {
                 return BridgeProof.rejected("array input may escape, be returned or invalidated: parameter " + index);
             }
-            if (!managed) {
-                var lifetime = BridgeNonReclamationAnalyzer.analyze(program, roots, type, facts);
-                if (lifetime.status() != BridgeProof.Status.PROVED) return failed(lifetime.status(), lifetime.reason());
-            }
+
             inputs.add(index);
         }
         if (inputs.isEmpty() && !arrayResult) return BridgeProof.rejected("array proof requires an array input or result");
@@ -93,10 +86,7 @@ public final class BridgeArrayInputs {
                     || !callable.parameters().get(index).equals(callable.result()))) {
                 return BridgeProof.rejected("array result requires an exact input alias or invocation-owned allocation");
             }
-            if (!managed) {
-                var lifetime = BridgeNonReclamationAnalyzer.analyze(program, roots, callable.result(), facts);
-                if (lifetime.status() != BridgeProof.Status.PROVED) return failed(lifetime.status(), lifetime.reason());
-            }
+
             result = Optional.of(contract);
         }
         var retention = (listeners == null ? BridgeRetentionAnalyzer.analyze(program, roots, facts)
@@ -123,10 +113,6 @@ public final class BridgeArrayInputs {
                 for (var instruction : instructions) {
                     if (instruction instanceof IrForeignCallInstruction && foreignBodies.contains(function.linkageName())) continue;
                     var call = targets.resolve(instruction);
-                    // Compiler rollback may itself call cleanup code. P0 proves
-                    // reclamation; its complete effects still belong to this closure.
-                    if (instruction instanceof IrRollbackInstruction rollback) call = targets.cleanup(rollback.allocation(), true);
-                    if (instruction instanceof IrFreeInstruction free) call = targets.cleanup(free.allocation(), false);
                     if (call != null) {
                         if (!call.complete()) return BridgeProof.unknown("unresolved array-call effect: " + function.linkageName());
                         pending.addAll(call.targets());
@@ -135,11 +121,11 @@ public final class BridgeArrayInputs {
                         if (!primitiveArray(store.array().type())) return BridgeProof.unknown("nonprimitive array write in copied-value closure");
                         mutable = true;
                     } else if (instruction instanceof IrByteViewInstruction) {
-                        var views = managed ? BridgeByteViews.analyzeManaged(artifact, callable, listeners) : BridgeByteViews.analyze(artifact, callable);
+                        var views = BridgeByteViews.analyzeManaged(artifact, callable, listeners);
                         if (views.status() != BridgeProof.Status.PROVED) return failed(views.status(), views.reason());
                     } else if (instruction instanceof IrSystemArrayCopyInstruction) {
                         return BridgeProof.unknown("arraycopy requires a separately proved checked runtime boundary");
-                    } else if (!localEffect(instruction) && !(managed && instruction instanceof IrGcCollectInstruction)) {
+                    } else if (!localEffect(instruction) && !(instruction instanceof IrGcCollectInstruction)) {
                         return BridgeProof.unknown("unclassified array-call effect " + instruction.getClass().getSimpleName()
                                 + " at " + function.linkageName());
                     }
@@ -154,9 +140,7 @@ public final class BridgeArrayInputs {
         return switch (instruction) {
             // P0 already excludes reclamation of every copied input/result type.
             // These fixed releases have no remaining array-write/callback effect.
-            case IrRawDeallocateInstruction ignored -> true;
-            case IrReleaseOwnedThrowableMessageInstruction ignored -> true;
-            case IrReleaseOwnedToStringResultInstruction ignored -> true;
+
             case IrStringCopyInstruction ignored -> true;
             case IrStringCharAtInstruction ignored -> true;
             case IrArrayLoadInstruction ignored -> true;
@@ -186,7 +170,6 @@ public final class BridgeArrayInputs {
             case IrAllocationCountInstruction ignored -> true;
             case IrLiveAllocationCountInstruction ignored -> true;
             case IrThrowableTraceInstruction trace -> trace.operation() == IrThrowableTraceInstruction.Operation.CAPTURE
-                    || trace.operation() == IrThrowableTraceInstruction.Operation.RELEASE
                     || trace.operation() == IrThrowableTraceInstruction.Operation.COMMON;
             default -> false;
         };

@@ -307,7 +307,7 @@ declared throws clauses, and static-final
 initializers as written. It does not evaluate constants or synthesize implicit
 constructors and enum helper methods. An unnamed-package type named `README`
 is rejected because its page would collide with the library index. Initializer
-blocks, destructors, local
+blocks, local
 types, and anonymous types are not reference entries.
 
 Deferred Javadoc facilities include `///` Markdown comments, module comments,

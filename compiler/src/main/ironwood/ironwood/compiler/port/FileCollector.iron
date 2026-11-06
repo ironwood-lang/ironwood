@@ -76,7 +76,6 @@ public final class FileCollector implements FileVisitor<Path> {
     public String relative(int index, String root) {
 
         String file = this.files.get(index);
-        defer free file;
         int start = root.length();
         if (start < file.length() && !root.endsWith("/")) start++;
         return file.substring(start);
@@ -94,7 +93,6 @@ public final class FileCollector implements FileVisitor<Path> {
         if (!Files.isRegularFile(file)) return FileVisitResult.CONTINUE;
         Path name = file.getFileName();
         if (name != null) {
-            defer free name;
             if (name.toString().endsWith(this.extension)) this.files.add(file.toString());
         }
         return FileVisitResult.CONTINUE;
@@ -113,9 +111,4 @@ public final class FileCollector implements FileVisitor<Path> {
         return FileVisitResult.CONTINUE;
     }
 
-    destructor {
-
-        free this.extension;
-        free this.files;
-    }
 }

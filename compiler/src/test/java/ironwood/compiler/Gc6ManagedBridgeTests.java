@@ -16,7 +16,7 @@ final class Gc6ManagedBridgeTests {
     private Gc6ManagedBridgeTests() {}
 
     static CompilationArtifact artifact() {
-        return new CompilerPipeline(UnfreedMode.ERROR).analyzeForBridge(List.of(SourceFile.of("Counter.iron", """
+        return new CompilerPipeline().analyzeForBridge(List.of(SourceFile.of("Counter.iron", """
                 package gc6objects;
                 public final class Counter {
 
@@ -297,24 +297,18 @@ final class Gc6ManagedBridgeTests {
         var result = BridgeObjectAdmission.proveManaged(artifact, List.of("gc6objects"));
         check(result.status() == BridgeProof.Status.PROVED, result.reason());
         var admission = result.contract().orElseThrow();
-        check(admission.managedHeap() && admission.matches(artifact, admission.surface()), "admission lost source binding");
-        check(admission.entries().destructions().isEmpty() && admission.roots().orElseThrow().destruction().isEmpty(),
-                "managed bridge created destruction capabilities");
-        for (var function : admission.program().functions()) for (var block : function.blocks()) {
-            check(GcEffects.operations(block).stream().noneMatch(i -> i instanceof IrFreeInstruction || i instanceof IrRawDeallocateInstruction
-                    || i instanceof IrRollbackInstruction), "entry generated managed reclamation");
-        }
+        check(admission.matches(artifact, admission.surface()), "admission lost source binding");
         String llvm = new LlvmEmitter().emit(admission);
         check(llvm.contains("@iw_gc_root_abi = hidden constant i32 3") && llvm.contains("@ironwood_gc_start_roots"),
                 "managed library omitted root/owner startup");
         check(llvm.contains("@iw_gc_bridge_boundary") && llvm.contains("gc \"statepoint-example\""), "missing native entry metadata");
         var generation = BridgeGeneration.createObjects("gc6objects", artifact, admission, "test", "a".repeat(64), "b".repeat(64));
-        var java = BridgePermanentJavaSources.generateRoots(artifact, admission, generation);
+        var java = BridgeFacadeSources.generateRoots(artifact, admission, generation);
         String facade = java.declarations().sources().get("gc6objects/Counter.java");
         String roots = java.declarations().sources().get(generation.supportPackage().replace('.', '/') + "/Roots.java");
         check(!facade.contains("public Counter(") && !facade.contains("implements AutoCloseable"), "facade owns reclamation");
         check(roots.contains("construct_6763366f626a656374732e436f756e746572"), "constructor tag differs from UTF-8 contract");
-        var nativeSources = BridgePermanentNativeSources.generateRoots(artifact, admission, generation, java);
+        var nativeSources = BridgeFacadeNativeSources.generateRoots(artifact, admission, generation, java);
         var build = generation.nativeBuild("macos-arm64", syntheticBuildInputs());
         String combined = nativeSources.source() + BridgeBootstrapSources.generate(generation, build, java.declarations(), nativeSources);
         check(BridgeGcTransitions.compose(admission, combined).contains("iw_gc_segment_suspend"), "JNI execution omitted segment capture");
@@ -331,13 +325,13 @@ final class Gc6ManagedBridgeTests {
         var borrowed = admission.surface().roots().roots().stream().map(BridgeRootSet.Root::callable).filter(c -> c.name().equals("borrow")).findFirst().orElseThrow();
         check(ironwood.compiler.semantic.BridgeByteViews.analyzeManaged(artifact, borrowed).status() == BridgeProof.Status.PROVED,
                 "collecting view borrow refused");
-        check(ironwood.compiler.semantic.BridgeByteViews.analyze(artifact, borrowed).status() != BridgeProof.Status.PROVED,
-                "legacy lifetime proof silently admitted collection");
+        check(ironwood.compiler.semantic.BridgeByteViews.analyze(artifact, borrowed).status() == BridgeProof.Status.PROVED,
+                "borrowed view analysis lost the managed collection contract");
         String viewHeader = llvm.lines().filter(line -> line.startsWith("define ") && line.contains("@\"" + borrowed.linkage() + "\"(")).findFirst().orElseThrow();
         check(viewHeader.contains("(ptr ") && !viewHeader.contains("ptr addrspace(1)"), "borrowed descriptor used a managed address space");
         for (String member : List.of("private static ironwood.bridge.ByteView saved; public static void save(ironwood.bridge.ByteView view) { saved = view; }",
                 "private static int[] saved; public static void save(int[] array) { saved = array; ironwood.lang.Memory.collect(); }")) {
-            var escaped = new CompilerPipeline(UnfreedMode.ERROR).analyzeForBridge(List.of(SourceFile.of("Escaped.iron",
+            var escaped = new CompilerPipeline().analyzeForBridge(List.of(SourceFile.of("Escaped.iron",
                     "package gc6escape; public final class Escaped { private Escaped() {} " + member + " }")));
             check(!escaped.valid() || BridgeObjectAdmission.proveManaged(escaped, List.of("gc6escape")).status() != BridgeProof.Status.PROVED,
                     "foreign conversion input escaped its supported lifetime");
@@ -356,14 +350,14 @@ final class Gc6ManagedBridgeTests {
             archiveSources.add(IronJar.read(archive).source(units.get(i).binaryName()).orElseThrow());
         }
         for (var restored : List.of(classSources, archiveSources)) {
-            var reconstructed = new CompilerPipeline(UnfreedMode.ERROR).analyzeForBridge(restored);
+            var reconstructed = new CompilerPipeline().analyzeForBridge(restored);
             check(reconstructed.valid(), reconstructed.diagnostics().toString());
             var restoredProof = BridgeObjectAdmission.proveManaged(reconstructed, List.of("gc6objects"));
             check(restoredProof.status() == BridgeProof.Status.PROVED, restoredProof.reason());
             var restoredAdmission = restoredProof.contract().orElseThrow();
             var restoredGeneration = BridgeGeneration.createObjects("gc6objects", reconstructed, restoredAdmission, "test", "a".repeat(64), "b".repeat(64));
             check(restoredGeneration.identity().equals(generation.identity()), "generation changed after source reconstruction");
-            var restoredSources = BridgePermanentJavaSources.generateRoots(reconstructed, restoredAdmission, restoredGeneration).declarations().sources();
+            var restoredSources = BridgeFacadeSources.generateRoots(reconstructed, restoredAdmission, restoredGeneration).declarations().sources();
             if (!restoredSources.equals(java.declarations().sources())) {
                 for (var entry : restoredSources.entrySet()) {
                     Path file = directory.resolve("restored").resolve(entry.getKey()); Files.createDirectories(file.getParent()); Files.writeString(file, entry.getValue());
@@ -384,17 +378,17 @@ final class Gc6ManagedBridgeTests {
         var inputs = BridgeProducerInputs.discover();
         var generation = BridgeGeneration.createObjects("gc6objects", artifact, admission,
                 inputs.compilerVersion(), inputs.compilerIdentity(), inputs.runtimeIdentity(), args.length > 3 && args[3].equals("critical"));
-        var java = BridgePermanentJavaSources.generateRoots(artifact, admission, generation);
-        var nativeSources = BridgePermanentNativeSources.generateRoots(artifact, admission, generation, java);
+        var java = BridgeFacadeSources.generateRoots(artifact, admission, generation);
+        var nativeSources = BridgeFacadeNativeSources.generateRoots(artifact, admission, generation, java);
         var level = OptimizationLevel.valueOf(args[2]);
         var tools = LlvmToolchain.discover(Path.of(args[1])); check(tools.successful(), tools.error());
         var buildInputs = new java.util.TreeMap<>(BridgeGcBuildInputs.discover(tools.toolchain().orElseThrow()));
         buildInputs.putAll(Map.of("fixture", "managed-objects", "optimization", level.toString()));
-        var build = generation.nativeBuild(BridgeGeneratedJarTests.target(), buildInputs);
+        var build = generation.nativeBuild(ManagedBridgeTestBuild.target(), buildInputs);
         var out = Path.of(args[0]).toAbsolutePath(); Files.createDirectories(out);
         var llvm = out.resolve("program.ll"); Files.writeString(llvm, new LlvmEmitter().emit(admission));
         var source = BridgeGcTransitions.compose(admission, nativeSources.source() + BridgeBootstrapSources.generate(generation, build, java.declarations(), nativeSources));
-        BridgeGeneratedJarTests.build(out, llvm, tools.toolchain().orElseThrow(), level, generation, build, java.declarations(), source, Map.of(), admission);
+        ManagedBridgeTestBuild.build(out, llvm, tools.toolchain().orElseThrow(), level, generation, build, java.declarations(), source, Map.of(), admission);
         Files.writeString(out.resolve("support.txt"), generation.supportPackage());
     }
 

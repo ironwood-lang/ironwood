@@ -53,10 +53,9 @@ class AddressExtensions {
                     client.setPerformancePreferences(1, 2, 3);
                     client.setOOBInline(true);
                     client.setTrafficClass(16);
-                    if (!client.getOOBInline() || client.getTrafficClass() != 16
-                            || implementation.optionReads != 2 || implementation.optionWrites != 2) failure = 1;
+                    if (!client.getOOBInline() || client.getTrafficClass() != 16 || implementation.optionReads != 2 || implementation.optionWrites != 2) failure = 1;
                     InetSocketAddress endpoint = new InetSocketAddress("localhost", listener.getLocalPort());
-                    try { client.connect(endpoint); } finally { free endpoint; }
+                    try { client.connect(endpoint); } finally { ; }
                     Socket peer = listener.accept();
                     try {
                         peer.setOOBInline(true);
@@ -65,12 +64,12 @@ class AddressExtensions {
                         client.setPerformancePreferences(3, 2, 1);
                         if (implementation.preferences != 1) failure = 3;
                     } finally {
-                        try { peer.close(); } finally { free peer; }
+                        try { peer.close(); } finally { ; }
                     }
                 } finally {
-                    try { client.close(); } finally { free client; }
+                    try { client.close(); } finally { ; }
                 }
-            } finally { free implementation; }
+            } finally { ; }
             for (int index = 0; index < 2; index++) {
                 ExtendedImpl direct = new ExtendedImpl();
                 try {
@@ -79,21 +78,21 @@ class AddressExtensions {
                     } else {
                         InetAddress address = InetAddress.getByName("127.0.0.1");
                         try { direct.connectAddress(address, listener.getLocalPort()); }
-                        finally { free address; }
+                        finally { ; }
                     }
                     Socket peer = listener.accept();
                     try {
                         direct.getOutputStream().write(42);
                         if (peer.getInputStream().read() != 42) failure = 4;
                     } finally {
-                        try { peer.close(); } finally { free peer; }
+                        try { peer.close(); } finally { ; }
                     }
                 } finally {
-                    try { direct.close(); } finally { free direct; }
+                    try { direct.close(); } finally { ; }
                 }
             }
         } finally {
-            try { listener.close(); } finally { free listener; }
+            try { listener.close(); } finally { ; }
         }
         return failure;
     }

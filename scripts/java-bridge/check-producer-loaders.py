@@ -134,7 +134,7 @@ def build(evidence, compiler, jdks, level):
         exports = [option for package in sorted({item[0] for item in types}) for option in ("--export", package)]
         selected = evidence / "fault-compiler" if name == "fault" else compiler
         run(directory, name + "-producer", [jdks[21]["java"], "-cp", selected, "ironwood.compiler.Main", "--java-bridge",
-            *exports, "--unfreed=off", "-" + level, "-o", directory / (name + ".jar"), *sources])
+            *exports, "-" + level, "-o", directory / (name + ".jar"), *sources])
     with zipfile.ZipFile(directory / "b.jar") as other:
         rewrite_jar(directory / "a.jar", directory / "mixed.jar", {"loadshared/Common.class": other.read("loadshared/Common.class")})
     with zipfile.ZipFile(directory / "a.jar") as original:

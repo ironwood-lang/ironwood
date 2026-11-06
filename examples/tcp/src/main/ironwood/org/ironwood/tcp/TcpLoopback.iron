@@ -19,7 +19,6 @@ public class TcpLoopback {
     private static InetAddress loopback() throws IOException {
 
         byte[] bytes = {127, 0, 0, 1};
-        defer free bytes;
         // getByAddress copies the bytes into an independent address value.
         return InetAddress.getByAddress(bytes);
     }
@@ -28,18 +27,14 @@ public class TcpLoopback {
 
         ServerSocket listener = new ServerSocket();
         // The accepted socket remains valid after listener reclamation.
-        defer free listener;
         defer listener.close();
         InetAddress address = loopback();
-        defer free address;
         InetSocketAddress local = new InetSocketAddress(address, 0);
-        defer free local;
         // Port zero asks the OS to choose an available local port.
         listener.bind(local);
         listener.setSoTimeout(2000);
         SocketAddress endpoint = listener.getLocalSocketAddress();
         // Endpoint snapshots are fresh results, not listener borrows.
-        defer free endpoint;
         // TCP can complete into the listen backlog before accept.
         // Only this small sequential exchange runs in one process.
         client.connect(endpoint, 2000);
@@ -61,15 +56,12 @@ public class TcpLoopback {
 
         client.setSoTimeout(2000);
         accepted.setSoTimeout(2000);
-        // These stable stream views borrow their sockets. Do not free them.
         InputStream serverInput = accepted.getInputStream();
         OutputStream serverOutput = accepted.getOutputStream();
         InputStream clientInput = client.getInputStream();
         OutputStream clientOutput = client.getOutputStream();
         byte[] payload = {0, 42, -1, 7};
-        defer free payload;
         byte[] received = new byte[payload.length];
-        defer free received;
         clientOutput.write(payload);
         // Half-close sends EOF while preserving the response direction.
         client.shutdownOutput();
@@ -87,14 +79,11 @@ public class TcpLoopback {
     private static void exchange() throws IOException {
 
         Socket client = new Socket();
-        defer free client;
         defer client.close();
         // Generic options retain their primitive value type without boxing.
         client.setOption(StandardSocketOptions.TCP_NODELAY, true);
         if (!client.getOption(StandardSocketOptions.TCP_NODELAY)) throw new IOException("TCP_NODELAY not set");
         Socket accepted = acceptLoopback(client);
-        // close releases the descriptor; free reclaims the owned graph.
-        defer free accepted;
         defer accepted.close();
         exchange(client, accepted);
     }

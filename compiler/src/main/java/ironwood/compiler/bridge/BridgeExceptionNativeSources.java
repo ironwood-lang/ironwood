@@ -20,7 +20,7 @@ public final class BridgeExceptionNativeSources {
 
     static String generateManaged(CompilationArtifact artifact, BridgeExceptionProjection projection, BridgeExceptionEntries entries,
             BridgeCallbackCarrierEntries carriers) {
-        String source = generate(artifact, projection, entries, carriers, true);
+        String source = generate(artifact, projection, entries, carriers);
         if (carriers != null) source = BridgeGcListenerSources.supportAliases(carriers, source);
         int count = BridgeExceptionGraphSources.NODE_LIMIT;
         String nodes = "void *nodes[" + count + "] = {root};";
@@ -33,13 +33,8 @@ public final class BridgeExceptionNativeSources {
                 .replace("const struct ironwood_string *string = result.value.reference;", "pending = result.value.reference;\n                        const struct ironwood_string *string = pending;");
     }
 
-    public static String generate(CompilationArtifact artifact, BridgeExceptionProjection projection, BridgeExceptionEntries entries,
-            BridgeCallbackCarrierEntries carriers) {
-        return generate(artifact, projection, entries, carriers, false);
-    }
-
     private static String generate(CompilationArtifact artifact, BridgeExceptionProjection projection, BridgeExceptionEntries entries,
-            BridgeCallbackCarrierEntries carriers, boolean managed) {
+            BridgeCallbackCarrierEntries carriers) {
         if (!artifact.valid() || !projection.matches(artifact.program().orElseThrow()) || !entries.matches(projection)) {
             throw new IllegalArgumentException("native exception transport requires matching projected entries");
         }
@@ -64,18 +59,13 @@ public final class BridgeExceptionNativeSources {
             // placeholders do not consume the built-in constructor carriers.
             if (projection.customTypes().containsKey(type.nativeName())) { first = ""; second = ""; third = ""; number = ""; }
             List<String> strings = List.of("getMessage", first, second, third);
-            int ownership = 0;
-            for (int i = 0; i < strings.size(); i++) {
-                String name = strings.get(i);
-                if (type.properties().stream().anyMatch(value -> value.name().equals(name) && value.ownedString())) ownership |= 1 << i;
-            }
             descriptors.append("    { ").append(BridgeJavaSources.quote(type.nativeName())).append(", ")
                     .append(type.typeId()).append(", {");
             for (int i = 0; i < strings.size(); i++) {
                 if (i != 0) descriptors.append(", ");
                 descriptors.append(symbol(type, strings.get(i), entries));
             }
-            descriptors.append("}, ").append(ownership).append(", ")
+            descriptors.append("}, ")
                     .append(type.nativeName().equals("ironwood.nio.file.DirectoryIteratorException") ? 1 : 0).append(", ")
                     .append(symbol(type, "getCause", entries)).append(", ")
                     .append(symbol(type, "getSecondaryExceptionCount", entries)).append(", ")
@@ -112,7 +102,7 @@ public final class BridgeExceptionNativeSources {
                 .replace("@CUSTOM_CLASSES@", custom == null ? "" : "IW_EX_LONG_ARRAY, IW_EX_STRING_ARRAY, ")
                 .replace("@CUSTOM_NAMES@", custom == null ? "" : ", \"[J\", \"[Ljava/lang/String;\"")
                 .replace("@CUSTOM_DESCRIPTOR@", custom == null ? "" : "[[J[[Ljava/lang/String;")
-                .replace("@CUSTOM_HELPERS@", custom == null ? "" : BridgeCustomSnapshotNativeSources.generate(projection, custom, entries, managed))
+                .replace("@CUSTOM_HELPERS@", custom == null ? "" : BridgeCustomSnapshotNativeSources.generate(projection, custom, entries))
                 .replace("@CUSTOM_ARRAYS@", custom == null ? "" : """
                         jobjectArray copied_numbers = (*env)->NewObjectArray(env, @LIMIT@, metadata->classes[IW_EX_LONG_ARRAY], NULL);
                         if (copied_numbers == NULL) goto done;
@@ -140,7 +130,7 @@ public final class BridgeExceptionNativeSources {
                     return @SECONDARY@(object, index, (struct ironwood_bridge_result *)(uintptr_t)frame);
                 }
                 static const struct iw_exception_type iw_callback_exception_type = {
-                    NULL, 0, {NULL, NULL, NULL, NULL}, 0, 0,
+                    NULL, 0, {NULL, NULL, NULL, NULL}, 0,
                     iw_callback_cause, iw_callback_secondary_count, iw_callback_secondary, NULL
                 };
                 """.replace("@REFERENCE@", carriers.reference().linkageName())
@@ -175,7 +165,7 @@ public final class BridgeExceptionNativeSources {
                 const char *name;
                 jint id;
                 iw_exception_getter text[4];
-                unsigned owned, patch_message;
+                unsigned patch_message;
                 iw_exception_getter cause, secondary_count;
                 int32_t (*secondary)(void *, int32_t, int64_t);
                 iw_exception_getter number;

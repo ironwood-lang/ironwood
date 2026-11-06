@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / 'integration-tests/target/defer-performance'
 TEMPLATE = ROOT / 'integration-tests/cases/defer_performance.iron'
 NULLABLE_CASES = ['nullable', 'indirect']
-CASES = ['call', 'free', 'pool', 'nullable', 'indirect', 'initialization'] + [
+CASES = ['call', 'pool', 'nullable', 'indirect', 'initialization'] + [
     f'{shape}-{count}' for shape in ['straight', 'transfers', 'failing'] for count in [1, 2, 4, 8]]
 FIELDS = ['checksum', 'captures', 'actions', 'bodies', 'failures', 'allocations',
           'live_delta', 'first_allocations', 'first_live_delta', 'ns']
@@ -72,21 +72,18 @@ def fixture(case, variant):
     setup = 'Cell receiver = null;\nArrayObjectPool<Cell> pool = null;'
     teardown = receiver = ''
     failure_check = 'errors++;'
-    if case == 'free':
-        exercise = 'byte[] value = new byte[16];\n' + protect(variant, [('', 'free value')],
-                    'body(i + value[0]);')
-    elif case == 'pool':
+    if case == 'pool':
         setup = '''Builder builder = new Builder();
 ArrayObjectPool<Cell> pool = new ArrayObjectPool<Cell>(1, 1, builder, 2.0f);
 Cell receiver = null;'''
-        teardown = 'free pool;\nfree builder;'
+        teardown = ''
         exercise = 'Cell item = pool.get();\n' + protect(variant, [('', 'pool.release(item)')],
                     'item.value = i;\nbody(item.value);')
     elif case in NULLABLE_CASES:
-        # Keep the owned reference separate from the nullable capture's lexical lifetime.
-        setup = 'Cell owned = new Cell();\n{\nCell receiver = owned;\nArrayObjectPool<Cell> pool = null;'
+        # Keep the managed reference separate from the nullable capture's lexical lifetime.
+        setup = 'Cell receiver = new Cell();\nArrayObjectPool<Cell> pool = null;'
         receiver = '// SELECT NULLABLE MEASUREMENT'
-        teardown = '}\nfree owned;'
+        teardown = ''
         if case == 'indirect':
             # Fixed process-owned lookup state keeps this load nullable in optimized
             # code. Its two startup allocations are shared by both fixtures.
@@ -165,16 +162,6 @@ for (int j = 0; j < secondaries; j++) {{
         source = source.replace('        bodies++;', '        if (starts == 0) coldBodies++;\n        bodies++;')
         source = source.replace('long firstLive = System.liveAllocationCount() - live;',
             'long firstLive = System.liveAllocationCount() - live;\n        if (starts != 1 || coldBodies != 1) errors++;')
-    if case == 'nullable':
-        # Branch at the borrow call rather than merging a nullable alias of an
-        # owned object; the ordinary ownership analysis rejects that merged free.
-        marker = '        // SELECT NULLABLE MEASUREMENT'
-        start = source.index(marker)
-        end = source.index('        }\n        free owned;', start)
-        measurements = source[start + len(marker):end].strip()
-        null_measurements = measurements.replace(', receiver, pool)', ', null, pool)')
-        source = source[:start] + '        if (mode == 0) {\n' + textwrap.indent(measurements, '    ') \
-            + '\n        } else {\n' + textwrap.indent(null_measurements, '    ') + '\n        }\n' + source[end:]
     if case == 'pool':
         # Keep checkout/release in the owning method, matching the existing pool
         # proof boundary; passing this graph through an unknown summary is unsafe.
@@ -196,11 +183,11 @@ def oracle(case, count, mode):
         repeats = 3 if case.startswith('transfers-') and (i & 3) in [1, 3] else 1
         for step in range(repeats):
             value = i * 3 + step if case.startswith('transfers-') else i
-            if case not in ['free', 'pool']:
+            if case not in ['pool']:
                 values['captures'] += n
             values['bodies'] += 1
             event(value + 2000)
-            if case not in ['free', 'pool']:
+            if case not in ['pool']:
                 if case not in NULLABLE_CASES or mode == 0:
                     for action in range(n, 0, -1):
                         event(value * 31 + action + (713 if case == 'initialization' else 0))
@@ -211,9 +198,6 @@ def oracle(case, count, mode):
             if mode:
                 values['failures'] += 1
                 values['allocations'] += (1 + (mode == 2) if case in NULLABLE_CASES else n + (i % 2 == 0))
-    if case == 'free':
-        values['allocations'] = count
-        values['first_allocations'] = 1
     if mode:
         values['live_delta'] = values['allocations']
     if values['checksum'] >= 1 << 63:
@@ -338,8 +322,8 @@ def main():
             else:
                 (directory / 'Main.iron').write_text(source)
                 print(f'BUILD {case} {variant}', flush=True)
-                log = run(ROOT / 'bin/ironwoodc', '--unfreed=error', directory / 'Main.iron', '-d', directory / 'classes')
-                log += run(ROOT / 'bin/ironwoodc', '--link', '--unfreed=error', '-cp', directory / 'classes',
+                log = run(ROOT / 'bin/ironwoodc', directory / 'Main.iron', '-d', directory / 'classes')
+                log += run(ROOT / 'bin/ironwoodc', '--link', '-cp', directory / 'classes',
                            '--main-class', 'Main', '-O3', '--llvm-home', options.llvm_home,
                            '--emit-llvm', directory / 'program.ll', '-o', directory / 'program')
                 (directory / 'build.log').write_text(log)
@@ -372,9 +356,9 @@ def main():
             blocks = count // 4 * 8 + [0, 1, 4, 5][count % 4] if case.startswith('transfers-') else count
             allocation_count = count if case == 'free' else (count * (1 + (mode == 2)) if case in NULLABLE_CASES
                 else count * n + (count + 1) // 2) if mode else 0
-            counts = {'captures': 0 if case in ['free', 'pool'] else blocks * n,
+            counts = {'captures': 0 if case in ['pool'] else blocks * n,
                       'bodies': blocks, 'failures': count if mode else 0,
-                      'actions': 0 if case in ['free', 'pool'] else count * (1 if mode else 2)
+                      'actions': 0 if case in ['pool'] else count * (1 if mode else 2)
                       if case in NULLABLE_CASES else blocks * n,
                       'allocations': allocation_count, 'live_delta': allocation_count if mode else 0,
                       'first_allocations': 1 if case == 'free' else 0, 'first_live_delta': 0}

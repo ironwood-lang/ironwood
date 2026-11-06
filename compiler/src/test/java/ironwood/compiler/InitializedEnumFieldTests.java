@@ -64,12 +64,7 @@ final class InitializedEnumFieldTests {
         require(raw.classes().stream().filter(c -> c.name().equals("Value")).flatMap(c -> c.fields().stream())
                 .filter(f -> f.name().equals("index") || f.name().equals("code")).allMatch(IrField::isFinal),
                 "final metadata lost");
-        IrProgram generic = analyze("""
-                class Box<T> { final T value; Box(T value) { this.value = value; } T get() { return this.value; } }
-                class Main { public static int main(String[] args) {
-                    Box<int> box = new Box<int>(7); int result = box.get(); free box; return result;
-                } }
-                """);
+        IrProgram generic = analyze("class Box<T> { final T value; Box(T value) { this.value = value; } T get() { return this.value; } }\nclass Main { public static int main(String[] args) {\n    Box<int> box = new Box<int>(7); int result = box.get(); ; return result;\n} }\n");
         List<IrField> genericFields = generic.classes().stream().flatMap(c -> c.fields().stream())
                 .filter(f -> f.name().equals("value") && f.type().equals(IrType.I32)).toList();
         require(!genericFields.isEmpty() && genericFields.stream().allMatch(IrField::isFinal), "generic final metadata lost");
@@ -109,12 +104,9 @@ final class InitializedEnumFieldTests {
         foreign.set(0, new IrFieldStoreInstruction(receiver, field, new IrConstant(IrType.I32, 99, first.sourceSpan()), first.sourceSpan()));
         foreignBlocks.set(0, new IrBasicBlock(first.label(), foreign, first.terminator(), first.sourceSpan()));
         requireUnfolded(replace(raw, leaf, copy(leaf, foreignBlocks)), "foreign field store");
-        for (UnfreedMode mode : UnfreedMode.values()) {
-            String safe = SOURCE.replace("return 42;", "Object x = new Object(); free x; return 42;");
-            require(new CompilerPipeline(mode).compile(SourceFile.of("safe.iron", safe)).successful(), "safe " + mode);
-            require(!new CompilerPipeline(mode).compile(SourceFile.of("unsafe.iron",
-                    safe.replace("free x;", "free x; free x;"))).valid(), "unsafe accepted " + mode);
-        }
+        var shared = new CompilerPipeline().compile(SourceFile.of("Shared.iron",
+                "class Shared { Object value = new Object(); Object alias() { Object result = value; ironwood.lang.Memory.collect(); return result; } }"));
+        require(shared.successful(), shared.diagnostics().toString());
     }
 
     static void nativeArtifacts() throws Exception {
@@ -123,17 +115,17 @@ final class InitializedEnumFieldTests {
         Path source = root.resolve("Main.iron");
         Files.writeString(source, SOURCE);
         Path classes = root.resolve("classes");
-        cli(source.toString(), "--unfreed=error", "-d", classes.toString());
+        cli(source.toString(), "-d", classes.toString());
         Path archive = root.resolve("program.ironjar");
         IronJar.create(archive, List.of(classes));
         for (String input : List.of("source", "class", "archive")) {
             for (int level : List.of(0, 3)) {
                 Path binary = root.resolve(input + "-O" + level);
                 Path llvm = root.resolve(input + "-O" + level + ".ll");
-                List<String> command = new ArrayList<>(List.of("--unfreed=error", "-O" + level,
+                List<String> command = new ArrayList<>(List.of("-O" + level,
                         "--emit-llvm", llvm.toString(), "-o", binary.toString()));
                 if (input.equals("source")) {
-                    var artifact = new CompilerPipeline(UnfreedMode.ERROR).compile(SourceFile.of(source.toString(), SOURCE));
+                    var artifact = new CompilerPipeline().compile(SourceFile.of(source.toString(), SOURCE));
                     require(artifact.successful(), artifact.diagnostics().toString());
                     Files.writeString(llvm, artifact.llvmIr().orElseThrow());
                     var linked = new ironwood.compiler.backend.NativeBackend().link(
@@ -151,11 +143,11 @@ final class InitializedEnumFieldTests {
         }
         Path fixture = Path.of("integration-tests/cases/initialized_enum_fields.iron");
         Path fixtureClasses = root.resolve("adversarial-classes");
-        cli(fixture.toString(), "--unfreed=error", "-d", fixtureClasses.toString());
+        cli(fixture.toString(), "-d", fixtureClasses.toString());
         for (int level : List.of(0, 3)) {
             Path binary = root.resolve("adversarial-O" + level);
             cli("--link", "-cp", fixtureClasses.toString(), "--main-class", "Main",
-                    "--unfreed=error", "-O" + level, "-o", binary.toString());
+                    "-O" + level, "-o", binary.toString());
             execute(binary, 42);
         }
     }

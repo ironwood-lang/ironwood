@@ -141,10 +141,8 @@ public final class JarManifest {
         int lines = versionIndex < 0 ? 0 : this.names.size();
         // The written bytes collect as units, so the result is the last allocation.
         StringBuilder out = new StringBuilder();
-        defer free out;
         for (int index = 0; index < lines; index++) {
             byte[] encoded = this.lineBytes(index, versionIndex, version);
-            defer free encoded;
             appendWrapped(encoded, out);
         }
         out.append('\r');
@@ -160,7 +158,6 @@ public final class JarManifest {
 
         int attribute = index == 0 ? versionIndex : index - 1 < versionIndex ? index - 1 : index;
         StringBuilder text = new StringBuilder();
-        defer free text;
         if (index == 0) {
             text.append(version);
         } else {
@@ -169,7 +166,6 @@ public final class JarManifest {
         text.append(": ");
         this.values.appendTo(this.valueOf[attribute], text);
         String line = text.toString();
-        defer free line;
         return line.getBytes();
     }
 
@@ -206,9 +202,7 @@ public final class JarManifest {
         while (colon < start + length && bytes[colon] != ':') colon++;
         if (colon + 1 >= start + length || bytes[colon + 1] != ' ') throw this.failure("invalid header field");
         String name = decode(bytes, start, colon);
-        defer free name;
         StringBuilder pending = new StringBuilder();
-        defer free pending;
         for (int index = colon + 2; index < start + length; index++) pending.append((char) (bytes[index] & 0xFF));
         while (this.peek(bytes) == ' ') {
             if (!this.nextLine(bytes, false)) return false;
@@ -218,13 +212,11 @@ public final class JarManifest {
         }
         if (!validName(name)) {
             StringBuilder message = new StringBuilder();
-            defer free message;
             message.append("invalid header field name: ");
             message.append(name);
             throw this.failure(message);
         }
         String value = decodePending(pending);
-        defer free value;
         if (keep) this.put(name, value);
         return true;
     }
@@ -240,9 +232,7 @@ public final class JarManifest {
             header = this.lineLength > 0;
         }
         int start = this.lineStart;
-        if (this.lineLength < 6 || lower(bytes[start]) != 'n' || lower(bytes[start + 1]) != 'a'
-                || lower(bytes[start + 2]) != 'm' || lower(bytes[start + 3]) != 'e' || bytes[start + 4] != ':'
-                || bytes[start + 5] != ' ') {
+        if (this.lineLength < 6 || lower(bytes[start]) != 'n' || lower(bytes[start + 1]) != 'a' || lower(bytes[start + 2]) != 'm' || lower(bytes[start + 3]) != 'e' || bytes[start + 4] != ':' || bytes[start + 5] != ' ') {
             throw this.failure("invalid manifest format");
         }
         while (this.peek(bytes) == ' ') {
@@ -284,7 +274,6 @@ public final class JarManifest {
     private IOException failure(CharSequence message) {
 
         StringBuilder text = new StringBuilder();
-        defer free text;
         text.append(message);
         text.append(" (line ");
         text.append(this.line);
@@ -297,7 +286,6 @@ public final class JarManifest {
     private static String decode(byte[] bytes, int from, int to) {
 
         byte[] slice = Bytes.slice(bytes, from, to);
-        defer free slice;
         return new String(slice);
     }
 
@@ -305,7 +293,6 @@ public final class JarManifest {
     private static String decodePending(StringBuilder pending) {
 
         byte[] raw = new byte[pending.length()];
-        defer free raw;
         for (int index = 0; index < raw.length; index++) raw[index] = (byte) pending.charAt(index);
         return new String(raw);
     }
@@ -338,8 +325,7 @@ public final class JarManifest {
         if (name.length() < 1 || name.length() > 70) return false;
         for (int index = 0; index < name.length(); index++) {
             char unit = name.charAt(index);
-            if (!(unit >= 'a' && unit <= 'z' || unit >= 'A' && unit <= 'Z' || unit >= '0' && unit <= '9' || unit == '-'
-                    || unit == '_')) {
+            if (!(unit >= 'a' && unit <= 'z' || unit >= 'A' && unit <= 'Z' || unit >= '0' && unit <= '9' || unit == '-' || unit == '_')) {
                 return false;
             }
         }
@@ -360,17 +346,10 @@ public final class JarManifest {
                 int[] previous = this.valueOf;
                 this.valueOf = new int[previous.length * 2];
                 System.arraycopy(previous, 0, this.valueOf, 0, count);
-                free previous;
             }
             this.names.add(name);
             this.valueOf[count] = stored;
         }
     }
 
-    destructor {
-
-        free this.names;
-        free this.values;
-        free this.valueOf;
-    }
 }

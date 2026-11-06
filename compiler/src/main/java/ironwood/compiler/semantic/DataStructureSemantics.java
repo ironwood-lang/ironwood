@@ -9,7 +9,6 @@ import ironwood.compiler.ast.BinaryOperator;
 import ironwood.compiler.ast.CallExpression;
 import ironwood.compiler.ast.ExpressionStatement;
 import ironwood.compiler.ast.FieldAccessExpression;
-import ironwood.compiler.ast.FreeStatement;
 import ironwood.compiler.ast.IfStatement;
 import ironwood.compiler.ast.IntegerLiteralExpression;
 import ironwood.compiler.ast.NameExpression;
@@ -42,25 +41,7 @@ final class DataStructureSemantics {
         return BORROWING_CONTAINERS.contains(type);
     }
 
-    static CallExpression arrayListElementReadGuard(CallableSymbol method) {
-        if (method.isStatic() || !method.ownerType().equals("ironwood.ds.ArrayList")
-                || !method.sourceName().equals("get") || !method.parameterTypes().equals(List.of(IrType.I32))) return null;
-        var body = method.body().orElse(null);
-        if (body == null || body.statements().size() != 2
-                || !(body.statements().getFirst() instanceof ExpressionStatement statement)
-                || !(statement.expression() instanceof CallExpression guard)
-                || guard.receiver().isPresent() && !(guard.receiver().orElseThrow() instanceof ThisExpression)
-                || guard.arguments().size() != 1
-                || !(guard.arguments().getFirst() instanceof NameExpression checked)
-                || !(body.statements().getLast() instanceof ReturnStatement returned)
-                || !(returned.value().orElse(null) instanceof ArrayAccessExpression element)
-                || !(element.array() instanceof FieldAccessExpression array)
-                || !(array.receiver() instanceof ThisExpression) || !array.fieldName().equals("array")
-                || !(element.index() instanceof NameExpression index)
-                || !index.name().equals(method.parameters().getFirst().name())
-                || !checked.name().equals(index.name())) return null;
-        return guard;
-    }
+
 
     /** A read guard must leave live membership unchanged, not merely avoid
      * publication. This exact primitive bounds shape has no normal-path call,
@@ -104,7 +85,7 @@ final class DataStructureSemantics {
 
     static boolean clearsBorrowedItems(CallableSymbol method) {
         // ArrayLinkedList exposes unchecked package-level arrayElement reads.
-        // Its inactive slots therefore remain loans until destruction.
+        // Its inactive slots therefore retain their references until reset or collection.
         return isBorrowingContainer(method.ownerType()) && !method.isStatic()
                 && method.sourceName().equals("clear") && method.parameterTypes().isEmpty();
     }
@@ -209,37 +190,4 @@ final class DataStructureSemantics {
         return null;
     }
 
-    static boolean hasOrderedCleanup(TypeSymbol owner) {
-        // The pool borrows the builder. Reverse-layout constructor rollback must
-        // therefore destroy the pool first, as must the explicit destructor.
-        List<String> fields = owner.layoutFields().stream().map(field -> field.name()).toList();
-        if (fields.indexOf("entryBuilder") < 0
-                || fields.indexOf("entryBuilder") >= fields.indexOf("entryPool")) {
-            return false;
-        }
-        var destructor = owner.destructor().flatMap(CallableSymbol::body).orElse(null);
-        if (destructor == null) { return false; }
-        List<String> expected = owner.name().endsWith("List")
-                ? List.of("reusableIterator", "entryPool", "entryBuilder")
-                : List.of("reusableIterator", "data", "entryPool", "entryBuilder");
-        if (destructor.statements().size() != expected.size()) { return false; }
-        for (int index = 0; index < expected.size(); index++) {
-            if (!(destructor.statements().get(index) instanceof FreeStatement free)
-                    || !freedFieldName(free).equals(expected.get(index))) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private static String freedFieldName(FreeStatement free) {
-        if (free.value() instanceof NameExpression name) {
-            return name.name();
-        }
-        if (free.value() instanceof FieldAccessExpression access
-                && access.receiver() instanceof ThisExpression) {
-            return access.fieldName();
-        }
-        return "";
-    }
 }

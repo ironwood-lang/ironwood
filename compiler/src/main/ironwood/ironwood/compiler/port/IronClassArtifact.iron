@@ -76,11 +76,8 @@ public final class IronClassArtifact {
     public static IronClassArtifact read(Path artifact, Inflate inflate) throws IOException {
 
         Path absolute = artifact.toAbsolutePath();
-        defer free absolute;
         Path normalized = absolute.normalize();
-        defer free normalized;
         byte[] bytes = Files.readAllBytes(normalized);
-        defer free bytes;
         return new IronClassArtifact(bytes, normalized.toString(), inflate);
     }
 
@@ -88,16 +85,13 @@ public final class IronClassArtifact {
     private void entries(byte[] artifact, Inflate inflate) throws IOException {
 
         ZipStream stream = new ZipStream();
-        defer free stream;
         while (true) {
             byte[] data = stream.next(artifact, inflate, this.display);
             if (data == null) return;
-            defer free data;
             int entry = stream.count() - 1;
             if (!stream.isDirectory()) {
                 if (stream.earlierName(entry) >= 0) {
                     String name = stream.name(entry);
-                    defer free name;
                     throw new IOException("duplicate entry '" + name + "' in " + this.display);
                 }
                 this.keep(stream, entry, data);
@@ -166,7 +160,6 @@ public final class IronClassArtifact {
 
         String trimmed = text.trim();
         if (!trimmed.isEmpty()) return trimmed;
-        free trimmed;
         return null;
     }
 
@@ -174,15 +167,11 @@ public final class IronClassArtifact {
     private void line(int start, int end) throws IOException {
 
         String line = this.indexText.substring(start, end);
-        defer free line;
         if (line.isBlank()) return;
         int[] fields = Splits.bounds(line, '\t', -1);
-        defer free fields;
         if (Splits.count(fields) != 2) throw new IOException("invalid type index entry in " + this.display + ": " + line);
         String name = Splits.field(line, fields, 0);
-        defer free name;
         String kind = Splits.field(line, fields, 1);
-        defer free kind;
         if (name.isBlank() || kind.isBlank()) {
             throw new IOException("invalid type index entry in " + this.display + ": " + line);
         }
@@ -273,16 +262,12 @@ public final class IronClassArtifact {
                              String sourceName, String content) throws IOException {
 
         Path absolute = artifact.toAbsolutePath();
-        defer free absolute;
         Path normalized = absolute.normalize();
-        defer free normalized;
         Path parent = normalized.getParent();
         if (parent != null) {
-            defer free parent;
             Files.createDirectories(parent);
         }
         byte[] bytes = bytes(artifactType, isInterface, entryPoint, sourceName, content);
-        defer free bytes;
         Files.write(normalized, bytes);
     }
 
@@ -294,18 +279,14 @@ public final class IronClassArtifact {
                                String content) throws IOException {
 
         ZipWriter writer = new ZipWriter();
-        defer free writer;
         add(writer, MANIFEST, FORMAT);
         String index = artifactType + "\t" + (isInterface ? "interface" : "class") + "\n";
-        defer free index;
         add(writer, TYPE_INDEX, index);
         if (entryPoint != null) {
             String line = entryPoint + "\n";
-            defer free line;
             add(writer, ENTRY_POINT, line);
         }
         String sourceEntry = SOURCE_DIRECTORY + sourceName;
-        defer free sourceEntry;
         add(writer, sourceEntry, content);
         return writer.finish();
     }
@@ -313,19 +294,7 @@ public final class IronClassArtifact {
     private static void add(ZipWriter writer, String name, String text) throws IOException {
 
         byte[] bytes = text.getBytes();
-        defer free bytes;
         writer.add(name, bytes, 0, bytes.length);
     }
 
-    destructor {
-
-        free this.display;
-        free this.types;
-        free this.kinds;
-        if (this.indexText != null) free this.indexText;
-        if (this.entryText != null) free this.entryText;
-        if (this.entryPoint != null) free this.entryPoint;
-        if (this.sourceEntry != null) free this.sourceEntry;
-        if (this.source != null) free this.source;
-    }
 }

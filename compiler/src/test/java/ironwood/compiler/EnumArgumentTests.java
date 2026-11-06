@@ -46,26 +46,22 @@ final class EnumArgumentTests {
         require(clones.stream().filter(f -> f.sourceName().equals("score")).count() >= 2,
                 "two distinct identities were not selected");
 
-        String safe = "class Main { public static int main(String[] a) { int[] x = new int[1]; free x; return 0; } }";
-        for (var mode : UnfreedMode.values()) {
-            require(new CompilerPipeline(mode).compile(SourceFile.of("safe.iron", safe)).valid(), "safe cleanup rejected");
-            require(!new CompilerPipeline(mode).compile(SourceFile.of("unsafe.iron",
-                    safe.replace("free x;", "free x; free x;"))).valid(), "double free accepted " + mode);
-        }
+        var shared = new CompilerPipeline().compile(SourceFile.of("Shared.iron",
+                "class Shared { Object value = new Object(); Object alias() { Object result = value; ironwood.lang.Memory.collect(); return result; } }"));
+        require(shared.successful(), shared.diagnostics().toString());
     }
 
     static void nativeArtifacts() throws Exception {
         Path root = Path.of("integration-tests/target/enum-argument").toAbsolutePath();
         Files.createDirectories(root);
         Path classes = root.resolve("classes");
-        cli(SOURCE.toString(), "--unfreed=error", "-d", classes.toString());
+        cli(SOURCE.toString(), "-d", classes.toString());
         Path archive = root.resolve("program.ironjar");
         IronJar.create(archive, List.of(classes));
         for (int level : List.of(0, 3)) {
             Path binary = root.resolve("program-O" + level);
             Path llvm = root.resolve("program-O" + level + ".ll");
-            cli("--link", "-cp", (level == 0 ? classes : archive).toString(), "--main-class", "Main", "--unfreed=error",
-                    "-O" + level, "--emit-llvm", llvm.toString(), "-o", binary.toString());
+            cli("--link", "-cp", (level == 0 ? classes : archive).toString(), "--main-class", "Main", "-O" + level, "--emit-llvm", llvm.toString(), "-o", binary.toString());
             require(Files.readString(llvm).contains(".$enumarg."), "artifact link skipped specialization");
             Path output = root.resolve("O" + level + ".output");
             Process process = new ProcessBuilder(binary.toString()).redirectErrorStream(true)

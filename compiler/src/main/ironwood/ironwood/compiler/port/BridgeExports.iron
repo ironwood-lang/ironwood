@@ -40,15 +40,12 @@ public final class BridgeExports {
         this.diagnostics = new TextList();
         for (int index = 0; index < exports.size(); index++) {
             String name = exports.get(index);
-            defer free name;
             if (!JavaNames.isName(name)) {
                 StringBuilder message = new StringBuilder();
-                defer free message;
                 message.append("invalid Java Bridge export package: '");
                 message.append(name);
                 message.append('\'');
                 String text = message.toString();
-                defer free text;
                 this.diagnostics.add(text);
             } else if (surface && name.equals(RESERVED)) {
                 this.diagnostics.add("ironwood.bridge is reserved for the shared Java Bridge value API");
@@ -86,9 +83,4 @@ public final class BridgeExports {
         return this.diagnostics.get(index);
     }
 
-    destructor {
-
-        free this.packages;
-        free this.diagnostics;
-    }
 }

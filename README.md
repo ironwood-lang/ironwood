@@ -154,8 +154,10 @@ Close files and sockets explicitly; collection never closes them. See
 [Memory management](docs/MEMORY_MANAGEMENT.md) for scheduling and reuse guidance.
 GC6 managed bridges are qualified on macOS arm64 and Linux x86-64 with explicit
 [RootHandle and listener registration lifetimes](docs/GC6_IMPLEMENTATION.md).
-Linux arm64 and arm64e remain unqualified. Old repository consumers using reclamation syntax
-are scheduled for GC7 migration; self-hosting has not restarted.
+Linux arm64 and arm64e remain unqualified. [GC7](docs/GC7_IMPLEMENTATION.md)
+completes maintained consumer migration and obsolete managed-free proof retirement.
+Intentional migration-negative fixtures and frozen historical evidence remain
+classified in its ledger. Self-hosting has not restarted.
 
 ## Deterministic Cleanup with `defer`
 

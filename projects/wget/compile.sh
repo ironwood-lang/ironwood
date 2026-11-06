@@ -3,8 +3,7 @@
 set -euo pipefail
 PROJECT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$PROJECT_DIR"
-COMMAND=(ironwoodc --source-path src/main/ironwood -d target/classes --unfreed=error
-    src/main/ironwood/org/ironwood/wget/Wget.iron)
+COMMAND=(ironwoodc --source-path src/main/ironwood -d target/classes src/main/ironwood/org/ironwood/wget/Wget.iron)
 printf '+ %q ' "${COMMAND[@]}" >&2
 printf '\n' >&2
 "${COMMAND[@]}" >&2

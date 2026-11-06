@@ -17,7 +17,7 @@ import ironwood.ds.ArrayList;
  * on the lexeme, simple escapes use {@link CharEscapes}, and text blocks use
  * {@link TextBlocks}. Numeric validation and line-terminator normalization
  * work on index ranges of the source instead of substrings, so they allocate
- * nothing; every intermediate string is freed. The lexer owns its builders;
+ * nothing. Intermediate strings and builders use managed lifetime;
  * the result copies them, and tokens, spans and text borrow the source.
  */
 public final class Lexer {
@@ -208,9 +208,9 @@ public final class Lexer {
             case "void" -> TokenKind.VOID;
             case "return" -> TokenKind.RETURN;
             case "yield" -> TokenKind.YIELD;
-            case "free" -> TokenKind.FREE;
+
             case "defer" -> TokenKind.DEFER;
-            case "destructor" -> TokenKind.DESTRUCTOR;
+
             case "throw" -> TokenKind.THROW;
             case "throws" -> TokenKind.THROWS;
             case "try" -> TokenKind.TRY;
@@ -241,8 +241,7 @@ public final class Lexer {
         if (hexadecimal || binary) {
             this.advance();
             this.advance();
-            while (!this.atEnd() && ((hexadecimal ? isHexDigit(this.peek()) : isBinaryDigit(this.peek()))
-                    || this.peek() == '_')) {
+            while (!this.atEnd() && ((hexadecimal ? isHexDigit(this.peek()) : isBinaryDigit(this.peek())) || this.peek() == '_')) {
                 this.advance();
             }
         } else {
@@ -259,8 +258,7 @@ public final class Lexer {
                 while (!this.atEnd() && (Character.isDigit(this.peek()) || this.peek() == '_')) this.advance();
             }
         }
-        if (!hexadecimal && !binary && !this.atEnd() && (this.peek() == 'f' || this.peek() == 'F'
-                || this.peek() == 'd' || this.peek() == 'D')) {
+        if (!hexadecimal && !binary && !this.atEnd() && (this.peek() == 'f' || this.peek() == 'F' || this.peek() == 'd' || this.peek() == 'D')) {
             floating = true;
             this.advance();
         } else if (!this.atEnd() && (this.peek() == 'l' || this.peek() == 'L')) {
@@ -301,8 +299,7 @@ public final class Lexer {
 
     private static boolean validHexIntegral(String text, int start, int end) {
 
-        if (end - start <= 2 || text.charAt(start) != '0'
-                || text.charAt(start + 1) != 'x' && text.charAt(start + 1) != 'X') {
+        if (end - start <= 2 || text.charAt(start) != '0' || text.charAt(start + 1) != 'x' && text.charAt(start + 1) != 'X') {
             return false;
         }
         return validDigitSequence(text, start + 2, end, true);
@@ -310,8 +307,7 @@ public final class Lexer {
 
     private static boolean validBinaryIntegral(String text, int start, int end) {
 
-        if (end - start <= 2 || text.charAt(start) != '0'
-                || text.charAt(start + 1) != 'b' && text.charAt(start + 1) != 'B') {
+        if (end - start <= 2 || text.charAt(start) != '0' || text.charAt(start + 1) != 'b' && text.charAt(start + 1) != 'B') {
             return false;
         }
         return validBinaryDigitSequence(text, start + 2, end);
@@ -344,11 +340,9 @@ public final class Lexer {
             boolean beforeEmpty = dot == start;
             boolean afterEmpty = dot + 1 == significandEnd;
             if (beforeEmpty && afterEmpty) return false;
-            return (beforeEmpty || validDigitSequence(text, start, dot, false))
-                    && (afterEmpty || validDigitSequence(text, dot + 1, significandEnd, false));
+            return (beforeEmpty || validDigitSequence(text, start, dot, false)) && (afterEmpty || validDigitSequence(text, dot + 1, significandEnd, false));
         }
-        return validDigitSequence(text, start, significandEnd, false)
-                && (!floating || exponent >= 0 || start != end);
+        return validDigitSequence(text, start, significandEnd, false) && (!floating || exponent >= 0 || start != end);
     }
 
     private static int indexOf(String text, int start, int end, char value) {
@@ -397,7 +391,6 @@ public final class Lexer {
                                 "malformed Unicode escape in character literal; expected four hexadecimal digits"));
                     } else {
                         // Only a reported escape keeps its start position.
-                        free escapeStart;
                         value = decoded;
                         hasValue = true;
                     }
@@ -409,12 +402,10 @@ public final class Lexer {
                                 new SourceSpan(escapeStart, this.position()),
                                 quoted("unsupported character escape '\\", escaped, "'")));
                     } else {
-                        free escapeStart;
                         value = decoded;
                         hasValue = true;
                     }
                 } else {
-                    free escapeStart;
                 }
             } else {
                 value = this.advance();
@@ -445,7 +436,6 @@ public final class Lexer {
         this.advance();
         StringBuilder value = new StringBuilder();
         // The builder retires on every exit; the token keeps only its text.
-        defer free value;
         boolean terminated = false;
         while (!this.atEnd()) {
             char current = this.peek();
@@ -463,7 +453,6 @@ public final class Lexer {
             this.advance();
             if (this.atEnd()) {
                 // Only a reported escape keeps its start position.
-                free escapeStart;
                 break;
             }
             char escaped = this.advance();
@@ -474,7 +463,6 @@ public final class Lexer {
                         quoted("unsupported string escape '\\", escaped, "'")));
                 value.append(escaped);
             } else {
-                free escapeStart;
                 value.append((char) decoded);
             }
         }
@@ -528,12 +516,10 @@ public final class Lexer {
 
         String normalized = normalizeLineTerminators(this.text, contentStart, contentEnd);
         // The normalized copy is an intermediate; only the token's value survives.
-        defer free normalized;
         String content = TextBlocks.stripIndent(normalized);
         if (raw) {
             this.tokens.add(new Token(TokenKind.STRING, content, new SourceSpan(start, this.position())));
         } else {
-            defer free content;
             String value = this.decodeTextBlockEscapes(content, start);
             this.tokens.add(new Token(TokenKind.STRING, value, new SourceSpan(start, this.position())));
         }
@@ -543,7 +529,6 @@ public final class Lexer {
 
         StringBuilder value = new StringBuilder();
         // The builder retires on every exit; the caller owns the result.
-        defer free value;
         for (int index = 0; index < content.length(); index++) {
             char current = content.charAt(index);
             if (current != '\\') {
@@ -586,7 +571,6 @@ public final class Lexer {
 
         StringBuilder result = new StringBuilder(end - start + 1);
         // The builder retires on every exit; the caller owns the result.
-        defer free result;
         for (int index = start; index < end; index++) {
             char current = text.charAt(index);
             if (current == '\r') {
@@ -623,7 +607,6 @@ public final class Lexer {
                     this.text.substring(start.offset(), this.offset), new SourceSpan(start, this.position())));
         } else {
             // Only a retained documentation comment keeps its start position.
-            free start;
         }
     }
 
@@ -660,9 +643,7 @@ public final class Lexer {
 
     private static boolean isHexDigit(char value) {
 
-        return value >= '0' && value <= '9'
-                || value >= 'a' && value <= 'f'
-                || value >= 'A' && value <= 'F';
+        return value >= '0' && value <= '9' || value >= 'a' && value <= 'f' || value >= 'A' && value <= 'F';
     }
 
     private static boolean isBinaryDigit(char value) {
@@ -700,7 +681,6 @@ public final class Lexer {
 
         StringBuilder result = new StringBuilder();
         // The builder retires on every exit; the caller owns the result.
-        defer free result;
         result.append(prefix);
         if (value == '\r') {
             result.append("\\r");
@@ -715,10 +695,4 @@ public final class Lexer {
         return result.toString();
     }
 
-    destructor {
-
-        free this.documentationComments;
-        free this.diagnostics;
-        free this.tokens;
-    }
 }

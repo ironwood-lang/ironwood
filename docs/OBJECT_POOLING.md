@@ -1,10 +1,37 @@
-# Object Pooling
+<!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
 
-Instead of repeatedly allocating temporary objects, pool and reuse mutable
-objects for maximum performance on hot paths. `StringBuilder` is a good example
-because it can be cleared and reused while retaining its capacity.
+# Object pooling
 
-> Allocating objects on the hot path is never a good idea for performance.
+ironwood.pool provides ArrayObjectPool, MultiArrayObjectPool and explicit
+ObjectBuilder implementations. Pools reuse ordinary managed objects; collection
+never checks an item back in, resets it or closes its resources. The source
+[ObjectPool contract](../stdlib/src/main/ironwood/ironwood/pool/ObjectPool.iron)
+is authoritative.
+
+A builder must return a fresh unescaped value or null. Pools intentionally retain
+every builder-created value, including checked-out items, and their backing
+storage. get() builds only where needed; release() returns a checkout to its
+originating pool. Return each checkout at most once and stop using it until the
+next checkout. Native resources inside an item require explicit lifecycle calls.
+These caller obligations add no identity registry, checkout-state scan or
+per-operation synchronization. Known wrong-pool transfers retain compile-time
+rejection; unknown provenance does not invent an ownership certificate.
+
+ArrayObjectPool grows by its configured factor (default 1.75), rounded down with
+at least one added slot. MultiArrayObjectPool retains segments and doubles new
+segment length. Creation capacity is reserved before builder invocation, so
+allocation failure preserves previously recorded values. Superseded arrays and
+failed constructions use normal managed reachability. A live pool can retain
+items and stale reference slots deliberately until reuse or named cold cleanup.
+
+Warm checkout/release reuses storage with unchanged allocation expectations.
+Observe reclamation at explicit phase boundaries after the entire pool graph
+becomes unreachable. Do not collect inside critical loops or library operations
+to repair former scope-exit live-count assertions. PoolRetentionTests and the
+GC5/GC7 pool fixtures cover rooted survival, reuse, zero warmed allocations,
+wrong-pool rejection and completed-phase collection.
+
+A complete reuse example prints `Message 0`, `Message 1`, and `Message 2`:
 
 ```java
 import ironwood.pool.ArrayObjectPool;
@@ -14,7 +41,6 @@ import ironwood.pool.ObjectPool;
 public class PoolExample {
 
     private static class StringBuilderFactory implements ObjectBuilder<StringBuilder> {
-
         @Override
         public StringBuilder newInstance() {
             return new StringBuilder(128);
@@ -22,31 +48,22 @@ public class PoolExample {
     }
 
     public static void main(String[] args) {
-
         StringBuilderFactory factory = new StringBuilderFactory();
         ObjectPool<StringBuilder> pool = new ArrayObjectPool<StringBuilder>(8, factory);
-
         for (int index = 0; index < 3; index++) {
             StringBuilder text = pool.get();
-            text.setLength(0); // this actually returns the StringBuilder
-            text.append("Message ").append(index);
-
-            System.out.println(text); // does not allocate anything
-
-            pool.release(text);
+            try {
+                text.setLength(0);
+                text.append("Message ").append(index);
+                System.out.println(text);
+            } finally {
+                pool.release(text);
+            }
         }
-
-        // The order here is important. Invert and it won't compile
-        free pool;
-        free factory;
     }
 }
 ```
 
-`get()` checks out an object and `release()` returns it to the pool.
-You must reset the mutable state before reuse, and do not use the object after release.
-Freeing the pool destroys every `StringBuilder` it created. The factory is
-borrowed by the pool, so free it separately after the pool, never before or it won't compile.
-
-See the [`ironwood.pool`](api/README.md) documentation (IronDocs) for the complete API and
-contracts.
+The earlier owning-pool/destructor proof reports remain frozen historical
+evidence. [MEMORY](MEMORY.md) and [GC7](GC7_IMPLEMENTATION.md) supersede their
+managed-reclamation premises while preserving pool protocols.

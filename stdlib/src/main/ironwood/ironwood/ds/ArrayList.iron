@@ -292,7 +292,7 @@ public class ArrayList<E extends Object> implements Iterable<E> {
      * <p>The sort takes O(n log n) comparisons, or n - 1 for already sorted
      * input. Lists of at most sixteen elements are sorted without workspace;
      * a longer list allocates one private array of {@code size() / 2}
-     * references and frees it before returning, also on failure. If the
+     * references. Scratch follows ordinary managed reachability on return or failure. If the
      * comparator throws, the exception propagates and the list holds the same
      * elements in an unspecified order. A comparator that mutates this list
      * leaves its order unspecified; the comparator must not do so.
@@ -315,8 +315,8 @@ public class ArrayList<E extends Object> implements Iterable<E> {
 
     /*
      * The sort helpers re-read this.array on every access. A comparator that
-     * grows the list replaces and frees the old array, so no array reference is
-     * held across a comparator call. Each helper keeps the live range a
+     * grows the list may replace its backing array, so helpers re-read the current
+     * storage after a comparator call. Each helper keeps the live range a
      * permutation of its elements even when the comparator throws.
      */
     private void insertionSort(int from, int to, Comparator<? super E> comparator) {

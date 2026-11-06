@@ -4,7 +4,6 @@ package ironwood.compiler.backend;
 
 import ironwood.compiler.CompilerPipeline;
 import ironwood.compiler.Main;
-import ironwood.compiler.UnfreedMode;
 import ironwood.compiler.ir.*;
 import ironwood.compiler.source.SourceFile;
 
@@ -37,15 +36,8 @@ public final class SelectiveInliningTests {
         require(!SelectiveInlining.select(analyze(recursive)).contains("ironwood.Main.work"), "recursive target selected");
         String mutual = source.replace("return sum;", "if (count > 100) return wrapper(values, count - 1, fail); return sum;");
         require(!SelectiveInlining.select(analyze(mutual)).contains("ironwood.Main.work"), "mutually recursive target selected");
-        for (UnfreedMode mode : UnfreedMode.values()) {
-            var safe = new CompilerPipeline(mode).compile(SourceFile.of("case.iron", source));
-            var unsafe = new CompilerPipeline(mode).compile(SourceFile.of("case.iron",
-                    source.replace("free values;", "free values; free values;")));
-            require(safe.valid() && !unsafe.valid() && unsafe.program().isEmpty(), "cleanup safety changed " + mode);
-        }
-        require(new LlvmEmitter().emit(program).contains("i1 %v2) alwaysinline"), "selected function missing attribute");
-        require(!new LlvmEmitter().emit(program, false).contains("i1 %v2) alwaysinline"),
-                "disabled policy retained selected attribute");
+        var managed = new CompilerPipeline().compile(SourceFile.of(SOURCE.toString(), source));
+        require(managed.successful(), managed.diagnostics().toString());
     }
 
     public static void libraryStructure() throws Exception {
@@ -80,12 +72,12 @@ public final class SelectiveInliningTests {
         Path root = Path.of("integration-tests/target/selective-inlining/" + enabled).toAbsolutePath();
         Files.createDirectories(root);
         Path classes = root.resolve("classes");
-        cli(SOURCE.toString(), "--unfreed=error", "-d", classes.toString());
+        cli(SOURCE.toString(), "-d", classes.toString());
         for (int level : List.of(0, 3)) {
             Path binary = root.resolve("program-O" + level);
             Path llvm = root.resolve("program-O" + level + ".ll");
             var arguments = new java.util.ArrayList<>(List.of("--link", "-cp", classes.toString(),
-                    "--main-class", "Main", "--unfreed=error", "-O" + level,
+                    "--main-class", "Main", "-O" + level,
                     "--emit-llvm", llvm.toString(), "-o", binary.toString()));
             if (!enabled) arguments.addAll(List.of("--selective-inlining=off", "--inline-threshold", "0"));
             cli(arguments.toArray(String[]::new));

@@ -43,8 +43,4 @@ public final class ParseResult {
         return this.diagnostics;
     }
 
-    destructor {
-
-        free this.diagnostics;
-    }
 }

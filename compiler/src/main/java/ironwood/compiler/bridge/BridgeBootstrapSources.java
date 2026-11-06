@@ -13,49 +13,12 @@ public final class BridgeBootstrapSources {
     private static final String BOOTSTRAP = "bootstrap(Ljava/lang/ClassLoader;[Ljava/lang/Class;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V";
 
     /** Append to the matching generated value source; exports only the JNI hooks. */
-    public static String generate(BridgeGeneration generation, BridgeGeneration.NativeBuild build,
-            BridgeJavaSources java, BridgeValueNativeSources values) {
-        if (!java.facadeRegistrations().isEmpty() || !java.rootDestructions().isEmpty()) throw new IllegalArgumentException("value bootstrap cannot register object helpers");
-        if (!build.generation().equals(generation.identity()) || !build.api().equals(generation.apiIdentity())) {
-            throw new IllegalArgumentException("bootstrap native build identity mismatch");
-        }
-        String support = generation.supportPackage() + ".Support", factory = generation.supportPackage() + ".ExceptionFactory";
-        var types = java.generatedTypes();
-        if (!types.contains(support) || !types.contains(factory) || new HashSet<>(types).size() != types.size()
-                || types.size() > Integer.MAX_VALUE - 32) throw new IllegalArgumentException("bootstrap requires complete unique generated classes");
-        var adapters = values.adapters().stream().collect(Collectors.toMap(BridgeValueNativeSources.Adapter::entrySymbol, value -> value));
-        if (!adapters.keySet().equals(java.bindings().stream().map(BridgeJavaSources.Binding::entrySymbol).collect(Collectors.toSet()))) {
-            throw new IllegalArgumentException("bootstrap Java/native binding set mismatch");
-        }
-        for (var binding : java.bindings()) {
-            var adapter = adapters.get(binding.entrySymbol());
-            if (!types.contains(binding.binaryName()) || !adapter.descriptor().equals(binding.descriptor())
-                    || !binding.method().target().orElseThrow().equals(adapter.callable())) {
-                throw new IllegalArgumentException("bootstrap Java/native signature mismatch");
-            }
-        }
-        var functions = java.bindings().stream().collect(Collectors.toMap(binding -> new BridgeJavaSources.NativeDeclaration(
-                binding.binaryName(), binding.nativeName(), binding.descriptor()), binding -> adapters.get(binding.entrySymbol()).functionName()));
-        return generate(generation, build, java, functions, "");
-    }
 
     public static String generate(BridgeGeneration generation, BridgeGeneration.NativeBuild build,
-            BridgeJavaSources java, BridgePermanentNativeSources objects) {
+            BridgeJavaSources java, BridgeFacadeNativeSources objects) {
         if (!objects.matches(java, generation)) throw new IllegalArgumentException("object bootstrap requires matching proved native and Java declarations");
         return generate(generation, build, java, objects.adapters().stream().collect(Collectors.toMap(
-                BridgePermanentNativeSources.Adapter::declaration, BridgePermanentNativeSources.Adapter::functionName)), objects.rooted() ? "iw_object" : "iw_permanent");
-    }
-
-    public static String generate(BridgeGeneration generation, BridgeGeneration.NativeBuild build,
-            BridgeJavaSources java, BridgeSynchronousCallbackNativeSources callbacks) {
-        if (!callbacks.matches(java, generation)) throw new IllegalArgumentException("callback bootstrap identity mismatch");
-        return generate(generation, build, java, callbacks.functions(), "iw_callback");
-    }
-
-    public static String generate(BridgeGeneration generation, BridgeGeneration.NativeBuild build,
-            BridgeJavaSources java, BridgeOwnedCallbackNativeSources callbacks) {
-        if (!callbacks.matches(java, generation)) throw new IllegalArgumentException("owner callback bootstrap identity mismatch");
-        return generate(generation, build, java, callbacks.functions(), "iw_owned");
+                BridgeFacadeNativeSources.Adapter::declaration, BridgeFacadeNativeSources.Adapter::functionName)), "iw_object");
     }
 
     private static String generate(BridgeGeneration generation, BridgeGeneration.NativeBuild build,

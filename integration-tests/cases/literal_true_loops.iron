@@ -113,7 +113,6 @@ class Main {
 
         Box value = new Box();
         while (true) {
-            free value;
             break;
         }
     }

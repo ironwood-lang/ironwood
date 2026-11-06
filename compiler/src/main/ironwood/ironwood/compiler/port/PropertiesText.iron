@@ -18,8 +18,7 @@ import ironwood.ds.IntArrayList;
  * continuation) is outside the admitted format and fails closed.
  *
  * <p>The parsed set owns a copy of its text and an index of entry bounds, so
- * the caller keeps ownership of the text it passes (a set that borrowed it
- * would retain it, and the text could not be freed); lookups return fresh
+ * the source text remains an independent managed value; lookups return fresh
  * Strings. Entries keep their first-occurrence order. Java iterates
  * {@code stringPropertyNames()} in hash order, so a consumer whose report
  * depends on iteration order must establish that order itself.
@@ -45,8 +44,7 @@ public final class PropertiesText {
             while (index < end && blank(text.charAt(index))) index++;
             if (index < end && text.charAt(index) != '#' && text.charAt(index) != '!') {
                 int keyStart = index;
-                while (index < end && !blank(text.charAt(index)) && text.charAt(index) != '='
-                        && text.charAt(index) != ':') index++;
+                while (index < end && !blank(text.charAt(index)) && text.charAt(index) != '=' && text.charAt(index) != ':') index++;
                 int keyEnd = index;
                 while (index < end && blank(text.charAt(index))) index++;
                 if (index < end && (text.charAt(index) == '=' || text.charAt(index) == ':')) index++;
@@ -106,8 +104,7 @@ public final class PropertiesText {
             int valueStart = this.bounds.get(entry * 4 + 2);
             int valueLength = this.bounds.get(entry * 4 + 3) - valueStart;
             int otherStart = other.bounds.get(match * 4 + 2);
-            if (other.bounds.get(match * 4 + 3) - otherStart != valueLength
-                    || !same(other.text, otherStart, this.text, valueStart, valueLength)) return false;
+            if (other.bounds.get(match * 4 + 3) - otherStart != valueLength || !same(other.text, otherStart, this.text, valueStart, valueLength)) return false;
         }
         return true;
     }
@@ -154,9 +151,4 @@ public final class PropertiesText {
         return character == ' ' || character == '\t' || character == '\f';
     }
 
-    destructor {
-
-        free this.bounds;
-        free this.text;
-    }
 }

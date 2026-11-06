@@ -46,8 +46,10 @@ def main():
     args = parser.parse_args()
     revision = subprocess.check_output(['git', 'rev-parse', '--verify', args.revision + '^{commit}'],
                                        cwd=ROOT, text=True).strip()
-    files = sorted(path for path in subprocess.check_output(['git', 'ls-files'], cwd=ROOT, text=True).splitlines()
-                   if Path(path).suffix in SUFFIXES)
+    files = sorted(path for path in subprocess.check_output(['git', 'ls-files', '--cached', '--others', '--exclude-standard'], cwd=ROOT, text=True).splitlines()
+                   if Path(path).suffix in SUFFIXES and (ROOT / path).is_file())
+    baseline_files = sorted(path for path in subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', revision], cwd=ROOT, text=True).splitlines()
+                            if Path(path).suffix in SUFFIXES)
     # A single read-only Git process avoids rebuilding or checking out any baseline.
     child = subprocess.Popen(['git', 'cat-file', '--batch'], cwd=ROOT, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     def baseline(path):
@@ -60,7 +62,7 @@ def main():
         assert child.stdout.read(1) == b'\n'
         return data
     try:
-        before = inventory(files, baseline)
+        before = inventory(baseline_files, baseline)
     finally:
         child.stdin.close()
         child.wait(timeout=10)

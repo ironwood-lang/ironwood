@@ -15,7 +15,6 @@ class Main {
 
         Path path = Paths.get(args[0]);
         byte[] corpus = Files.readAllBytes(path);
-        free path;
         ByteArrayOutputStream bytes = new ByteArrayOutputStream(32);
         int position = 0;
         while (position < corpus.length) {
@@ -23,12 +22,9 @@ class Main {
             bytes.reset();
             bytes.write(corpus, position, length);
             position += length;
-            long live = System.liveAllocationCount();
             long allocations = System.allocationCount();
             String text = bytes.toString();
-            if (System.liveAllocationCount() != live + 1
-                    || System.allocationCount() != allocations + 1
-                    || bytes.size() != length) return 1;
+            if (System.allocationCount() != allocations + 1 || bytes.size() != length) return 1;
             System.out.print(text.length());
             System.out.print(':');
             System.out.print(text.byteLength());
@@ -38,11 +34,8 @@ class Main {
                 System.out.print(',');
             }
             System.out.println();
-            free text;
-            if (System.liveAllocationCount() != live) return 2;
+
         }
-        free bytes;
-        free corpus;
         return 42;
     }
 }

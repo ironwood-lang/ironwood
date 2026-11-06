@@ -29,10 +29,8 @@ class Main {
 
         int count = args.length == 0 ? 8000000 : Integer.parseInt(args[0]);
         long firstAllocations = System.allocationCount();
-        long firstLive = System.liveAllocationCount();
         work(1000);
-        if (System.allocationCount() != firstAllocations
-                || System.liveAllocationCount() != firstLive) return 2;
+        if (System.allocationCount() != firstAllocations) return 1;
         long allocations = System.allocationCount();
         long live = System.liveAllocationCount();
         long start = System.nanoTime();

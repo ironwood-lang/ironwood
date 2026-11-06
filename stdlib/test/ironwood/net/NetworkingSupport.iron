@@ -11,7 +11,6 @@ final class NetworkingSupport {
     static InetAddress loopback() throws UnknownHostException {
 
         byte[] bytes = {127, 0, 0, 1};
-        defer free bytes;
         return InetAddress.getByAddress(bytes);
     }
 
@@ -20,13 +19,10 @@ final class NetworkingSupport {
     static Socket connectPair(Socket client) throws IOException {
 
         InetAddress address = loopback();
-        defer free address;
         ServerSocket listener = new ServerSocket(0, 8, address);
-        defer free listener;
         defer listener.close();
         listener.setSoTimeout(2000);
         SocketAddress endpoint = listener.getLocalSocketAddress();
-        defer free endpoint;
         client.connect(endpoint, 2000);
         Socket accepted = listener.accept();
         return accepted;
