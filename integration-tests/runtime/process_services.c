@@ -64,6 +64,8 @@ static _Unwind_Reason_Code test_unwind(struct _Unwind_Exception *exception) {
     longjmp(failure_target, 1);
 }
 
+#include "gc_harness_alloc.h"
+
 #define malloc test_malloc
 #define open test_open
 #define pipe test_pipe
@@ -78,15 +80,14 @@ static _Unwind_Reason_Code test_unwind(struct _Unwind_Exception *exception) {
 
 #define CHECK(condition) do { if (!(condition)) { fprintf(stderr, "line %d\n", __LINE__); return 1; } } while (0)
 
-static const struct ironwood_type_info string_type = { .name = "String" };
-static const struct ironwood_type_info array_type = { .name = "String[]" };
-static struct ironwood_throwable allocation_error;
+#define GC_HARNESS_ARRAY_KIND IRONWOOD_ARRAY_REFERENCE
+#include "gc_harness_state.h"
 
 static struct ironwood_string *text(const char *value) {
     return string_from_utf8_bytes((const unsigned char *) value, strlen(value), &string_type, NULL);
 }
 
-/* A String[] holding the given texts; the caller frees elements and array. */
+/* The exact reference-array descriptor retains all command Strings. */
 static struct ironwood_array *command(int count, const char **values) {
     struct ironwood_array *array = ironwood_allocate_array(count, sizeof(void *), IRONWOOD_ARRAY_REFERENCE,
             &array_type, NULL);
@@ -94,13 +95,6 @@ static struct ironwood_array *command(int count, const char **values) {
         ((struct ironwood_string **) array->data)[index] = text(values[index]);
     }
     return array;
-}
-
-static void release(struct ironwood_array *array) {
-    for (size_t index = 0; index < array->length; index++) {
-        ironwood_deallocate(((struct ironwood_string **) array->data)[index]);
-    }
-    ironwood_deallocate(array);
 }
 
 static int open_descriptors(void) {
@@ -120,7 +114,7 @@ static void interrupted(int signal_number) {
     alarms++;
 }
 
-int main(int argc, char **argv) {
+static int process_cases(int argc, char **argv) {
     CHECK(argc == 3 && chdir(argv[1]) == 0);
     const char *helper = argv[2];
     struct ironwood_string *output = text("out.log");
@@ -128,42 +122,42 @@ int main(int argc, char **argv) {
     int baseline = open_descriptors();
     const char *exit_seven[] = {helper, "exit", "7"};
     struct ironwood_array *seven = command(3, exit_seven);
-    CHECK(ironwood_process_run(seven, NULL, output, &allocation_error) == 7);
+    CHECK(ironwood_process_run(seven, NULL, output, allocation_error) == 7);
     CHECK(open_descriptors() == baseline && !unreaped());
     /* Failures before the fork close what was opened and start nothing. */
     fail_output = 1;
-    CHECK(ironwood_process_run(seven, NULL, output, &allocation_error)
+    CHECK(ironwood_process_run(seven, NULL, output, allocation_error)
             == -(IRONWOOD_PROCESS_OUTPUT * 16 + IRONWOOD_PROCESS_PERMISSION));
     fail_output = 0;
     fail_input = 1;
-    CHECK(ironwood_process_run(seven, NULL, output, &allocation_error)
+    CHECK(ironwood_process_run(seven, NULL, output, allocation_error)
             == -(IRONWOOD_PROCESS_INPUT * 16 + IRONWOOD_PROCESS_RESOURCE));
     fail_input = 0;
     fail_pipe = 1;
-    CHECK(ironwood_process_run(seven, NULL, output, &allocation_error)
+    CHECK(ironwood_process_run(seven, NULL, output, allocation_error)
             == -(IRONWOOD_PROCESS_START * 16 + IRONWOOD_PROCESS_RESOURCE));
     fail_pipe = 0;
     fail_fork = 1;
-    CHECK(ironwood_process_run(seven, NULL, output, &allocation_error)
+    CHECK(ironwood_process_run(seven, NULL, output, allocation_error)
             == -(IRONWOOD_PROCESS_START * 16 + IRONWOOD_PROCESS_RESOURCE));
     fail_fork = 0;
     CHECK(open_descriptors() == baseline && !unreaped());
     /* Encoding the command fails before any descriptor is opened. */
     fail_malloc = 1;
     if (setjmp(failure_target) == 0) {
-        ironwood_process_run(seven, NULL, output, &allocation_error);
+        ironwood_process_run(seven, NULL, output, allocation_error);
         CHECK(0);
     }
     fail_malloc = 0;
     cleanup_exception(_URC_FOREIGN_EXCEPTION_CAUGHT, caught_unwind);
-    ironwood_exception_caught(&allocation_error);
+    ironwood_exception_caught(allocation_error);
     CHECK(open_descriptors() == baseline && !unreaped());
     /* Failures after the fork come back through the report pipe; the child is reaped. */
     const char *absent[] = {"/no/such/tool"};
     struct ironwood_array *missing_tool = command(1, absent);
-    CHECK(ironwood_process_run(missing_tool, NULL, output, &allocation_error)
+    CHECK(ironwood_process_run(missing_tool, NULL, output, allocation_error)
             == -(IRONWOOD_PROCESS_EXECUTE * 16 + IRONWOOD_PROCESS_NO_SUCH_FILE));
-    CHECK(ironwood_process_run(seven, missing, output, &allocation_error)
+    CHECK(ironwood_process_run(seven, missing, output, allocation_error)
             == -(IRONWOOD_PROCESS_DIRECTORY * 16 + IRONWOOD_PROCESS_NO_SUCH_FILE));
     CHECK(open_descriptors() == baseline && !unreaped());
     /* A signal handler without SA_RESTART interrupts the wait; it resumes. */
@@ -176,13 +170,23 @@ int main(int argc, char **argv) {
     CHECK(setitimer(ITIMER_REAL, &timer, NULL) == 0);
     const char *sleeper[] = {"/bin/sleep", "0.3"};
     struct ironwood_array *sleep_command = command(2, sleeper);
-    CHECK(ironwood_process_run(sleep_command, NULL, output, &allocation_error) == 0);
+    CHECK(ironwood_process_run(sleep_command, NULL, output, allocation_error) == 0);
     struct itimerval stop = {{0, 0}, {0, 0}};
     CHECK(setitimer(ITIMER_REAL, &stop, NULL) == 0 && alarms > 2);
     CHECK(open_descriptors() == baseline && !unreaped());
+    void *retained[] = {output, missing, seven, missing_tool, sleep_command};
+    uint64_t total = iw_gc_total_count();
+    // Error root + two paths + three command arrays with 3/1/2 Strings.
+    CHECK(total == 12);
+    for (int phase = 0; phase < 4; phase++) {
+        gc_harness_collect(retained, 5);
+        CHECK(iw_gc_total_count() == total && iw_gc_live_count() == total);
+        CHECK(ironwood_process_run(seven, NULL, output, allocation_error) == 7);
+        CHECK(open_descriptors() == baseline && !unreaped());
+    }
     /* Repeated launches accumulate neither descriptors nor children. */
     for (int round = 0; round < 200; round++) {
-        CHECK(ironwood_process_run(seven, NULL, output, &allocation_error) == 7);
+        CHECK(ironwood_process_run(seven, NULL, output, allocation_error) == 7);
     }
     CHECK(open_descriptors() == baseline && !unreaped());
     /* Internal descriptors are close-on-exec; one this process inherited
@@ -192,7 +196,7 @@ int main(int argc, char **argv) {
     int kept = open("kept.txt", O_WRONLY | O_CREAT | O_TRUNC, 0600);
     int hidden = open("hidden.txt", O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
     CHECK(kept > 2 && hidden > 2);
-    CHECK(ironwood_process_run(fds, NULL, output, &allocation_error) == 0);
+    CHECK(ironwood_process_run(fds, NULL, output, allocation_error) == 0);
     char listing[256] = {0};
     int descriptor = open("out.log", O_RDONLY);
     CHECK(descriptor >= 0 && read(descriptor, listing, sizeof(listing) - 1) > 0 && close(descriptor) == 0);
@@ -203,12 +207,17 @@ int main(int argc, char **argv) {
     unlink("kept.txt");
     unlink("hidden.txt");
     unlink("out.log");
-    release(fds);
-    release(sleep_command);
-    release(missing_tool);
-    release(seven);
-    ironwood_deallocate(missing);
-    ironwood_deallocate(output);
+
     CHECK(open_descriptors() == baseline && !unreaped());
+    return 0;
+}
+
+int main(int argc, char **argv) {
+    gc_harness_start();
+    int result = process_cases(argc, argv);
+    if (result != 0) return result;
+    gc_harness_collect(NULL, 0);
+    CHECK(iw_gc_live_count() == 1);
+    gc_harness_finish();
     return 0;
 }

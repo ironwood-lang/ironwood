@@ -143,23 +143,9 @@ final class ProcessRunnerTests {
         Path root = Files.createTempDirectory("ironwood-process-harness-").toRealPath();
         try {
             Path helper = helper(root);
-            Path object = root.resolve("harness.o");
-            Path caseObject = root.resolve("case.o");
             Path executable = root.resolve("harness");
             Path run = Files.createDirectories(root.resolve("run"));
-            List<String> sysroot = sysroot();
-            List<String> compile = new ArrayList<>(List.of(toolchain.clang().toString()));
-            compile.addAll(sysroot);
-            List<String> harness = new ArrayList<>(compile);
-            harness.addAll(List.of("-std=c11", "-O3", "-c", "integration-tests/runtime/process_services.c", "-o",
-                    object.toString()));
-            FilesystemServicesTests.tool(harness);
-            List<String> cases = new ArrayList<>(compile);
-            cases.addAll(List.of("-std=c11", "-O3", "-c", "runtime/src/ironwood_case.c", "-o", caseObject.toString()));
-            FilesystemServicesTests.tool(cases);
-            List<String> link = new ArrayList<>(compile);
-            link.addAll(List.of("--driver-mode=g++", object.toString(), caseObject.toString(), "-o", executable.toString()));
-            FilesystemServicesTests.tool(link);
+            ironwood.compiler.backend.RuntimeHarnessBuild.build(toolchain, "process_services.c", root, executable);
             execute(List.of(executable.toString(), run.toString(), helper.toString()), null, Map.of(), null, 0, "");
         } finally {
             delete(root);

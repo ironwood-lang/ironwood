@@ -355,16 +355,9 @@ final class FilesystemServicesTests {
         LlvmToolchain toolchain = LlvmToolchain.discover(null).toolchain().orElseThrow();
         Path root = Files.createTempDirectory("ironwood-runtime-harness-");
         try {
-            Path object = root.resolve("harness.o");
-            Path caseObject = root.resolve("case.o");
             Path executable = root.resolve("harness");
             Path run = Files.createDirectories(root.resolve("run"));
-            tool(List.of(toolchain.clang().toString(), "-std=c11", "-O3", "-c", "integration-tests/runtime/" + fixture,
-                    "-o", object.toString()));
-            tool(List.of(toolchain.clang().toString(), "-std=c11", "-O3", "-c", "runtime/src/ironwood_case.c",
-                    "-o", caseObject.toString()));
-            tool(List.of(toolchain.clang().toString(), "--driver-mode=g++", object.toString(), caseObject.toString(),
-                    "-o", executable.toString()));
+            ironwood.compiler.backend.RuntimeHarnessBuild.build(toolchain, fixture, root, executable);
             execute(List.of(executable.toString(), run.toString(), section), null, Map.of(), null, 0, "");
         } finally {
             unlock(root);

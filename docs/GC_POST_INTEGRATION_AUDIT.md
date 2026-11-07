@@ -8,6 +8,12 @@ fetch/integration, publication, branch change or self-hosting is authorized.
 Java remains the bootstrap. The local audit changes and tested inputs are bound
 by the [verification manifest](gc-evaluation/post-integration-verification.json).
 
+Continuation from local audit commit `ec6b54d6`: the
+[native harness migration](GC_NATIVE_HARNESS_MIGRATION.md) resolves the four open
+executable inputs with fresh macOS/Linux arm64 tests. The original manifest stays
+unchanged as evidence of the initial audit. The current residual ledger and
+verdicts below include that continuation; matching-hardware x86-64 remains a gap.
+
 ## Pre-test behavior matrix and review
 
 Expected results come from MEMORY.md and independently counted fixture graphs,
@@ -52,20 +58,25 @@ the static root is cleared and helper frames return.
 
 ### Findings and fixes
 
-1. **Open: four registered native harnesses were not migrated.**
-   `integration-tests/runtime/filesystem_services.c`, `filesystem_scratch.c`
-   and `process_services.c` still call `ironwood_deallocate` on language
-   objects. `throwable_trace_storage.c` still uses the removed Throwable
+1. **Resolved in the continuation: four registered native harnesses were not migrated.**
+   At `ec6b54d6`, `integration-tests/runtime/filesystem_services.c`,
+   `filesystem_scratch.c` and `process_services.c` called `ironwood_deallocate`
+   on language objects. `throwable_trace_storage.c` used the removed Throwable
    `trace_state` field and `ironwood_throwable_trace_release`. Their registered
-   compiler tests all fail first at missing `gc_mark.h`. A second, independent
-   syntax-only compilation with the verified SDK include path exposes the
-   retired calls/fields. These are obsolete executable test inputs, not useful
-   migration negatives, matched native frees or frozen evidence. They remain
-   explicitly open. Their calloc/free accounting, hand-built type metadata and
-   trace ownership assumptions require substantive harness migration; deleting
+   compiler tests all failed first at missing `gc_mark.h`. A second, independent
+   syntax-only compilation with the verified SDK include path exposed the
+   retired calls/fields. These were obsolete executable test inputs, not useful
+   migration negatives, matched native frees or frozen evidence. Their calloc/free
+   accounting, hand-built type metadata and trace ownership assumptions required
+   substantive harness migration; deleting
    their assertions or restoring the old runtime ABI would discard fault
    coverage or violate the contract. Newer GC tests are not counted as replacements
    for these filesystem/process/trace fault matrices.
+   The continuation migrates all four to real managed allocations, exact current
+   layouts and explicit native roots, while preserving native cleanup/faults.
+   Five registered selectors now pass on both ARM targets, including newly
+   registered publication coverage. Current sidecar refresh, failure and emergency
+   assertions replace obsolete release assertions. No production ABI is restored.
 2. **Fixed: active tests required obsolete destruction behavior.** The filesystem
    shared-result test required a missing-free error for unused results; its
    focused run failed. It now requires successful, diagnostic-free compilation.
@@ -140,7 +151,7 @@ Retained cases have these specific meanings:
 | C destructor attributes in native interposers | Native test infrastructure reports/closure at process exit; not Ironwood destructors or managed finalization. |
 | Descriptor padding and owned_message | IrClass has no cleanup capability fields. The emitter always emits two null pointers and two false flags; actual LLVM agrees. The C Throwable name mirrors the retained source message slot; it has no release producer. ABI/layout checks remain exact. |
 | Prior decisions, reports, released references and stopped harnesses | Dated/frozen historical records or explicitly superseded proposals, each with a path/content disposition. The unselected region proposals describe possible future APIs, not available source reclamation. |
-| Four runtime C harnesses | Known open obsolete inputs, not an allowed exception. The repeatable check deliberately exits 1 until they are migrated. |
+| Four runtime C harnesses and shared test setup | Migrated executable probes. Remaining free calls balance native scratch; trace_state is a field of current trace metadata. Current C layouts and explicit roots use the real engine, with zero managed objects/sidecars after final root drop. No retired managed API remains. |
 
 Positive native/JVM builds supply 66 generated C/Java/LLVM source files for a
 separate actual-output scan. Twenty-four fresh generated jars additionally
@@ -188,8 +199,8 @@ delivery and preparation OOM/corruption controls. Preparation failure reclaims
 nothing. General defer and D051 ordering survive. GC6 actual JVM controls cover
 anchors, listener replacement/retirement, saved A/Java/A and A/Java/B/Java/A roots,
 protocol refusals and independent images. Collection does not perform explicit
-source close or JNI lifetime release. These observations do not replace the four
-unmigrated native fault harnesses above.
+source close or JNI lifetime release. The continuation separately restores the
+four native fault matrices; these observations are not substituted for them.
 
 ### Commands, target bounds and fresh results
 
@@ -252,16 +263,18 @@ hosted workflow, release, remote Git operation or self-hosting ran.
 
 ### Separate verdicts
 
-**Feature retirement: incomplete repository-wide.** Production source/IR/runtime
+**Feature retirement: complete within the audited inventory and execution scope.** Production source/IR/runtime
 and fresh ordinary/JVM outputs show no active managed destruction, rollback,
 temporary release or legacy facade reclamation path. Removed syntax/options
-refuse usefully and ordinary names work. However, the four maintained registered
-C harnesses still contain obsolete executable ABI use. They prevent the requested
-zero-obsolete-input verdict; the residual check reports them and fails visibly.
+refuse usefully and ordinary names work. The four maintained registered C
+harnesses are migrated and pass on macOS/Linux arm64. The content-bound residual
+check passes with zero unexplained matches and zero open obsolete inputs.
 
 **GC correctness: passes the executed ARM matrix, incomplete for the full request.**
 Fresh exact counts, graph preservation/drop, sidecar exclusion, explicit-only
 bounded reuse, failure safety and supported foreign roots pass as detailed above.
-No production GC correctness defect was found. Fresh matching x86-64 execution
-and restored GC-aware filesystem/process/trace native fault matrices remain
-unmet. This is not a clean three-platform or exhaustive GC qualification claim.
+No production GC correctness defect was found. The GC-aware filesystem/process/
+trace fault matrices now pass on both ARM targets, together with fresh O0-O3
+ordinary OOM/resource and focused root/owner controls. Fresh matching x86-64
+execution remains unmet. This is not a clean three-platform or exhaustive GC
+qualification claim.

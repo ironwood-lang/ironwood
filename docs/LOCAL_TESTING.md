@@ -59,6 +59,22 @@ an unfiltered suite.
 
 GC SDK input hashes must match the checkout. After a verified input changes,
 prepare a fresh SDK and qualify its identity instead of copying old payloads.
+The direct C fault harnesses use the same verified SDK through test-only
+RuntimeHarnessBuild. Their explicit native roots qualify C runtime behavior;
+ordinary Memory.collect and root/owner drivers qualify compiler statepoints.
+With JAVA_HOME, IRONWOOD_LLVM_HOME and IRONWOOD_GC_HOME set, run these exact
+selectors under the same process-group RSS/deadline guard:
+
+```sh
+./scripts/test.sh --test 'M4.1 native temporary creation survives collisions and injected failures' \
+  --test 'M4.2 native publication survives races and injected failures' \
+  --test 'M4.3 native process launch survives injected failures and interrupted waits' \
+  --test 'native filesystem scratch and resource cleanup survive injected failures' \
+  --test 'native Throwable trace storage survives refresh release and allocation failures'
+```
+
+These retain native scratch/descriptor balances independently from managed
+allocation and survivor counts. See the [migration evidence](GC_NATIVE_HARNESS_MIGRATION.md).
 See [GC7 verification](GC7_IMPLEMENTATION.md) for exact executed selections and
 remaining platform gates. [GC9](GC9_LINUX_X86_64_DISTRIBUTION.md) qualifies Linux
 arm64 on matching hardware and current distribution on physical x86-64;

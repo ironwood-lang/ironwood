@@ -582,6 +582,8 @@ public final class CompilerTests {
                 FilesystemServicesTests::failures);
         test("M4.1 native temporary creation survives collisions and injected failures",
                 FilesystemServicesTests::nativeHarness);
+        test("M4.2 native publication survives races and injected failures",
+                () -> FilesystemServicesTests.runtimeHarness("filesystem_services.c", "publication"));
         test("compiler tree deletion matches the Java cleanup policies across artifacts",
                 FilesystemServicesTests::treeDeletion);
 
@@ -14577,16 +14579,8 @@ public final class CompilerTests {
         Path root = Files.createTempDirectory("ironwood-native-scratch-");
         try {
             for (int level : List.of(3)) {
-                Path object = root.resolve("scratch-O" + level + ".o");
                 Path executable = root.resolve("scratch-O" + level);
-                runCommand(List.of(toolchain.clang().toString(), "-std=c11", "-O" + level,
-                        "-c", "integration-tests/runtime/" + fixture, "-o", object.toString()),
-                        "native scratch harness compilation");
-                Path caseObject = root.resolve("case.o");
-                runCommand(List.of(toolchain.clang().toString(), "-std=c11", "-O3", "-c",
-                        "runtime/src/ironwood_case.c", "-o", caseObject.toString()), "Unicode helper compilation");
-                runCommand(List.of(toolchain.clang().toString(), "--driver-mode=g++",
-                        object.toString(), caseObject.toString(), "-o", executable.toString()), "native scratch harness link");
+                ironwood.compiler.backend.RuntimeHarnessBuild.build(toolchain, fixture, root, executable);
                 NativeResult result = runNative(executable, root, Map.of(), root.toString());
                 assertEquals(0, result.exit(), "native scratch -O" + level + ": " + result.stderr());
                 assertEquals("", result.stderr(), "native scratch stderr");

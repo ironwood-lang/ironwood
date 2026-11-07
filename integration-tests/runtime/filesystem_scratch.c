@@ -6,7 +6,7 @@
 #endif
 
 /* Instrument only Ironwood's C translation unit, not allocator activity inside
- * libc. Faults exercise unpublished-result cleanup and native fallback buffers. */
+ * libc. Faults exercise managed-result allocation and native fallback cleanup. */
 #include <errno.h>
 #include <fcntl.h>
 #include <setjmp.h>
@@ -24,7 +24,7 @@
 #include <unistd.h>
 
 static int heap_live, malloc_calls, calloc_calls, realloc_calls, descriptors;
-static int fail_malloc, fail_calloc, fail_realloc, fail_read, fail_close, zero_size;
+static int fail_malloc, fail_realloc, fail_read, fail_close, zero_size;
 static int short_reads, short_writes, read_interrupt, write_interrupt, long_directory;
 static int large_hint, oversized_hint;
 static int fail_write, zero_write, fail_stat, open_interrupt;
@@ -40,7 +40,6 @@ static void *test_malloc(size_t size) {
 }
 static void *test_calloc(size_t count, size_t size) {
     calloc_calls++;
-    if (fail_calloc) { return NULL; }
     void *result = calloc(count, size);
     if (result != NULL) { heap_live++; }
     return result;
@@ -109,6 +108,8 @@ static _Unwind_Reason_Code test_unwind(struct _Unwind_Exception *exception) {
     longjmp(failure_target, 1);
 }
 
+#include "gc_harness_alloc.h"
+
 #define malloc test_malloc
 #define calloc test_calloc
 #define realloc test_realloc
@@ -135,9 +136,7 @@ static _Unwind_Reason_Code test_unwind(struct _Unwind_Exception *exception) {
 
 #define CHECK(condition) do { if (!(condition)) { fprintf(stderr, "line %d\n", __LINE__); return 1; } } while (0)
 
-static const struct ironwood_type_info string_type = { .name = "String" };
-static const struct ironwood_type_info array_type = { .name = "byte[]" };
-static struct ironwood_throwable allocation_error;
+#include "gc_harness_state.h"
 
 /* U3: the retained descriptor boundary has no successful-path heap scratch.
  * Fault injection covers partial/interrupted calls, no-progress writes, failed
@@ -145,16 +144,16 @@ static struct ironwood_throwable allocation_error;
 static int streaming_boundary(const struct ironwood_string *path,
                               const struct ironwood_string *long_path) {
     struct ironwood_array *bytes = ironwood_allocate_array(257, 1,
-            IRONWOOD_ARRAY_BYTE, &array_type, &allocation_error);
+            IRONWOOD_ARRAY_BYTE, &array_type, allocation_error);
     for (int index = 0; index < 257; index++) { bytes->data[index] = (unsigned char) index; }
     int baseline = heap_live, allocations = calloc_calls, scratch = malloc_calls;
     for (int round = 0; round < 100; round++) {
         open_interrupt = short_writes = write_interrupt = 1;
-        int output = ironwood_stream_open(path, 1, &allocation_error);
+        int output = ironwood_stream_open(path, 1, allocation_error);
         CHECK(output >= 0 && descriptors == 1);
         CHECK(ironwood_stream_write_bytes(output, bytes, 0, 257) == 0);
         CHECK(ironwood_stream_close(output) == 0 && descriptors == 0);
-        int input = ironwood_stream_open(path, 0, &allocation_error);
+        int input = ironwood_stream_open(path, 0, allocation_error);
         CHECK(input >= 0 && ironwood_stream_available(input) == 257);
         short_reads = read_interrupt = 1;
         for (int index = 0; index < 257; index++) {
@@ -168,7 +167,7 @@ static int streaming_boundary(const struct ironwood_string *path,
         CHECK(heap_live == baseline && calloc_calls == allocations && malloc_calls == scratch);
         for (int index = 0; index < 257; index++) { bytes->data[index] = (unsigned char) index; }
     }
-    int output = ironwood_stream_open(path, 1, &allocation_error);
+    int output = ironwood_stream_open(path, 1, allocation_error);
     fail_write = 1;
     CHECK(ironwood_stream_write_byte(output, 42) == -1);
     fail_write = 0;
@@ -178,30 +177,30 @@ static int streaming_boundary(const struct ironwood_string *path,
     fail_close = 1;
     CHECK(ironwood_stream_close(output) == -1 && descriptors == 0);
     fail_close = 0;
-    int input = ironwood_stream_open(path, 0, &allocation_error);
+    int input = ironwood_stream_open(path, 0, allocation_error);
     fail_read = 1;
     CHECK(ironwood_stream_read_byte(input) == -2);
     CHECK(ironwood_stream_read_bytes(input, bytes, 0, 1) == -2);
     fail_read = 0;
     CHECK(ironwood_stream_close(input) == 0);
     fail_stat = 1;
-    CHECK(ironwood_stream_open(path, 0, &allocation_error) < 0 && descriptors == 0);
+    CHECK(ironwood_stream_open(path, 0, allocation_error) < 0 && descriptors == 0);
     fail_stat = 0;
     CHECK(ironwood_stream_available(-1) == -1);
     fail_malloc = 1;
     if (setjmp(failure_target) == 0) {
-        ironwood_stream_open(long_path, 0, &allocation_error);
+        ironwood_stream_open(long_path, 0, allocation_error);
         CHECK(0);
     }
     cleanup_exception(_URC_FOREIGN_EXCEPTION_CAUGHT, caught_unwind);
-    ironwood_exception_caught(&allocation_error);
+    ironwood_exception_caught(allocation_error);
     fail_malloc = 0;
     CHECK(heap_live == baseline && descriptors == 0);
-    ironwood_deallocate(bytes);
+
     return 0;
 }
 
-int main(int argc, char **argv) {
+static int scratch_cases(int argc, char **argv) {
     CHECK(argc == 2 && chdir(argv[1]) == 0);
     struct ironwood_string *path = string_from_utf8_bytes(
             (const unsigned char *) "scratch.txt", 11, &string_type, NULL);
@@ -211,32 +210,44 @@ int main(int argc, char **argv) {
     int allocations = calloc_calls;
     int scratch = malloc_calls;
     short_writes = write_interrupt = 1;
-    CHECK(ironwood_file_write_string(path, text, &allocation_error) == 0);
-    CHECK(ironwood_file_kind(path, &allocation_error) == 1);
-    CHECK(ironwood_file_size(path, &allocation_error) == 8);
+    CHECK(ironwood_file_write_string(path, text, allocation_error) == 0);
+    CHECK(ironwood_file_kind(path, allocation_error) == 1);
+    CHECK(ironwood_file_size(path, allocation_error) == 8);
     CHECK(calloc_calls == allocations && malloc_calls == scratch && descriptors == 0);
 
     for (int mode = 0; mode < 4; mode++) {
         zero_size = mode & 1; /* Simulates a growing file or a non-size-reporting source. */
         large_hint = mode == 2; /* Simulates shrinkage after the size hint. */
         short_reads = read_interrupt = 1;
-        void *result = mode < 2 ? ironwood_file_read_string(path, &string_type, &allocation_error)
-                : ironwood_file_read_all_bytes(path, &array_type, &allocation_error);
-        CHECK(result != NULL && heap_live == baseline + 1 && descriptors == 0);
+        uint64_t language_before = iw_gc_total_count();
+        void *result = mode < 2 ? ironwood_file_read_string(path, &string_type, allocation_error)
+                : ironwood_file_read_all_bytes(path, &array_type, allocation_error);
+        CHECK(result != NULL && heap_live == baseline && descriptors == 0);
+        CHECK(iw_gc_total_count() == language_before + 1);
         if (mode < 2) { CHECK(ironwood_string_equals(result, text, &string_type)); }
         else { CHECK(((struct ironwood_array *) result)->length == 8); }
-        ironwood_deallocate(result);
-        CHECK(heap_live == baseline && malloc_calls == scratch);
+
+        result = NULL;
+        void *retained[] = {path, text};
+        gc_harness_collect(retained, 2);
+        CHECK(iw_gc_live_count() == 3 && path->utf16_length == 11 && path->units[0] == 's');
+        CHECK(text->utf16_length == 5 && text->units[0] == 'A' && text->units[1] == 0xD83C
+                && text->units[2] == 0xDF32 && text->units[3] == 0xE9 && text->units[4] == 'Z');
+        CHECK(heap_live == baseline && malloc_calls == scratch + mode + 1);
     }
     zero_size = large_hint = 0;
+    // Final managed results have exact storage; no compaction realloc is needed.
     fail_realloc = 1;
-    void *uncompacted = ironwood_file_read_string(path, &string_type, &allocation_error);
+    int before_compaction = realloc_calls;
+    void *uncompacted = ironwood_file_read_string(path, &string_type, allocation_error);
     CHECK(uncompacted != NULL && ironwood_string_equals(uncompacted, text, &string_type));
-    ironwood_deallocate(uncompacted);
+    CHECK(realloc_calls == before_compaction);
+    uncompacted = NULL;
+
     fail_realloc = 0;
     oversized_hint = 1;
     allocations = calloc_calls;
-    CHECK(ironwood_file_read_all_bytes(path, &array_type, &allocation_error) == NULL);
+    CHECK(ironwood_file_read_all_bytes(path, &array_type, allocation_error) == NULL);
     CHECK(last_file_error == IRONWOOD_FILE_ERROR_TOO_LARGE && calloc_calls == allocations);
     oversized_hint = 0;
     const unsigned char invalid[][4] = {
@@ -248,15 +259,15 @@ int main(int argc, char **argv) {
         int descriptor = open("scratch.txt", O_WRONLY | O_TRUNC);
         CHECK(descriptor >= 0 && write(descriptor, invalid[index], invalid_lengths[index])
                 == (ssize_t) invalid_lengths[index] && close(descriptor) == 0);
-        CHECK(ironwood_file_read_string(path, &string_type, &allocation_error) == NULL);
+        CHECK(ironwood_file_read_string(path, &string_type, allocation_error) == NULL);
         CHECK(last_file_error == IRONWOOD_FILE_ERROR_INVALID_UTF8
                 && heap_live == baseline && descriptors == 0);
     }
-    CHECK(ironwood_file_write_string(path, text, &allocation_error) == 0);
+    CHECK(ironwood_file_write_string(path, text, allocation_error) == 0);
     for (int fault = 0; fault < 2; fault++) {
         fail_read = fault == 0;
         fail_close = fault == 1;
-        CHECK(ironwood_file_read_string(path, &string_type, &allocation_error) == NULL);
+        CHECK(ironwood_file_read_string(path, &string_type, allocation_error) == NULL);
         CHECK(heap_live == baseline && descriptors == 0);
     }
     fail_read = fail_close = 0;
@@ -266,44 +277,55 @@ int main(int argc, char **argv) {
     long_path->utf8_length = 6000;
     baseline = heap_live;
     for (int fault = 0; fault < 4; fault++) {
-        fail_calloc = fault == 0;
+        uint64_t total_before_failure = iw_gc_total_count();
+        gc_fail_language = fault == 0;
         zero_size = fail_realloc = fault == 1;
         fail_malloc = fault >= 2;
         long_directory = fault == 3;
         if (setjmp(failure_target) == 0) {
-            if (fault < 2) { ironwood_file_read_string(path, &string_type, &allocation_error); }
-            else if (fault == 2) { ironwood_file_kind(long_path, &allocation_error); }
-            else { ironwood_path_absolute(path, &string_type, &allocation_error); }
+            if (fault < 2) { ironwood_file_read_string(path, &string_type, allocation_error); }
+            else if (fault == 2) { ironwood_file_kind(long_path, allocation_error); }
+            else { ironwood_path_absolute(path, &string_type, allocation_error); }
             CHECK(0);
         }
         cleanup_exception(_URC_FOREIGN_EXCEPTION_CAUGHT, caught_unwind);
-        ironwood_exception_caught(&allocation_error);
+        ironwood_exception_caught(allocation_error);
         CHECK(heap_live == baseline && descriptors == 0);
+        CHECK(iw_gc_total_count() == total_before_failure);
     }
-    fail_calloc = fail_malloc = fail_realloc = zero_size = long_directory = 0;
+    gc_fail_language = fail_malloc = fail_realloc = zero_size = long_directory = 0;
     scratch = malloc_calls;
     allocations = calloc_calls;
     struct ironwood_string *normalized = ironwood_path_normalize_syntax(long_path, &string_type, NULL);
-    CHECK(calloc_calls == allocations + 1 && malloc_calls == scratch);
-    ironwood_deallocate(normalized);
+    CHECK(calloc_calls == allocations && malloc_calls == scratch);
+
     normalized = ironwood_path_normalize(long_path, &string_type, NULL);
-    CHECK(malloc_calls == scratch && heap_live == baseline + 1);
-    ironwood_deallocate(normalized);
+    CHECK(malloc_calls == scratch && heap_live == baseline);
+
     normalized = ironwood_path_resolve(long_path, path, &string_type, NULL);
-    CHECK(malloc_calls == scratch && heap_live == baseline + 1);
-    ironwood_deallocate(normalized);
+    CHECK(malloc_calls == scratch && heap_live == baseline);
+
     normalized = ironwood_path_resolve_sibling(long_path, path, &string_type, NULL);
-    CHECK(malloc_calls == scratch && heap_live == baseline + 1);
-    ironwood_deallocate(normalized);
+    CHECK(malloc_calls == scratch && heap_live == baseline);
+
     long_directory = 1;
     struct ironwood_string *absolute = ironwood_path_absolute(path, &string_type, NULL);
-    CHECK(absolute != NULL && absolute->utf16_length == 6012 && heap_live == baseline + 1);
-    ironwood_deallocate(absolute);
+    CHECK(absolute != NULL && absolute->utf16_length == 6012 && heap_live == baseline);
+
     long_directory = 0;
     CHECK(streaming_boundary(path, long_path) == 0);
-    ironwood_deallocate(long_path);
-    ironwood_deallocate(text);
-    ironwood_deallocate(path);
+
+    CHECK(heap_live == 0 && descriptors == 0);
+    return 0;
+}
+
+int main(int argc, char **argv) {
+    gc_harness_start();
+    int result = scratch_cases(argc, argv);
+    if (result != 0) return result;
+    gc_harness_collect(NULL, 0);
+    CHECK(iw_gc_live_count() == 1);
+    gc_harness_finish();
     CHECK(heap_live == 0 && descriptors == 0);
     return 0;
 }

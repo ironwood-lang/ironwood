@@ -32,7 +32,7 @@ extern long syscall(long number, ...);
 #endif
 
 static int heap_live, descriptors;
-static int fail_calloc, exist_opens, exist_mkdirs, fail_close, opens, mkdirs;
+static int exist_opens, exist_mkdirs, fail_close, opens, mkdirs;
 /* M4.2: injected rename results, a competitor created between a check and a
  * rename, and failures at each step of the cross-device copy. */
 static int rename_error, exclusive_error, fail_write, fail_unlink_source, fail_second_rename, renames;
@@ -49,7 +49,6 @@ static void *test_malloc(size_t size) {
     return result;
 }
 static void *test_calloc(size_t count, size_t size) {
-    if (fail_calloc) { return NULL; }
     void *result = calloc(count, size);
     if (result != NULL) { heap_live++; }
     return result;
@@ -155,6 +154,8 @@ static _Unwind_Reason_Code test_unwind(struct _Unwind_Exception *exception) {
     longjmp(failure_target, 1);
 }
 
+#include "gc_harness_alloc.h"
+
 #define malloc test_malloc
 #define calloc test_calloc
 #define realloc test_realloc
@@ -195,8 +196,7 @@ static _Unwind_Reason_Code test_unwind(struct _Unwind_Exception *exception) {
 
 #define CHECK(condition) do { if (!(condition)) { fprintf(stderr, "line %d\n", __LINE__); return 1; } } while (0)
 
-static const struct ironwood_type_info string_type = { .name = "String" };
-static struct ironwood_throwable allocation_error;
+#include "gc_harness_state.h"
 
 static struct ironwood_string *text(const char *value) {
     return string_from_utf8_bytes((const unsigned char *) value, strlen(value), &string_type, NULL);
@@ -232,7 +232,7 @@ static int remove_created(struct ironwood_string *created, _Bool directory) {
     char *value = string_to_utf8(created, NULL);
     int result = directory ? rmdir(value) : unlink(value);
     test_free(value);
-    ironwood_deallocate(created);
+
     return result;
 }
 
@@ -246,7 +246,7 @@ static int temporaries(void) {
         exist_opens = collisions;
         opens = 0;
         struct ironwood_string *created = ironwood_file_create_temp_file(stem, suffix, &string_type,
-                &allocation_error);
+                allocation_error);
         CHECK(created != NULL && opens == collisions + 1 && named(created, "t-", ".tmp"));
         struct stat status;
         char *value = string_to_utf8(created, NULL);
@@ -255,7 +255,7 @@ static int temporaries(void) {
         CHECK(remove_created(created, 0) == 0 && descriptors == 0 && heap_live == baseline);
         exist_mkdirs = collisions;
         mkdirs = 0;
-        created = ironwood_file_create_temp_directory(stem, &string_type, &allocation_error);
+        created = ironwood_file_create_temp_directory(stem, &string_type, allocation_error);
         CHECK(created != NULL && mkdirs == collisions + 1 && named(created, "t-", ""));
         value = string_to_utf8(created, NULL);
         CHECK(stat(value, &status) == 0 && S_ISDIR(status.st_mode) && (status.st_mode & 07777) == 0700);
@@ -264,33 +264,33 @@ static int temporaries(void) {
     }
     /* Trailing separators of the suffix are dropped, as Java drops them. */
     struct ironwood_string *created = ironwood_file_create_temp_file(stem, slashes, &string_type,
-            &allocation_error);
+            allocation_error);
     CHECK(created != NULL && named(created, "t-", ".s"));
     CHECK(remove_created(created, 0) == 0);
     /* Exhausted attempts report an existing name and create nothing. */
     exist_opens = IRONWOOD_TEMPORARY_ATTEMPTS;
     opens = 0;
-    CHECK(ironwood_file_create_temp_file(stem, suffix, &string_type, &allocation_error) == NULL);
+    CHECK(ironwood_file_create_temp_file(stem, suffix, &string_type, allocation_error) == NULL);
     CHECK(opens == IRONWOOD_TEMPORARY_ATTEMPTS && last_file_error == IRONWOOD_FILE_ERROR_ALREADY_EXISTS);
     exist_mkdirs = IRONWOOD_TEMPORARY_ATTEMPTS;
-    CHECK(ironwood_file_create_temp_directory(stem, &string_type, &allocation_error) == NULL);
+    CHECK(ironwood_file_create_temp_directory(stem, &string_type, allocation_error) == NULL);
     CHECK(last_file_error == IRONWOOD_FILE_ERROR_ALREADY_EXISTS && entries() == 0);
     /* A failed close after creation removes the file and reports the error. */
     fail_close = 1;
-    CHECK(ironwood_file_create_temp_file(stem, suffix, &string_type, &allocation_error) == NULL);
+    CHECK(ironwood_file_create_temp_file(stem, suffix, &string_type, allocation_error) == NULL);
     fail_close = 0;
     CHECK(last_file_error == IRONWOOD_FILE_ERROR_OTHER && entries() == 0 && descriptors == 0);
     /* A failed String allocation after creation removes the entry first. */
     for (int directory = 0; directory < 2; directory++) {
-        fail_calloc = 1;
+        gc_fail_language = 1;
         if (setjmp(failure_target) == 0) {
-            if (directory) { ironwood_file_create_temp_directory(stem, &string_type, &allocation_error); }
-            else { ironwood_file_create_temp_file(stem, suffix, &string_type, &allocation_error); }
+            if (directory) { ironwood_file_create_temp_directory(stem, &string_type, allocation_error); }
+            else { ironwood_file_create_temp_file(stem, suffix, &string_type, allocation_error); }
             CHECK(0);
         }
-        fail_calloc = 0;
+        gc_fail_language = 0;
         cleanup_exception(_URC_FOREIGN_EXCEPTION_CAUGHT, caught_unwind);
-        ironwood_exception_caught(&allocation_error);
+        ironwood_exception_caught(allocation_error);
         CHECK(entries() == 0 && heap_live == baseline && descriptors == 0);
     }
     /* A stem beyond the stack buffer uses one reclaimed heap buffer. */
@@ -298,24 +298,22 @@ static int temporaries(void) {
     for (int index = 0; index < 5000; index++) { long_stem->units[index] = index % 200 == 199 ? '/' : 'a'; }
     long_stem->utf8_length = 5000;
     baseline = heap_live;
-    CHECK(ironwood_file_create_temp_file(long_stem, suffix, &string_type, &allocation_error) == NULL);
+    CHECK(ironwood_file_create_temp_file(long_stem, suffix, &string_type, allocation_error) == NULL);
     /* ENOENT, or ENAMETOOLONG where PATH_MAX is shorter than the stem. */
     CHECK(last_file_error != IRONWOOD_FILE_ERROR_NONE && heap_live == baseline && entries() == 0);
-    ironwood_deallocate(long_stem);
+
 #if defined(__linux__)
     /* Without getrandom the urandom device supplies the name; without either
      * source the creation fails rather than using weaker bits. */
     random_unavailable = 1;
-    created = ironwood_file_create_temp_file(stem, suffix, &string_type, &allocation_error);
+    created = ironwood_file_create_temp_file(stem, suffix, &string_type, allocation_error);
     CHECK(created != NULL && named(created, "t-", ".tmp") && remove_created(created, 0) == 0);
     urandom_unavailable = 1;
-    CHECK(ironwood_file_create_temp_file(stem, suffix, &string_type, &allocation_error) == NULL);
+    CHECK(ironwood_file_create_temp_file(stem, suffix, &string_type, allocation_error) == NULL);
     CHECK(last_file_error == IRONWOOD_FILE_ERROR_NO_SUCH_FILE && entries() == 0 && descriptors == 0);
     random_unavailable = urandom_unavailable = 0;
 #endif
-    ironwood_deallocate(slashes);
-    ironwood_deallocate(suffix);
-    ironwood_deallocate(stem);
+
     return 0;
 }
 
@@ -327,25 +325,25 @@ static int real_paths(void) {
     char expected[PATH_MAX];
     CHECK(realpath("real", expected) != NULL);
     int baseline = heap_live;
-    struct ironwood_string *resolved = ironwood_file_real_path(link, &string_type, &allocation_error);
+    struct ironwood_string *resolved = ironwood_file_real_path(link, &string_type, allocation_error);
     char *value = resolved == NULL ? NULL : string_to_utf8(resolved, NULL);
     CHECK(value != NULL && strcmp(value, expected) == 0);
     test_free(value);
-    ironwood_deallocate(resolved);
-    resolved = ironwood_file_real_path(empty, &string_type, &allocation_error);
+
+    resolved = ironwood_file_real_path(empty, &string_type, allocation_error);
     CHECK(resolved != NULL && resolved->utf16_length > 0);
-    ironwood_deallocate(resolved);
-    fail_calloc = 1;
+
+    gc_fail_language = 1;
     if (setjmp(failure_target) == 0) {
-        ironwood_file_real_path(link, &string_type, &allocation_error);
+        ironwood_file_real_path(link, &string_type, allocation_error);
         CHECK(0);
     }
-    fail_calloc = 0;
+    gc_fail_language = 0;
     cleanup_exception(_URC_FOREIGN_EXCEPTION_CAUGHT, caught_unwind);
-    ironwood_exception_caught(&allocation_error);
+    ironwood_exception_caught(allocation_error);
     CHECK(heap_live == baseline);
-    CHECK(ironwood_file_access(link, 1, &allocation_error) == 1 && ironwood_file_access(link, 2, &allocation_error) == 1);
-    CHECK(ironwood_file_access(bad, 1, &allocation_error) == 0 && heap_live == baseline);
+    CHECK(ironwood_file_access(link, 1, allocation_error) == 1 && ironwood_file_access(link, 2, allocation_error) == 1);
+    CHECK(ironwood_file_access(bad, 1, allocation_error) == 0 && heap_live == baseline);
     char invalid[] = {'b', 'a', 'd', (char) 0xff, 0};
     int descriptor = open(invalid, O_WRONLY | O_CREAT | O_EXCL, 0600);
 #if defined(__APPLE__)
@@ -354,24 +352,22 @@ static int real_paths(void) {
 #else
     CHECK(descriptor >= 0 && close(descriptor) == 0);
     /* The UTF-8 encoding of U+FFFD does not name the 0xff file. */
-    CHECK(ironwood_file_real_path(bad, &string_type, &allocation_error) == NULL);
+    CHECK(ironwood_file_real_path(bad, &string_type, allocation_error) == NULL);
     CHECK(last_file_error == IRONWOOD_FILE_ERROR_NO_SUCH_FILE);
     /* A resolved name that is not UTF-8 cannot become a String. */
     CHECK(symlink(invalid, "to-bad") == 0);
     struct ironwood_string *to_bad = text("to-bad");
     int strings = heap_live;
-    CHECK(ironwood_file_real_path(to_bad, &string_type, &allocation_error) == NULL);
+    CHECK(ironwood_file_real_path(to_bad, &string_type, allocation_error) == NULL);
     CHECK(last_file_error == IRONWOOD_FILE_ERROR_INVALID_UTF8 && heap_live == strings);
-    CHECK(ironwood_file_access(to_bad, 1, &allocation_error) == 1 && ironwood_file_access(to_bad, 2, &allocation_error) == 0);
+    CHECK(ironwood_file_access(to_bad, 1, allocation_error) == 1 && ironwood_file_access(to_bad, 2, allocation_error) == 0);
     unlink("to-bad");
     unlink(invalid);
-    ironwood_deallocate(to_bad);
+
 #endif
     unlink("link");
     rmdir("real");
-    ironwood_deallocate(bad);
-    ironwood_deallocate(empty);
-    ironwood_deallocate(link);
+
     return 0;
 }
 
@@ -408,7 +404,7 @@ static int moves(void) {
      * silently, which is why publication needs the exclusive rename. */
     CHECK(put("source", "new") == 0);
     compete_path = "target";
-    CHECK(ironwood_file_move(source, target, &allocation_error) == IRONWOOD_FILE_ERROR_NONE);
+    CHECK(ironwood_file_move(source, target, allocation_error) == IRONWOOD_FILE_ERROR_NONE);
     CHECK(compete_path == NULL && holds("target", "new") && !exists("source"));
     CHECK(unlink("target") == 0);
     /* The exclusive rename keeps a competing file, directory or dangling link. */
@@ -417,16 +413,16 @@ static int moves(void) {
         if (competitor == 0) { CHECK(put("target", "competitor") == 0); }
         else if (competitor == 1) { CHECK(mkdir("target", 0700) == 0); }
         else { CHECK(symlink("missing", "target") == 0); }
-        CHECK(ironwood_file_move_exclusive(source, target, &allocation_error) == IRONWOOD_FILE_ERROR_ALREADY_EXISTS);
+        CHECK(ironwood_file_move_exclusive(source, target, allocation_error) == IRONWOOD_FILE_ERROR_ALREADY_EXISTS);
         CHECK(holds("source", "new") && exists("target"));
         if (competitor == 0) { CHECK(holds("target", "competitor") && unlink("target") == 0); }
         else if (competitor == 1) { CHECK(rmdir("target") == 0); }
         else { CHECK(unlink("target") == 0); }
     }
-    CHECK(ironwood_file_move_exclusive(source, target, &allocation_error) == IRONWOOD_FILE_ERROR_NONE);
+    CHECK(ironwood_file_move_exclusive(source, target, allocation_error) == IRONWOOD_FILE_ERROR_NONE);
     CHECK(holds("target", "new") && !exists("source"));
     /* A name renamed to itself is an existing target on every host. */
-    CHECK(ironwood_file_move_exclusive(target, target, &allocation_error) == IRONWOOD_FILE_ERROR_ALREADY_EXISTS);
+    CHECK(ironwood_file_move_exclusive(target, target, allocation_error) == IRONWOOD_FILE_ERROR_ALREADY_EXISTS);
     CHECK(holds("target", "new") && unlink("target") == 0);
     /* An unsupported host or file system, or another device, changes nothing. */
     CHECK(put("source", "new") == 0);
@@ -437,7 +433,7 @@ static int moves(void) {
     };
     for (size_t index = 0; index < sizeof(unsupported) / sizeof(int); index++) {
         exclusive_error = unsupported[index];
-        int32_t result = ironwood_file_move_exclusive(source, target, &allocation_error);
+        int32_t result = ironwood_file_move_exclusive(source, target, allocation_error);
         CHECK(result == (unsupported[index] == EXDEV ? IRONWOOD_FILE_ERROR_CROSS_DEVICE
                 : IRONWOOD_FILE_ERROR_UNSUPPORTED));
         CHECK(holds("source", "new") && !exists("target"));
@@ -445,18 +441,18 @@ static int moves(void) {
     exclusive_error = 0;
     /* A directory moved inside itself stays an invalid move, not unsupported. */
     CHECK(mkdir("dir", 0700) == 0);
-    CHECK(ironwood_file_move_exclusive(directory, nested, &allocation_error) == IRONWOOD_FILE_ERROR_OTHER);
+    CHECK(ironwood_file_move_exclusive(directory, nested, allocation_error) == IRONWOOD_FILE_ERROR_OTHER);
     CHECK(rmdir("dir") == 0);
     /* Atomic replacement: another device fails without effect; a non-empty
      * directory reported as EEXIST is normalized to ENOTEMPTY. */
     CHECK(put("target", "old") == 0);
     renames = 0;
     rename_error = EXDEV;
-    CHECK(ironwood_file_move_atomic(source, target, &allocation_error) == IRONWOOD_FILE_ERROR_CROSS_DEVICE);
+    CHECK(ironwood_file_move_atomic(source, target, allocation_error) == IRONWOOD_FILE_ERROR_CROSS_DEVICE);
     CHECK(holds("source", "new") && holds("target", "old"));
     renames = 0;
     rename_error = EEXIST;
-    CHECK(ironwood_file_move_atomic(source, target, &allocation_error) == IRONWOOD_FILE_ERROR_DIRECTORY_NOT_EMPTY);
+    CHECK(ironwood_file_move_atomic(source, target, allocation_error) == IRONWOOD_FILE_ERROR_DIRECTORY_NOT_EMPTY);
     /* The replacing move copies only a regular file across devices. */
     struct stat before, after;
     CHECK(chmod("source", 0751) == 0 && stat("source", &before) == 0);
@@ -466,7 +462,7 @@ static int moves(void) {
         fail_write = fault == 1;
         fail_second_rename = fault == 2;
         fail_unlink_source = fault == 3;
-        int32_t result = ironwood_file_move_replacing(source, target, &allocation_error);
+        int32_t result = ironwood_file_move_replacing(source, target, allocation_error);
         fail_write = fail_second_rename = fail_unlink_source = 0;
         if (fault == 0) {
             CHECK(result == IRONWOOD_FILE_ERROR_NONE && holds("target", "new") && !exists("source"));
@@ -492,30 +488,37 @@ static int moves(void) {
     CHECK(unlink("source") == 0 && mkdir("source", 0700) == 0);
     renames = 0;
     rename_error = EXDEV;
-    CHECK(ironwood_file_move_replacing(source, target, &allocation_error) == IRONWOOD_FILE_ERROR_CROSS_DEVICE);
+    CHECK(ironwood_file_move_replacing(source, target, allocation_error) == IRONWOOD_FILE_ERROR_CROSS_DEVICE);
     CHECK(rmdir("source") == 0 && symlink("target", "source") == 0);
     renames = 0;
-    CHECK(ironwood_file_move_replacing(source, target, &allocation_error) == IRONWOOD_FILE_ERROR_CROSS_DEVICE);
+    CHECK(ironwood_file_move_replacing(source, target, allocation_error) == IRONWOOD_FILE_ERROR_CROSS_DEVICE);
     rename_error = 0;
     CHECK(unlink("source") == 0 && holds("target", "old") && unlink("target") == 0);
     CHECK(entries() == 0 && descriptors == 0 && heap_live == baseline);
-    ironwood_deallocate(directory);
-    ironwood_deallocate(nested);
-    ironwood_deallocate(target);
-    ironwood_deallocate(source);
+
     return 0;
 }
 
 /* Argument 1 is an empty scratch directory; argument 2 selects "temporary"
  * (M4.1) or "publication" (M4.2), and both run without it. */
 int main(int argc, char **argv) {
+    gc_harness_start();
     CHECK((argc == 2 || argc == 3) && chdir(argv[1]) == 0 && entries() == 0);
     _Bool all = argc == 2;
     if (all || strcmp(argv[2], "temporary") == 0) {
         CHECK(temporaries() == 0);
+        gc_harness_collect(NULL, 0);
+        CHECK(iw_gc_live_count() == 1);
         CHECK(real_paths() == 0);
+        gc_harness_collect(NULL, 0);
+        CHECK(iw_gc_live_count() == 1);
     }
-    if (all || strcmp(argv[2], "publication") == 0) { CHECK(moves() == 0); }
+    if (all || strcmp(argv[2], "publication") == 0) {
+        CHECK(moves() == 0);
+        gc_harness_collect(NULL, 0);
+        CHECK(iw_gc_live_count() == 1);
+    }
+    gc_harness_finish();
     CHECK(entries() == 0 && heap_live == 0 && descriptors == 0);
     return 0;
 }
