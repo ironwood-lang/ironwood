@@ -12,7 +12,10 @@ Continuation from local audit commit `ec6b54d6`: the
 [native harness migration](GC_NATIVE_HARNESS_MIGRATION.md) resolves the four open
 executable inputs with fresh macOS/Linux arm64 tests. The original manifest stays
 unchanged as evidence of the initial audit. The current residual ledger and
-verdicts below include that continuation; matching-hardware x86-64 remains a gap.
+verdicts below include that continuation and the subsequent
+[physical x86-64 verification](GC_X86_POST_AUDIT.md) of `cb908a9f`, which closes
+the requested matching-hardware coverage gap. Both earlier manifests retain
+their original results and provenance.
 
 ## Pre-test behavior matrix and review
 
@@ -208,27 +211,32 @@ Use a new ignored output directory for each invocation. The manifest records
 actual child commands, source/SDK/tool identities, report/log hashes, exits and
 sampled peaks. These are stages, not counts of independent language features.
 
-| Selection | machost: macOS arm64 | armvm: native Linux arm64 |
-| --- | --- | --- |
-| integrated / oom / resources / pools | 48 stages, O0-O3 pass | 48 stages, O0-O3 pass |
-| layouts / arrays / sidecars / metadata / failure / construction | 13 stages pass | Not rerun separately |
-| Focused exact roots | 92 stages, O0-O3 pass | 68 stages, O0-O3 pass |
-| Focused exception owners | 73 stages, O0-O3 pass | 49 stages, O0-O3 pass |
-| Managed object JVM consumer | 5 stages, O0/O3 pass | 3 stages, O3 pass |
-| Callback JVM consumer | 5 stages, O0/O3 pass | 3 stages, O3 pass after diagnostic filter fix |
-| Suspended JVM segments | 34 stages, O0-O3 pass | 20 stages, O0/O3 pass |
-| Independent production images | 4 stages pass | 4 stages pass |
-| New graph/accounting/cache/names/capacity controls | O0-O3 normal cases pass; final O3 all modes and archive parity pass | Same; allocator warmup correction applied |
-| New exact exception-phase oracle | 13 stages, O0-O3 and O3 archive pass | 13 stages, O0-O3 and O3 archive pass |
+| Selection | machost: macOS arm64 | armvm: native Linux arm64 | x86host: physical Linux x86-64 |
+| --- | --- | --- | --- |
+| integrated / oom / resources / pools | 48 stages, O0-O3 pass | 48 stages, O0-O3 pass | 48 stages, O0-O3 pass |
+| layouts / arrays / sidecars / metadata / failure / construction | 13 stages pass | Not rerun separately | 13 stages pass |
+| Focused exact roots | 92 stages, O0-O3 pass | 68 stages, O0-O3 pass | 108 stages, O0-O3 pass |
+| Focused exception owners | 73 stages, O0-O3 pass | 49 stages, O0-O3 pass | 73 stages, O0-O3 pass |
+| Managed object JVM consumer | 5 stages, O0/O3 pass | 3 stages, O3 pass | 3 stages, O3 pass |
+| Callback JVM consumer | 5 stages, O0/O3 pass | 3 stages, O3 pass after diagnostic filter fix | 3 stages, O3 pass |
+| Suspended JVM segments | 34 stages, O0-O3 pass | 20 stages, O0/O3 pass | 20 stages, O0/O3 pass |
+| Independent production images | 4 stages pass | 4 stages pass | 4 stages pass |
+| New graph/accounting/cache/names/capacity controls | O0-O3 normal cases pass; final O3 all modes and archive parity pass | Same; allocator warmup correction applied | 40 stages including exceptions, O0-O3 and O3 archive pass; fourteen 1 MiB replacements per bounded phase |
+| New exact exception-phase oracle | 13 stages, O0-O3 and O3 archive pass | 13 stages, O0-O3 and O3 archive pass | Included in the 40-stage normal audit |
+| Restored native fault harnesses | Five exact selectors pass | Five exact selectors pass | Five exact selectors pass |
 
-Both exact SDK profiles verify before execution and again at completion:
+The three exact SDK profiles verify before execution and again at completion:
 machost `f6cdb6e12017ba8d203b7ab46c4f870585e4860c7f5de6ea88bad1c0d60b78ab`,
-armvm `d8434872c7bd54595bc73e03ec9b245dc4c58748f328d2854b7e6ee030120912`.
+armvm `d8434872c7bd54595bc73e03ec9b245dc4c58748f328d2854b7e6ee030120912`,
+x86host `5e536f53ea4a5a695f0176a8133b4168443d09225521e13f0881ba1d4a3ef347`.
 No verified runtime/pass/collector input changed, so no SDK rebuild was needed.
-The largest sampled native-driver child group is 1,452,428 KiB. Samples are not
+The largest sampled native-driver child group is 1,785,436 KiB. Samples are not
 exact high waters. Linux containers additionally have a 4 GiB memory limit and
 disabled network. The initially stopped ARM VM is stopped again after testing.
 Disk output remains below the 16 GiB cap and free space above the 50 GiB floor.
+The x86 continuation uses a tighter 4 GiB new-work cap: about 2.3 GiB used,
+with about 82.5 GiB free. Its staged source and existing parent checkout remain
+unchanged; no SDK or prior cache was rebuilt or replaced.
 
 Representative commands, with SDK/LLVM/JAVA21 set to the exact qualified paths:
 
@@ -255,11 +263,13 @@ race are retained as failed attempts, not collector failures or successful runs.
 One outer log parser expected JSONL but received a successful control driver's
 pretty-printed JSON; that command's complete JSON was validated separately.
 
-No currently configured matching-hardware x86-64 connection was available to this
-audit. Prior physical-host GC9 results remain historical; no translated x86-64
-run is relabeled as fresh hardware coverage. arm64e and the previously unsupported
+The initial audit lacked an authorized matching-hardware x86-64 connection.
+The maintainer subsequently supplied one; fresh current-source execution is
+recorded in the x86 continuation and its separate manifest. Prior physical-host
+GC9 results remain historical; no translated run is relabeled as fresh hardware
+coverage. arm64e and the previously unsupported
 foreign lifetimes remain unqualified. No full compiler/stdlib/platform suite,
-hosted workflow, release, remote Git operation or self-hosting ran.
+hosted workflow, release, Git network operation or self-hosting ran.
 
 ### Separate verdicts
 
@@ -267,14 +277,16 @@ hosted workflow, release, remote Git operation or self-hosting ran.
 and fresh ordinary/JVM outputs show no active managed destruction, rollback,
 temporary release or legacy facade reclamation path. Removed syntax/options
 refuse usefully and ordinary names work. The four maintained registered C
-harnesses are migrated and pass on macOS/Linux arm64. The content-bound residual
+harnesses are migrated and pass on all three requested targets. The content-bound residual
 check passes with zero unexplained matches and zero open obsolete inputs.
 
-**GC correctness: passes the executed ARM matrix, incomplete for the full request.**
+**GC correctness: passes the requested focused three-platform audit.**
 Fresh exact counts, graph preservation/drop, sidecar exclusion, explicit-only
 bounded reuse, failure safety and supported foreign roots pass as detailed above.
 No production GC correctness defect was found. The GC-aware filesystem/process/
-trace fault matrices now pass on both ARM targets, together with fresh O0-O3
-ordinary OOM/resource and focused root/owner controls. Fresh matching x86-64
-execution remains unmet. This is not a clean three-platform or exhaustive GC
-qualification claim.
+trace fault matrices pass on all three requested targets, together with fresh
+O0-O3 ordinary OOM/resource and focused root/owner controls. Current-source
+physical x86-64 execution closes the outstanding platform criterion, including
+independent accounting/graph/capacity and supported JVM controls. No unresolved
+finding remains in this audit's requested scope. This is focused verification,
+not an exhaustive qualification of every program, platform or JDK.

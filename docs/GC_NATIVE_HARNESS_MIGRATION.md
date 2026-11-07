@@ -6,6 +6,10 @@ Entry revision `ec6b54d6`, local `codex/bdwgc-integration-plan`. Canonical root,
 origin fetch/push URLs and clean tree verified. All work stays local; no remote
 Git, hosted work, branch change or self-hosting is authorized.
 
+The results below preserve the original ARM migration evidence at `cb908a9f`.
+The subsequent [physical x86-64 continuation](GC_X86_POST_AUDIT.md) passes all
+five selectors and closes the broader audit's remaining platform criterion.
+
 ## Pre-change review and coverage map
 
 Original MIT OR Apache-2.0 test infrastructure only; licensing mechanics and
@@ -113,8 +117,8 @@ No SDK input changed or needed rebuilding. Native/compiler children retain the
 16 GiB process-group RSS and 60-second limits; orchestration has separate finite
 deadlines. Linux additionally uses a 4 GiB container limit with network disabled.
 The initially stopped ARM VM is stopped again. No hosted, remote Git, full-suite,
-self-hosting or matching x86-64 execution ran. Fresh matching x86-64 remains the
-precise outstanding platform criterion of the broader GC audit.
+self-hosting or matching x86-64 execution ran during this ARM migration stage.
+The later x86 continuation supplies that fresh hardware evidence separately.
 
 The content-bound residual inventory retains only justified native frees, current
 metadata names, ordinary identifiers, removal negatives and historical records.
@@ -131,5 +135,6 @@ output stays below 0.3 GiB, with more than 240 GiB disk space available.
 findings are fixed and freshly verified; no runtime API was restored.
 
 **GC correctness: the restored fault matrices and focused ARM controls pass.**
-The broader audit remains incomplete for fresh matching-hardware x86-64 evidence;
-this continuation makes no new capacity, performance or three-platform claim.
+The later physical x86-64 continuation closes the broader audit's outstanding
+hardware criterion. This original migration evidence makes no new capacity or
+performance claim; consult the current audit verdict and x86 report together.

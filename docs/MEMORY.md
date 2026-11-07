@@ -9,8 +9,11 @@ historical model; they do not authorize legacy lowering. See the
 [GC5 implementation report](GC5_IMPLEMENTATION.md) for the cutover and
 [GC10 acceptance](GC10_ACCEPTANCE.md) for reconciled evidence and current limits.
 The [independent post-integration audit](GC_POST_INTEGRATION_AUDIT.md) records
-fresh behavior and platform gaps. Its [native fault harness continuation](GC_NATIVE_HARNESS_MIGRATION.md)
-closes the registered harness migration findings without restoring retired APIs.
+fresh behavior on the three requested targets. Its
+[native fault harness continuation](GC_NATIVE_HARNESS_MIGRATION.md) closes the
+registered harness migration findings, and the
+[physical x86-64 verification](GC_X86_POST_AUDIT.md) completes matching-hardware
+coverage without changing the collector contract.
 
 Objects, arrays, Strings, compiler-created heap values and runtime sidecars use
 pinned BDWGC 8.2.12. Storage is completely zero initialized before the dynamic
