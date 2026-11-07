@@ -168,6 +168,16 @@ SDK, never the mounted checkout's macOS SDK. Setup then runs
 against the current pins; Linux test containers select it through
 `IRONWOOD_BRIDGE_SUPPORT_HOME`, and a missing SDK stops a Linux run before any
 test starts. Delete a stale support directory before rerunning `--setup`.
+Setup also runs `scripts/prepare-gc.py` in each target's image to build its GC SDK
+at `workspace/platform-tests/gc/<platform>/`, or verifies an existing SDK offline.
+Linux tests explicitly select that directory through `IRONWOOD_GC_HOME`; a host
+override is not forwarded. Before any selected platform starts testing, the
+runner verifies every selected Linux GC SDK against current sources, payload
+checksums, the image's toolchain and the exact admitted configuration profile.
+Missing, stale or unqualified inputs stop the run without replacing the SDK.
+After inspecting a stale SDK, remove only its generated target directory and
+rerun `--setup`. GC source/recipe changes require this preparation again;
+they do not require rebuilding an otherwise unchanged toolchain image.
 No dependency is downloaded during
 compiler or test execution; rerun `--setup` when preparation inputs change.
 First-time downloads and setup can take substantially longer than later runs.
@@ -177,8 +187,9 @@ image upload or GitHub workflow.
 
 macOS uses the checkout's existing Java and LLVM installation. For comparison
 with the release environment, select the pinned release toolchain through
-`JAVA_HOME`, `PATH`, and `IRONWOOD_LLVM_HOME` before invoking the script. These
-local checks do not reproduce every detail of GitHub's macOS runner image.
+`JAVA_HOME`, `PATH`, `IRONWOOD_LLVM_HOME`, and a verified host `IRONWOOD_GC_HOME`
+before invoking the script. The selected Apple SDK must match that GC profile.
+These local checks do not reproduce every detail of GitHub's macOS runner image.
 
 The canonical checkout is mounted into the VM. Linux compiler build output is
 kept under ignored `workspace/platform-tests/build/<platform>/` and mounted over

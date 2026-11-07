@@ -33,6 +33,10 @@ class PlatformWorkflowTests(unittest.TestCase):
         self.write("packaging/idk-environment.yml", "name: fixture\n")
         self.write("scripts/prepare-tls.py", "# fixture recipe\n")
         self.write("packaging/tls-dependencies.properties", "openssl.version=fixture\n")
+        self.write("packaging/bdwgc-qualified.properties",
+                   f"linux-arm64.configuration.sha256={'a' * 64}\n"
+                   f"linux-x86_64.configuration.sha256={'b' * 64}\n"
+                   f"linux-x86_64.native-host.configuration.sha256={'c' * 64}\n")
         self.write("LICENSES/MPL-2.0.txt", "fixture license\n")
         self.output = io.StringIO()
         self.enterContext(contextlib.redirect_stdout(self.output))
@@ -52,6 +56,12 @@ class PlatformWorkflowTests(unittest.TestCase):
     def prepare_bridge_support(self, *targets):
         for target in targets:
             self.write(f"workspace/java-bridge/support/{target}/build.properties", f"platform={target}\n")
+
+    def prepare_gc_sdk(self, *targets, identity=None):
+        for target in targets:
+            value = identity or ("a" if target == "linux-arm64" else "b") * 64
+            self.write(f"workspace/platform-tests/gc/{target}/build.json",
+                       json.dumps({"gc.config.sha256": value}))
 
     def test_requires_explicit_mode(self):
         for arguments in ([], ["--full", "--test", "Example"], ["--full", "--failed"],
@@ -88,6 +98,10 @@ class PlatformWorkflowTests(unittest.TestCase):
         for target in ("linux-arm64", "linux-x86_64"):
             self.assertIn(f"scripts/prepare-java-bridge-support.py --setup --target {target} "
                           f"--prefix {self.root / 'workspace/java-bridge/support' / target}", self.output.getvalue())
+            self.assertIn(f"scripts/prepare-gc.py --prefix {self.root / 'workspace/platform-tests/gc' / target} "
+                          f"--llvm-home /opt/ironwood-toolchain --target {target}", self.output.getvalue())
+            self.assertIn(f"IRONWOOD_GC_HOME={self.root / 'workspace/platform-tests/gc' / target}",
+                          self.output.getvalue())
         self.assertNotIn("FINAL PLATFORM SUMMARY", self.output.getvalue())
 
     def test_full_run_ends_with_all_platform_results(self):
@@ -101,6 +115,7 @@ class PlatformWorkflowTests(unittest.TestCase):
             process.wait.return_value = code
             processes.append(process)
         self.prepare_bridge_support("linux-arm64", "linux-x86_64")
+        self.prepare_gc_sdk("linux-arm64", "linux-x86_64")
         # Simulate the three runs without starting Docker or a compiler suite.
         with patch.object(workflow, "verify_rosetta"), \
                 patch.object(workflow.subprocess, "run"), \
@@ -122,12 +137,15 @@ class PlatformWorkflowTests(unittest.TestCase):
         self.assertEqual(2, report["passed_count"])
 
     def test_linux_commands_select_image_sdk_and_isolate_native_outputs(self):
-        with patch.dict(workflow.os.environ, {"IRONWOOD_TLS_HOME": "/host/macos-sdk"}):
+        with patch.dict(workflow.os.environ, {"IRONWOOD_TLS_HOME": "/host/macos-sdk",
+                                             "IRONWOOD_GC_HOME": "/host/macos-gc-sdk"}):
             for target in ("linux-arm64", "linux-x86_64"):
                 command = workflow.test_command(self.root, target, ["TLS example"])
                 self.assertIn("IRONWOOD_TLS_HOME=/opt/ironwood-tls", command)
                 self.assertIn(f"IRONWOOD_BRIDGE_SUPPORT_HOME={self.root / 'workspace/java-bridge/support' / target}", command)
+                self.assertIn(f"IRONWOOD_GC_HOME={self.root / 'workspace/platform-tests/gc' / target}", command)
                 self.assertNotIn("/host/macos-sdk", " ".join(command))
+                self.assertNotIn("/host/macos-gc-sdk", " ".join(command))
                 for directory, destination in (("build", "compiler/build"),
                                                 ("integration-target", "integration-tests/target"),
                                                 ("stdlib-target", "stdlib/test/target")):
@@ -142,6 +160,7 @@ class PlatformWorkflowTests(unittest.TestCase):
             self.assertNotEqual(previous, current)
             previous = current
         self.write("unrelated-source.iron", "not an image input")
+        self.prepare_gc_sdk("linux-arm64")
         def inspect(command, root, *args):
             if "build" not in command: return
             context = Path(command[-1])
@@ -185,6 +204,7 @@ class PlatformWorkflowTests(unittest.TestCase):
                 self.execute("--full", "--platform", "linux-arm64", "--platform", "macos-arm64")
             tests.assert_not_called()
         self.prepare_bridge_support("linux-arm64")
+        self.prepare_gc_sdk("linux-arm64")
         with patch.object(workflow, "run") as run:
             self.assertEqual(0, self.execute("--setup", "--platform", "linux-arm64"))
         commands = [call.args[0] for call in run.call_args_list]
@@ -200,6 +220,67 @@ class PlatformWorkflowTests(unittest.TestCase):
         with patch.object(workflow, "run", side_effect=fail_preparation):
             with self.assertRaisesRegex(ValueError, "support SDK preparation failed.*rerun"):
                 self.execute("--setup", "--platform", "linux-arm64")
+
+    def test_setup_prepares_target_gc_sdk_and_verifies_existing_inputs(self):
+        for target, arch in (("linux-arm64", "arm64"), ("linux-x86_64", "amd64")):
+            with self.subTest(target=target), patch.object(workflow, "verify_rosetta"):
+                def prepare(command, root, *args):
+                    if "scripts/prepare-gc.py" in command:
+                        self.prepare_gc_sdk(target)
+                with patch.object(workflow, "run", side_effect=prepare) as run:
+                    self.assertEqual(0, self.execute("--setup", "--platform", target))
+                command = next(call.args[0] for call in run.call_args_list
+                               if "scripts/prepare-gc.py" in call.args[0])
+                self.assertIn("linux/" + arch, command)
+                self.assertEqual(target, command[command.index("--target") + 1])
+                self.assertEqual(str(workflow.gc_sdk(self.root, target)), command[command.index("--prefix") + 1])
+                self.assertNotIn("--verify", command)
+                with patch.object(workflow, "run") as run:
+                    self.assertEqual(0, self.execute("--setup", "--platform", target))
+                command = next(call.args[0] for call in run.call_args_list
+                               if "scripts/prepare-gc.py" in call.args[0])
+                self.assertIn("--verify", command)
+
+    def test_missing_gc_sdk_stops_before_any_platform_tests(self):
+        self.prepare_bridge_support("linux-arm64")
+        with patch.object(workflow.subprocess, "run"), patch.object(workflow.subprocess, "Popen") as start:
+            with self.assertRaisesRegex(ValueError, "GC SDK is missing.*--setup first"):
+                self.execute("--test", "Example", "--platform", "macos-arm64", "--platform", "linux-arm64")
+            start.assert_not_called()
+        self.assertFalse((self.root / "workspace/platform-tests/macos-arm64.json").exists())
+
+    def test_stale_gc_sdk_refuses_before_any_platform_and_preserves_inputs(self):
+        self.prepare_bridge_support("linux-arm64")
+        self.prepare_gc_sdk("linux-arm64")
+        manifest = workflow.gc_sdk(self.root, "linux-arm64") / "build.json"
+        original = manifest.read_bytes()
+        def refuse(command, root, *args):
+            if "scripts/prepare-gc.py" in command:
+                self.assertIn("--verify", command)
+                raise subprocess.CalledProcessError(1, command)
+        with patch.object(workflow.subprocess, "run"), \
+                patch.object(workflow, "run", side_effect=refuse), \
+                patch.object(workflow.subprocess, "Popen") as start:
+            with self.assertRaisesRegex(ValueError, "GC SDK preparation/verification failed.*--setup"):
+                self.execute("--test", "Example", "--platform", "macos-arm64", "--platform", "linux-arm64")
+            start.assert_not_called()
+        self.assertEqual(original, manifest.read_bytes())
+
+    def test_gc_sdk_profile_must_match_admitted_target(self):
+        self.prepare_bridge_support("linux-arm64")
+        for identity in ("b" * 64, "d" * 64, "invalid"):
+            self.prepare_gc_sdk("linux-arm64", identity=identity)
+            with self.subTest(identity=identity), patch.object(workflow.subprocess, "run"), \
+                    patch.object(workflow.subprocess, "Popen") as start:
+                with self.assertRaisesRegex(ValueError, "GC SDK profile is not qualified"):
+                    self.execute("--test", "Example", "--platform", "linux-arm64")
+                start.assert_not_called()
+        for target, identity in (("linux-arm64", "a" * 64), ("linux-x86_64", "b" * 64),
+                                 ("linux-x86_64", "c" * 64)):
+            self.prepare_gc_sdk(target, identity=identity)
+            with patch.object(workflow, "run") as run:
+                workflow.prepare_gc_sdk(self.root, target, False, verify=True)
+            self.assertIn("--verify", run.call_args.args[0])
 
     def test_rosetta_check_rejects_missing_or_competing_handlers(self):
         handler = "enabled\ninterpreter /mnt/lima-rosetta/rosetta\nflags: OCF\n"
@@ -246,6 +327,7 @@ class PlatformWorkflowTests(unittest.TestCase):
 
     def test_interrupt_saves_failures_and_removes_only_its_container(self):
         self.prepare_bridge_support("linux-arm64")
+        self.prepare_gc_sdk("linux-arm64")
         report = self.write("workspace/platform-tests/linux-arm64.json",
                             json.dumps({"exit_code": 0, "failed_tests": []}))
 

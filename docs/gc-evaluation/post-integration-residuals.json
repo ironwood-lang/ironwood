@@ -222,7 +222,7 @@
     "docs/JAVA_EXCLUSIONS.md": {"sha256":"83957602ba124b993b9060cf9fa2bc30386c0d3df0bc7b305407db7b42238a2c","lines":[[30,"C"]]},
     "docs/LANGUAGE.md": {"sha256":"c6a6d3628a29e7b0b10935c53fb68c9df0bcc881bf504f2516db7cdc37fd3de8","lines":[[11,"C"],[24,"C"],[25,"C"],[49,"C"],[448,"W"],[557,"W"],[790,"C"],[794,"C"],[834,"W"],[1065,"W"],[1080,"W"],[1194,"C"],[1207,"C"],[1208,"C"]]},
     "docs/LANGUAGE_SPECS.md": {"sha256":"dde08f01296b014de5a7e591eaa3bf6b96fecf983435f225c5e882e515d4b10a","lines":[[36,"C"],[121,"C"],[135,"C"],[151,"W"],[299,"W"],[321,"W"],[412,"W"],[466,"C"],[469,"C"],[484,"W"],[580,"W"],[593,"C"]]},
-    "docs/LOCAL_TESTING.md": {"sha256":"84b2fdbe8aca23c5fa0cf04939c8d700a986fa123a4fd2dc8955d1184b4cd107","lines":[[34,"C"],[121,"C"],[272,"C"]]},
+    "docs/LOCAL_TESTING.md": {"sha256":"a6122e7242e75ff6a7444e1c2f8eefd842ddf5f9f2749c741f8235b46c909bfd","lines":[[34,"C"],[121,"C"],[283,"C"]]},
     "docs/MEMORY.md": {"sha256":"03b289bde85171f74caca547c775e7f0f9757e32b1932cb92ec18aff60e2bdc6","lines":[[43,"C"],[45,"C"],[59,"C"],[60,"C"],[61,"C"],[62,"C"],[63,"C"],[66,"C"],[67,"C"],[68,"C"],[87,"C"],[125,"C"]]},
     "docs/MEMORY_MANAGEMENT.md": {"sha256":"db79ae12e79f65aaf8a811c203e6a6055d45fd1598ac221cb58bcbff77a47ba4","lines":[[23,"C"],[24,"C"],[25,"C"]]},
     "docs/NETWORKING_M2_VERIFICATION.md": {"sha256":"de8e755e1b2ce803035595e9c2ded2a484d3e4ed178eab1025756aea2b2f59df","lines":[[108,"H"],[144,"H"],[150,"H"],[152,"H"]],"note":"Historical evidence/proposal identified individually at this exact path and digest; original revision/provenance remains in the file, linked records and Git. No directory exclusion is applied by the scanner."},

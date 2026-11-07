@@ -32,7 +32,7 @@ def parser():
     result = argparse.ArgumentParser(description=__doc__)
     mode = result.add_mutually_exclusive_group(required=True)
     mode.add_argument("--list", dest="list_platforms", action="store_true", help="list all supported platforms without running tools")
-    mode.add_argument("--setup", action="store_true", help="prepare the dedicated Linux VM and cached toolchain/TLS SDK images")
+    mode.add_argument("--setup", action="store_true", help="prepare the dedicated Linux VM, toolchain/TLS images and bridge/GC SDKs")
     mode.add_argument("--stop", action="store_true", help="stop the dedicated Linux VM, keeping cached toolchains and results")
     mode.add_argument("--full", action="store_true", help="run the full compiler/native suite once for release readiness")
     mode.add_argument("--test", action="append", metavar="EXACT_NAME", help="run only this named compiler test; repeat to select more")
@@ -101,6 +101,46 @@ def prepare_bridge_support(root, target, dry_run):
                          "delete a stale directory and rerun scripts/test-platforms.sh --setup") from error
 
 
+def gc_sdk(root, target):
+    return root / "workspace/platform-tests/gc" / target
+
+
+def prepare_gc_sdk(root, target, dry_run, verify=False):
+    prefix = gc_sdk(root, target)
+    if verify and not (prefix / "build.json").is_file():
+        raise ValueError(f"{target}: GC SDK is missing at {prefix}; "
+                         "run scripts/test-platforms.sh --setup first")
+    arch = "arm64" if target == "linux-arm64" else "amd64"
+    command = [*DOCKER, "run", "--rm", "--platform", "linux/" + arch,
+               "--user", f"{os.getuid()}:{os.getgid()}", "--env", "HOME=/tmp",
+               "--mount", f"type=bind,source={root},target={root}", "--workdir", str(root),
+               image(root, target), "python", "-B", "scripts/prepare-gc.py",
+               "--prefix", str(prefix), "--llvm-home", "/opt/ironwood-toolchain", "--target", target]
+    if verify or prefix.exists():
+        command.append("--verify")
+    try:
+        run(command, root, dry_run)
+    except subprocess.CalledProcessError as error:
+        raise ValueError(f"{target}: GC SDK preparation/verification failed at {prefix}; "
+                         "check the inputs or remove the stale SDK and rerun scripts/test-platforms.sh --setup") from error
+    if not dry_run:
+        # The recipe checks every payload against current sources and the image's
+        # toolchain. Also require the exact profile admitted by GcDependency;
+        # a self-consistent but unqualified build must not reach compiler tests.
+        manifest = json.loads((prefix / "build.json").read_text())
+        properties = dict(line.strip().split("=", 1) for line in
+                          (root / "packaging/bdwgc-qualified.properties").read_text().splitlines()
+                          if line.strip() and not line.lstrip().startswith("#") and "=" in line)
+        keys = [target + ".configuration.sha256"]
+        if target == "linux-x86_64":
+            keys.append(target + ".native-host.configuration.sha256")
+        identity = manifest.get("gc.config.sha256")
+        if (not isinstance(identity, str) or not re.fullmatch(r"[a-f0-9]{64}", identity)
+                or identity not in {properties.get(key) for key in keys}):
+            raise ValueError(f"{target}: GC SDK profile is not qualified at {prefix}; "
+                             "use the pinned toolchain and an admitted SDK configuration")
+
+
 def setup(root, targets, dry_run):
     linux = [target for target in targets if target.startswith("linux-")]
     if not linux:
@@ -130,6 +170,7 @@ def setup(root, targets, dry_run):
                      str(context)], root)
     for target in linux:
         prepare_bridge_support(root, target, dry_run)
+        prepare_gc_sdk(root, target, dry_run)
 
 
 def test_command(root, target, names, container=None):
@@ -144,6 +185,7 @@ def test_command(root, target, names, container=None):
             "--env", "LANG=C.UTF-8", "--env", "LC_ALL=C.UTF-8",
             "--env", "IRONWOOD_TLS_HOME=/opt/ironwood-tls",
             "--env", "IRONWOOD_BRIDGE_SUPPORT_HOME=" + str(bridge_support(root, target)),
+            "--env", "IRONWOOD_GC_HOME=" + str(gc_sdk(root, target)),
             "--mount", f"type=bind,source={root},target={root}",
             "--mount", f"type=bind,source={build},target={root / 'compiler/build'}",
             "--mount", f"type=bind,source={storage / 'integration-target' / target},target={root / 'integration-tests/target'}",
@@ -265,6 +307,7 @@ def execute(root, args):
                 if not (bridge_support(root, target) / "build.properties").is_file():
                     raise ValueError(f"{target}: Java Bridge support SDK is missing at {bridge_support(root, target)}; "
                                      "run scripts/test-platforms.sh --setup first")
+                prepare_gc_sdk(root, target, False, verify=True)
     if not args.dry_run:
         storage.mkdir(parents=True, exist_ok=True)
     results = []
