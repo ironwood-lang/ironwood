@@ -11,9 +11,9 @@ superseded by the completed GC7 consumer migration, not alternate supported sema
 Managed bridge output requires [GC6 admission and isolated images](GC6_IMPLEMENTATION.md),
 root ABI 3 / owner ABI 2 and schema 2. macOS arm64 and Linux x86-64 are qualified.
 Ordinary executables retain root ABI 2 / owner ABI 1. The
-[GC9 checkpoint](GC9_IMPLEMENTATION.md) adds matching-hardware Linux arm64
-qualification. arm64e stays unsupported and the current Linux x86-64 hardware
-distribution gate stays open. Historical manual bridge ownership descriptions are superseded by
+[completed GC9 qualification](GC9_LINUX_X86_64_DISTRIBUTION.md) covers all three
+official targets and native/managed-image distribution. arm64e stays unsupported.
+Historical manual bridge ownership descriptions are superseded by
 the GC6 handle/registration projection.
 
 ## Launcher JVM configuration

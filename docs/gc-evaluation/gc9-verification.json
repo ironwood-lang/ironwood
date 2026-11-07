@@ -166,6 +166,7 @@
       "target": "x86_64"
     }
   ],
+  "completion_manifest": "gc9-native-distribution.json",
   "environments": {
     "armvm": {
       "arm_image": "sha256:f879993337d6cc2560243018b1c52f0b663efb843757f448a2926018b687e190",
@@ -659,5 +660,5 @@
     "path": "workspace/gc9/source-v1.json",
     "sha256": "c5a9ee79ee27afb8083e9b7dd97e499bb1f550a61b62236e7c290f39c6f30c86"
   },
-  "status": "GC9 incomplete; no GC10 or release acceptance"
+  "status": "Historical initial GC9 checkpoint; completed by gc9-native-distribution.json"
 }

@@ -6,8 +6,9 @@ heap and explicit synchronous Memory.collect(). Source reclamation and managed
 destruction are removed. Historical manual-heap descriptions below are superseded
 by [the GC5 contract](MEMORY.md). [GC6 managed bridges](GC6_IMPLEMENTATION.md) qualify
 macOS arm64 and Linux x86-64 with separate root ABI 3 / owner ABI 2 and isolated
-collector images. GC9 adds matching-hardware Linux arm64 execution. Full distribution qualification remains GC9
-work. Ordinary executables retain root ABI 2 / owner ABI 1.
+collector images. [GC9](GC9_LINUX_X86_64_DISTRIBUTION.md) completes focused
+distribution qualification on all three official targets, including Linux arm64
+on matching hardware. Ordinary executables retain root ABI 2 / owner ABI 1.
 The selected GC SDK is staged at toolchain/ironwood-gc, with verified source,
 licenses, root/owner ABIs and exact build identities.
 
@@ -409,8 +410,8 @@ No dependency is downloaded by normal linking or offline verification.
 
 Prepare pinned BDWGC 8.2.12 with scripts/prepare-gc.py. GC5's exact profile keeps
 USE_MARK_BYTES=1. See [the current implementation report](GC5_IMPLEMENTATION.md).
-The [GC9 checkpoint](GC9_IMPLEMENTATION.md) records current target and artifact
-qualification, including the outstanding matching-hardware x86-64 gate. GC6 paired bridges
+The [completed GC9 qualification](GC9_LINUX_X86_64_DISTRIBUTION.md) records
+current target/artifact identities and physical x86-64 execution. GC6 paired bridges
 bind their separate root/owner/segment protocol and actual GC SDK payload hashes;
 paired artifacts include complete BDWGC source/notices. arm64e remains unqualified.
 
@@ -438,3 +439,6 @@ symlink. `IRONWOOD_DIST_DIR` isolates local package output. Focused smoke comman
 are `scripts/test-package.sh ARCHIVE --gc9 OUTPUT` and
 `scripts/test-idk.sh ARCHIVE --gc9 OUTPUT`. They preserve the 60-second native
 child deadline and 16 GiB process-group RSS guard; bound archive stages separately.
+The IDK selector clears development PATH entries. The host-package selector
+retains the supplied external native-tool PATH, including lld on Linux; it does
+not turn a host package into a self-contained IDK.

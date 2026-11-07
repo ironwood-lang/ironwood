@@ -12826,3 +12826,28 @@ occurrence order. If no
 - **Boundary:** Rosetta functionality cannot satisfy D213's hardware gate.
   Preserve the physical x86-64 GC8 record without treating it as a current GC9
   package result. No release, GC10, self-hosting or I1/I2 work starts here.
+
+## D328 - Complete GC9 supported-target and distribution qualification
+
+- **Status:** Qualified within the [GC9 physical-host/distribution report](GC9_LINUX_X86_64_DISTRIBUTION.md)
+  and its compact evidence. All three official targets have direct native and
+  managed-image execution, local host-package/IDK qualification and a common
+  assembled jar executed on each matching architecture.
+- **Supersession:** Closes D327's pending x86-64 hardware/distribution gate.
+  Historical GC6-GC8 and initial GC9 measurements retain their scope and hashes.
+  No memory contract, ABI, D051 or D132/D133 rule is superseded. arm64e remains
+  unsupported; this does not complete an expanded P6 JDK matrix or a release.
+- **Identity:** Replace the stale native-host SDK configuration with its actual
+  source-bound rebuild, retaining the same exact sysroot receipt. The cached
+  profile also passes direct physical-host IDK execution. Never substitute a
+  target-independent digest or accept unknown/mixed configurations.
+- **Distribution:** Keep host external-tool PATH selection distinct from the
+  IDK's restricted bundled-tool checks. Host VERSION metadata comes from the
+  built compiler resource, including explicit overrides. Missing external lld,
+  altered SDK/pass/target metadata and nonexecutable native caches refuse; no
+  managed-admission or native-lifetime gate is weakened for a smoke test.
+- **Boundary:** Retain guarded children, separate preparation/archive bounds,
+  per-target payload/source/license identities and local-only artifacts. Ordinary
+  roots 2 / owners 1 and managed schema 2 / objects-gc-v1, roots 3 / owners 2,
+  BDWGC 8.2.12 and USE_MARK_BYTES=1 remain unchanged. GC10, self-hosting and I1/I2
+  require separate work and were not started.

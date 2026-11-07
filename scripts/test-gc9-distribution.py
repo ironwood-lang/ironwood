@@ -37,9 +37,12 @@ def main():
     if llvm is None or java is None:
         parser.error('host package checks require --llvm-home and --java-home')
     llvm, java = llvm.resolve(), java.resolve()
-    # env -i removes checkout-specific compiler, Java, SDK and support overrides.
-    # macOS keeps its documented explicit Apple SDK selections if supplied.
-    clean = ['/usr/bin/env', '-i', 'PATH=/usr/bin:/bin', 'LANG=C', 'LC_ALL=C']
+    # IDKs must discover bundled tools with no development PATH. Host packages
+    # require the caller's external native tools, including the linker.
+    search = os.environ.get('PATH', '/usr/bin:/bin') if args.kind == 'host' else '/usr/bin:/bin'
+    # env -i removes compiler, Java, SDK and support overrides. macOS retains
+    # its documented explicit Apple SDK selections if supplied.
+    clean = ['/usr/bin/env', '-i', 'PATH=' + search, 'LANG=C', 'LC_ALL=C']
     if args.kind == 'host':
         clean += ['JAVA_HOME=' + str(java), 'IRONWOOD_LLVM_HOME=' + str(llvm)]
         if args.bridge_support_home is not None:
@@ -82,6 +85,7 @@ def main():
     assert (sdk / 'licenses/BDWGC-NOTICES.txt').stat().st_size > 0
     first = run('first-launch', [compiler, '--version'])
     assert first == run('subsequent-launch', [compiler, '--version'])
+    assert first.startswith('ironwoodc ' + (package / 'VERSION').read_text().strip() + '\n')
     assert 'LLVM version: 23.1.0\n' in first
     python = llvm / 'bin/python' if args.kind == 'idk' else Path(sys.executable)
     run('gc-offline-verify', [python, package / 'scripts/prepare-gc.py', '--verify',

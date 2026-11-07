@@ -37,7 +37,7 @@ cp "$IRONWOOD_PROJECT_ROOT/compiler/build/ironwood-stdlib.ironjar" \
     "$IRONWOOD_STAGE_DIR/lib/ironwood-stdlib.ironjar"
 cp "$IRONWOOD_PROJECT_ROOT/compiler/build/ironwood-testing.ironjar" \
     "$IRONWOOD_STAGE_DIR/lib/ironwood-testing.ironjar"
-cp "$IRONWOOD_PROJECT_ROOT/VERSION" "$IRONWOOD_STAGE_DIR/VERSION"
+cp "$IRONWOOD_PROJECT_ROOT/compiler/build/classes/ironwood/compiler/VERSION" "$IRONWOOD_STAGE_DIR/VERSION"
 cp "$IRONWOOD_PROJECT_ROOT/README.md" "$IRONWOOD_STAGE_DIR/README.md"
 cp "$IRONWOOD_PROJECT_ROOT/LICENSE" "$IRONWOOD_STAGE_DIR/LICENSE"
 cp "$IRONWOOD_PROJECT_ROOT/LICENSE-APACHE" "$IRONWOOD_STAGE_DIR/LICENSE-APACHE"

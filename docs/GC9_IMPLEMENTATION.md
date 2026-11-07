@@ -1,14 +1,18 @@
 <!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
 
-# GC9 target and distribution qualification checkpoint
+# GC9 initial implementation and qualification checkpoint
 
-2026-11-06. **GC9 is incomplete.** Linux arm64 now has an implemented ELF root
-reader, direct matching-hardware native/JVM evidence and passing local compiler
-package/IDK paths. macOS arm64 passes the refreshed focused native and
-restricted distribution checks. Current Linux x86-64 hardware and distribution
-qualification remains blocked: this session has Rosetta, without an available
-authorized matching-hardware endpoint. Historical physical GC8 results do not
-close that gap. No release, push, tag, GC10, self-hosting or I1/I2 work occurred.
+**Current status, 2026-11-07: GC9 is complete within the supported-target and
+distribution bounds in the [physical-host follow-up](GC9_LINUX_X86_64_DISTRIBUTION.md).**
+That report closes the hardware gate and records final three-target assembly.
+This file preserves the initial checkpoint's implementation, measurements and
+limitations. Its historical handoff is no longer an outstanding blocker.
+
+At the 2026-11-06 checkpoint, GC9 was incomplete. Linux arm64 had an implemented
+ELF reader and matching-hardware native/JVM and package/IDK evidence; macOS arm64
+passed refreshed native and restricted distribution checks. Current x86-64
+hardware was then unavailable, so Rosetta and historical GC8 results could not
+close GC9. No release, push, tag, GC10, self-hosting or I1/I2 work occurred.
 
 Work starts on local `codex/bdwgc-integration-plan` at `e16152d4`, following
 `04f09a36`. The checkout root and both canonical origin URLs were verified.
@@ -19,7 +23,7 @@ There were no initial human changes or subsequent history changes. See the
 images, jars, archives and full source inventories remain ignored in
 `workspace/gc9/`. The manifests record their hashes, rather than committing them.
 
-## Target and input matrix
+## Initial target and input matrix
 
 | Target | Execution and tools | Native executable | Managed image / distribution |
 | --- | --- | --- | --- |
@@ -34,7 +38,7 @@ Javadoc content in assembly. Linux arm64 also passes the existing Java 23
 critical-call and forced-JNI controls. This does not claim a new complete P6
 JDK/target matrix.
 
-Current rebuilt SDK configuration identities are:
+Rebuilt SDK configuration identities at that checkpoint were:
 
 | Target/profile | Configuration SHA-256 |
 | --- | --- |
@@ -256,7 +260,10 @@ pass. No language grammar or IDE generated content changes. No unfiltered
 compiler suite or hosted workflow ran. This is focused qualification, not a
 release readiness declaration.
 
-## Remaining exit criteria and bounded handoff
+## Historical exit criteria and bounded handoff
+
+The [2026-11-07 follow-up](GC9_LINUX_X86_64_DISTRIBUTION.md) completes the
+following handoff. Preserve these original requirements and measurement limits.
 
 Obtain an authorized matching-hardware x86-64 environment, use its exact current
 sysroot receipt and rebuild/revalidate the source-bound SDK. Recheck affected

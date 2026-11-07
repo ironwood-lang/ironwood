@@ -37,6 +37,7 @@
     "scripts/test-idk.sh": "f7fa41bbb3f3053b7878ca5f5b3281163db6601a2957e02b0b80f4cf55b8c47e",
     "scripts/test-package.sh": "70af82862ff9a9c4c0c31dcfcee7b5d71462f4995ec72100dd0ca72ddb863955"
   },
+  "completion_manifest": "gc9-native-distribution.json",
   "elf_image_audit": {
     "actual_elf_checks_passed": true,
     "exports": [
@@ -206,7 +207,7 @@
     "path": "workspace/gc9/source-final.json",
     "sha256": "e631d75a6848c002bf9bb4f4a3d064f1dc4f3218c2ed44a565dd7b346eafa745"
   },
-  "status": "GC9 incomplete",
+  "status": "Historical initial GC9 checkpoint; completed by gc9-native-distribution.json",
   "targets": {
     "linux-arm64": {
       "archives": [

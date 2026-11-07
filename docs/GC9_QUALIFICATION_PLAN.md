@@ -132,3 +132,58 @@ exact managed return-PC/function matches; no unmanaged frame may be skipped.
 Pair collection under the coalesced encoding with wrong-boundary, stripped and
 malformed function-start controls, plus ABI-3 suspension/reentry. ELF keeps its exact FDE
 identity rule. No per-call bookkeeping or conservative fallback is introduced.
+
+## Native x86-64 continuation, 2026-11-07
+
+The maintainer now authorizes SSH to `x86host` inside `~/temp/Ironwood-GC/`.
+It is the physical Intel Xeon E-2288G host used by the historical GC8 record,
+with Ubuntu 18.04.6, Linux 4.15, glibc 2.27, about 16 GiB RAM and no detected
+virtualization. Its inherited affinity covers eight logical CPUs. About 95 GiB
+is free. Keep at least 50 GiB free and limit new staging, packages and evidence
+to 16 GiB. Check before archive creation, extraction and copying. Preserve all
+unrelated caches, prior evidence and the old remote checkout's two script edits.
+
+Export local `e5cabbed` into a new ignored source staging directory under that
+checkout; verify the archive and per-file hashes. This is not another checkout,
+branch or Git worktree. Record subsequent exact overlays separately. The parent
+remote Git revision is not the staged source identity. Keep all commits local
+in the canonical Mac checkout on the existing migration branch; no push/main
+integration or release is authorized.
+
+Reuse verified cached LLVM 23.1.0, Java 21 and pinned Temurin 23, collector source,
+TLS and support inputs first. Prepare missing IDK dependencies in task-owned
+storage through pinned recipes. Do not change shared toolchain prefixes. Rebuild
+the GC SDK from current source; preserve exact receipt/configuration binding.
+If another profile is required, review cold discovery, native linking and bridge
+metadata consumers, pair exact acceptance with missing/mixed/stale refusals and
+execute the profile before reporting acceptance. No runtime or analysis change
+is planned. Preserve the prior GC9 contracts and arm64e refusal.
+
+Run current root/exception/suspended-reentry O0-O3 selections, focused layout,
+overflow, OOM/resources, anchors, registrations, JNI cleanup, independent-image
+and invalid metadata controls. Then exercise actual host packages and restricted
+relocated IDKs, preparation/package/link/load failures, local TLS/support smoke
+paths and final redistribution contents. Build the third common-content jar
+with matching pinned producer/Javadoc tools; assemble all three target identities
+and execute on all three matching architectures. Reuse the passing ARM evidence
+when production source is unchanged; recheck affected consumers after any fix.
+
+Retain 16 GiB group RSS and 60-second native/compiler/JVM children, 600-second
+preparation and 900-second package/extraction stages. Inspect runners before use;
+no unfiltered suite, hosted workflow, GC10, self-hosting or I1/I2 work is included.
+
+The native host-package smoke exposed an over-restrictive test PATH: it removed
+the explicitly supplied external lld while selecting external Java/LLVM. Keep
+the host caller's tool PATH, with all compiler/SDK overrides still cleared and
+Java/LLVM/support inputs explicitly selected. IDK checks keep `/usr/bin:/bin`.
+Pair the recorded missing-linker refusal with a successful explicit-tool PATH,
+and rerun affected host smokes on all three targets. No product linker, SDK
+profile validation or runtime behavior changes with this test correction.
+
+Final version inspection found that host packaging copied the repository's
+VERSION even when build.sh used an explicit version override. Copy the built
+compiler's authoritative VERSION resource into the host stage. Pair the
+recorded override mismatch with a rebuilt matching archive and assert launcher
+output agrees with packaged VERSION in the focused driver. Check unchanged
+default-version ARM archives and IDK version output separately. This changes
+packaging metadata only; no compiler/runtime/SDK payload needs a new identity.

@@ -65,16 +65,16 @@ implementation or transpiler:
 - Native bridge outputs require GC6 managed admission, schema 2 / objects-gc-v1,
   root ABI 3 / owner ABI 2, exact foreign/suspended roots and private image exports.
   Use the generated RootHandle and ListenerRegistration lifetime APIs; preserve
-  source resource closure separately. GC6 qualifies macOS arm64 and Linux x86-64;
-  the [GC9 checkpoint](docs/GC9_IMPLEMENTATION.md) adds matching-hardware Linux
-  arm64 qualification. arm64e stays unqualified. GC9 distribution closure still
-  requires its recorded hardware gates. See [GC6](docs/GC6_IMPLEMENTATION.md).
+  source resource closure separately. [GC9](docs/GC9_LINUX_X86_64_DISTRIBUTION.md)
+  qualifies native and managed-image distribution on macOS arm64, Linux arm64
+  and Linux x86-64 with direct matching-hardware evidence. arm64e stays
+  unqualified. See [GC6](docs/GC6_IMPLEMENTATION.md) for the bridge contract.
   GC7 consumer migration and structural retirement are complete within the
   [implementation and disposition ledger](docs/GC7_IMPLEMENTATION.md). Do not
   restore managed-free proofs, private rendering-release helpers or heap-only
   callback-retention restrictions. Final-field/slot origins do not grant exclusive
   ownership or nonretaining effects. See [GC8 qualification](docs/GC8_IMPLEMENTATION.md);
-  GC9/GC10 and self-hosting require separate work.
+  GC10 and self-hosting require separate work.
 - Keep the mandatory runtime small; unreachable standard-library code is removed
   from the closed-world program, allowing a broad library.
 - Use UTF-8 `.iron` source, a Java 21 bootstrap compiler, and the pinned LLVM 23

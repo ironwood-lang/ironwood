@@ -154,9 +154,9 @@ Close files and sockets explicitly; collection never closes them. See
 [Memory management](docs/MEMORY_MANAGEMENT.md) for scheduling and reuse guidance.
 GC6 managed bridges are qualified on macOS arm64 and Linux x86-64 with explicit
 [RootHandle and listener registration lifetimes](docs/GC6_IMPLEMENTATION.md).
-The [GC9 checkpoint](docs/GC9_IMPLEMENTATION.md) adds matching-hardware Linux
-arm64 execution and distribution evidence. arm64e remains unsupported; GC9
-still requires current matching-hardware Linux x86-64 distribution qualification.
+The completed [GC9 qualification](docs/GC9_LINUX_X86_64_DISTRIBUTION.md) covers
+native and managed-image distribution on all three official targets, including
+matching-hardware Linux arm64 and physical Linux x86-64. arm64e remains unsupported.
 [GC7](docs/GC7_IMPLEMENTATION.md)
 completes maintained consumer migration and obsolete managed-free proof retirement.
 Intentional migration-negative fixtures and frozen historical evidence remain
@@ -298,7 +298,7 @@ You can package compiled Ironwood classes into one .ironjar file. This is useful
 Normal native linking requires the verified, pinned GC SDK. Host compiler and
 IDK packaging carry its source, recipes, notices and exact payload identities.
 See [IDK preparation](docs/IDK.md#gc-native-inputs) and the
-[GC9 qualification checkpoint](docs/GC9_IMPLEMENTATION.md). Local packaging can
+[GC9 qualification](docs/GC9_LINUX_X86_64_DISTRIBUTION.md). Local packaging can
 set `IRONWOOD_DIST_DIR` to an isolated output directory. The package smoke
 runners accept `--gc9` for focused relocation, collection and managed bridge
 checks; their default release selections remain unchanged.

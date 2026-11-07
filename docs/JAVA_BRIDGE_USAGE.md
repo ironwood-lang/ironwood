@@ -30,9 +30,10 @@ A producer JDK supplies javac, Javadoc and JNI headers. The existing launcher
 policy accepts Java 21-25 and rejects newer unknown versions. Current GC6
 qualification is narrower: Java 21 JNI and recorded Java 23 critical/JNI controls
 on macOS arm64 and Linux x86-64. Java 24/25 native-access policy still applies.
-The [GC9 checkpoint](GC9_IMPLEMENTATION.md) adds matching-hardware Linux arm64
-JNI and recorded Java 23 critical/JNI evidence. Its distribution/hardware exit
-criteria remain open. arm64e, Windows, musl and 32-bit targets remain unsupported.
+The [completed GC9 qualification](GC9_LINUX_X86_64_DISTRIBUTION.md) adds Linux
+arm64 JNI/recorded Java 23 controls and closes the physical x86-64 distribution
+gate, including a three-target assembled jar. arm64e, Windows, musl and 32-bit
+targets remain unsupported. This does not expand the complete P6 JDK matrix.
 
 ## Anchors, resources and registrations
 

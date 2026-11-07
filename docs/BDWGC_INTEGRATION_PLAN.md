@@ -2,7 +2,7 @@
 
 # Explicit GC integration and memory-model migration
 
-Updated 2026-11-06: GC0 through GC4 are complete for their prerequisite
+Updated 2026-11-07: GC0 through GC4 are complete for their prerequisite
 closures, and **GC5's integrated normal compiler/runtime/required-library
 checkpoint is complete** on macOS arm64 and Linux x86-64. Normal native programs
 use one exact managed model with explicit synchronous Memory.collect(). See
@@ -17,9 +17,10 @@ See its [disposition ledger](GC7_DISPOSITION.md) and compact verification.
 [GC8](GC8_IMPLEMENTATION.md) completes bounded native macOS arm64 critical-path
 and resident-memory qualification, extended by the separate
 [physical Linux x86-64 record](GC7_GC8_LINUX_X86_64_QUALIFICATION.md) with current
-GC7 consumer checks. [GC9 is an incomplete local qualification checkpoint](GC9_IMPLEMENTATION.md),
-with Linux arm64 implementation and distribution repairs; its hardware exit
-criteria remain open. GC10 and self-hosting remain unstarted.
+GC7 consumer checks. [GC9 is complete within its recorded target/distribution
+bounds](GC9_LINUX_X86_64_DISTRIBUTION.md), including Linux arm64 implementation,
+physical x86-64 execution, local packages/IDKs and three-target bridge assembly.
+GC10 and self-hosting remain unstarted.
 
 The selected direction is BDWGC 8.2.12 with compiler-provided roots and exact
 layout metadata, synchronous `Memory.collect()`, removal of source `free` and
@@ -784,8 +785,14 @@ and [pre-change matrix](GC9_QUALIFICATION_PLAN.md). Linux arm64 now has matching
 execution, ELF root/suspended-frame support and real JVM evidence. Local SDK,
 native and IDK paths exercise exact identities, relocation and redistribution.
 Mach-O maps move into protected storage with exact native boundary extents.
-Translated x86-64 checks do not close its matching-hardware stack gate. GC9 is
-not complete and does not authorize GC10, self-hosting or a release.
+Translated x86-64 checks did not close its matching-hardware stack gate. That
+checkpoint was incomplete and authorized no GC10, self-hosting or release work.
+
+**Completed, 2026-11-07:** the [physical-host and distribution follow-up](GC9_LINUX_X86_64_DISTRIBUTION.md)
+closes the recorded x86-64 gate with current native/shared execution, relocated
+host packages and restricted IDKs, failed-input controls and redistribution
+audits. One assembled jar preserves all three configuration identities and
+executes on every official target. GC10 and self-hosting remain separate.
 
 ### GC10. Accept the completed model and hand off
 
@@ -866,11 +873,11 @@ checkpoints clearly. Record a concrete remaining gate at each stopping point.
 No branch creation beyond the maintainer's request, pushing, hosted jobs or
 automatic self-hosting restart is part of this document's implementation plan.
 
-GC0-GC8 are complete within their documented boundaries. Preserve exact native
+GC0-GC9 are complete within their documented boundaries. Preserve exact native
 and suspended roots, runtime owners, independent handle/registration lifetimes,
 explicit resource closure, isolated images and configuration/payload/pass
 verification. Raw shared IR and unsupported foreign lifetimes refuse. Carry
-forward arm64e and unmatched-hardware gates. GC9 remains an incomplete target
-and distribution checkpoint, with details in its report. GC8 changes no
-memory-model contract and makes no self-hosting capacity claim. GC10 and
-self-hosting remain unstarted.
+forward arm64e and future unmatched-hardware gates. GC9's physical-host follow-up
+records the completed target/distribution matrix. GC8 changes no memory-model
+contract and makes no self-hosting capacity claim. GC10 and self-hosting remain
+unstarted.
