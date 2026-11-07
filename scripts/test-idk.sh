@@ -5,6 +5,10 @@ set -euo pipefail
 
 IRONWOOD_SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 IRONWOOD_ARCHIVE=${1:-}
+if [[ $# -gt 3 || ( -n "${2:-}" && "${2:-}" != --gc9 ) ]]; then
+    echo "usage: test-idk.sh <archive.tar.gz> [--gc9 [output-directory]]" >&2
+    exit 1
+fi
 if [[ -z "$IRONWOOD_ARCHIVE" || ! -f "$IRONWOOD_ARCHIVE" ]]; then
     echo "usage: test-idk.sh <ironwood-idk archive.tar.gz>" >&2
     exit 1
@@ -21,6 +25,11 @@ if [[ ${#IRONWOOD_ROOTS[@]} -ne 1 || ! -d "${IRONWOOD_ROOTS[0]}" ]]; then
 fi
 mv "${IRONWOOD_ROOTS[0]}" "$IRONWOOD_TEST_DIR/relocated IDK"
 IRONWOOD_IDK_ROOT="$IRONWOOD_TEST_DIR/relocated IDK"
+if [[ "${2:-}" == --gc9 ]]; then
+    python3 "$IRONWOOD_SCRIPT_DIR/test-gc9-distribution.py" --kind idk \
+        --distribution "$IRONWOOD_IDK_ROOT" --output "${3:-$IRONWOOD_TEST_DIR/gc9}"
+    exit 0
+fi
 IRONWOOD_MAIN_OUTPUT="$IRONWOOD_TEST_DIR/main"
 IRONWOOD_CONTROL_FLOW_OUTPUT="$IRONWOOD_TEST_DIR/methods-and-control-flow"
 IRONWOOD_OBJECTS_OUTPUT="$IRONWOOD_TEST_DIR/objects"

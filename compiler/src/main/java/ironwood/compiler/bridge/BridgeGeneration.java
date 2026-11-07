@@ -164,7 +164,7 @@ public final class BridgeGeneration {
     }
 
     public static void validateManagedBuild(String target, Map<String, String> inputs) {
-        if (!Set.of("macos-arm64", "linux-x86_64").contains(target)) throw new IllegalArgumentException("unqualified managed bridge target: " + target);
+        if (!Set.of("macos-arm64", "linux-arm64", "linux-x86_64").contains(target)) throw new IllegalArgumentException("unqualified managed bridge target: " + target);
         managedContract().forEach((key, value) -> {
             if (!value.equals(inputs.get(key))) throw new IllegalArgumentException("missing or incompatible native managed field: " + key);
         });

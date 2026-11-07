@@ -86,7 +86,7 @@ final class BridgeProducerCommand {
                     case "-O2" -> optimization = OptimizationLevel.O2;
                     case "-O3" -> optimization = OptimizationLevel.O3;
                     case "--unfreed", "--explain-rejected-free" -> throw new IllegalArgumentException("manual reclamation options have been removed");
-                    case "--help", "-h" -> throw new IllegalArgumentException("managed Java Bridge host builds support exact handles, listener registrations, copied values and borrowed views on qualified macos-arm64 and linux-x86_64");
+                    case "--help", "-h" -> throw new IllegalArgumentException("managed Java Bridge host builds support exact handles, listener registrations, copied values and borrowed views on qualified macos-arm64, linux-arm64 and linux-x86_64");
                     default -> {
                         if (option.startsWith("--unfreed=") || option.startsWith("--explain-rejected-free=")) {
                             throw new IllegalArgumentException("manual reclamation options have been removed");

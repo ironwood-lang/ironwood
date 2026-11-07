@@ -1,0 +1,663 @@
+{
+  "blockers": [
+    "No currently available authorized matching-hardware Linux x86-64 execution endpoint. D205/D213 gate remains.",
+    "Translated host-package bridge production exceeded the unchanged 60-second child deadline. Its IDK archive is provisional, not a passing final distribution.",
+    "Current three-target assembly and current physical x86-64 source/profile/package/IDK/native-image checks remain pending."
+  ],
+  "bounds": {
+    "host_disk_floor_gib": 30,
+    "native_child_seconds": 60,
+    "own_host_outputs_gib": 12,
+    "packaging_seconds": 900,
+    "preparation_seconds": 600,
+    "rss_guard_kib": 16777216,
+    "vm_disk_floor_gib": 8,
+    "vm_free_after_cleanup_gib": 15,
+    "vm_idk_entry_free_gib": 12
+  },
+  "checks": [
+    "git diff --check",
+    "bash scripts/check-licenses.sh",
+    "bash scripts/check-tracked-files.sh",
+    "bash -n scripts/package.sh scripts/package-idk.sh scripts/test-package.sh scripts/test-idk.sh",
+    "Python AST parsing of affected drivers; no grammar or IDE generated content changed"
+  ],
+  "compiler_proofs": [
+    {
+      "command": [
+        "bash",
+        "scripts/test.sh",
+        "--test",
+        "GC native SDK profiles bind exact configurations and system inputs",
+        "--test",
+        "GC3 collection effects and explicit closure fail closed",
+        "--test",
+        "GC6 foreign effects require exact versioned transition contexts",
+        "--test",
+        "GC5 final link rejects every reachable legacy managed deallocation family"
+      ],
+      "path": "workspace/gc9/macos/proofs.json",
+      "peak_rss_kib": 1351184,
+      "report_sha256": "6dbde0ff8d2b5507d4da33bbfa0bf9cec49ee866dae38cfaacc32119ee5e5c1d",
+      "target": "macos"
+    },
+    {
+      "command": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-cp",
+        "workspace/gc9:compiler/build/classes",
+        "RawSharedRefusal"
+      ],
+      "path": "workspace/gc9/macos/raw-shared-refusal.json",
+      "peak_rss_kib": 5632,
+      "report_sha256": "e70c569aaf68bd98446013ad7640e190ce35deed14b144483bbf343bae5bdf24",
+      "target": "macos"
+    },
+    {
+      "command": [
+        "bash",
+        "scripts/test.sh",
+        "--test",
+        "GC native SDK profiles bind exact configurations and system inputs",
+        "--test",
+        "GC2 exact layouts follow resolved storage and refuse legacy hidden links",
+        "--test",
+        "GC3 collection effects and explicit closure fail closed",
+        "--test",
+        "GC4 runtime owners require exact exception layouts and effects",
+        "--test",
+        "GC6 foreign effects require exact versioned transition contexts",
+        "--test",
+        "GC5 final link rejects every reachable legacy managed deallocation family"
+      ],
+      "path": "workspace/gc9/arm64/proofs.json",
+      "peak_rss_kib": 802016,
+      "report_sha256": "408eec2fc823abb99138a77f3c4cc55f02b6f83e2e5681e4c1ca5c809d93ba94",
+      "target": "arm64"
+    },
+    {
+      "command": [
+        "/opt/ironwood-toolchain/lib/jvm/bin/java",
+        "-ea",
+        "-cp",
+        "compiler/build/classes:compiler/build/test-classes",
+        "ironwood.compiler.CompilerTests",
+        "--test",
+        "GC native SDK profiles bind exact configurations and system inputs"
+      ],
+      "path": "workspace/gc9/x86_64/proof-0.json",
+      "peak_rss_kib": 104404,
+      "report_sha256": "814e5d69a47e397035145a14eefa9aaee0555a1e5acb5b869b07efaa50ef2cbf",
+      "target": "x86_64"
+    },
+    {
+      "command": [
+        "/opt/ironwood-toolchain/lib/jvm/bin/java",
+        "-ea",
+        "-cp",
+        "compiler/build/classes:compiler/build/test-classes",
+        "ironwood.compiler.CompilerTests",
+        "--test",
+        "GC2 exact layouts follow resolved storage and refuse legacy hidden links"
+      ],
+      "path": "workspace/gc9/x86_64/proof-1.json",
+      "peak_rss_kib": 602736,
+      "report_sha256": "f8efa56e4ef783e7c85a6108cfa2597576ce6b686e94f2e388631c4f9bc94668",
+      "target": "x86_64"
+    },
+    {
+      "command": [
+        "/opt/ironwood-toolchain/lib/jvm/bin/java",
+        "-ea",
+        "-cp",
+        "compiler/build/classes:compiler/build/test-classes",
+        "ironwood.compiler.CompilerTests",
+        "--test",
+        "GC3 collection effects and explicit closure fail closed"
+      ],
+      "path": "workspace/gc9/x86_64/proof-2.json",
+      "peak_rss_kib": 668236,
+      "report_sha256": "5f8d8dcd7dfbbaf202e34aaa489691efbfab0190b4e4f49754eacbb5e6314d9f",
+      "target": "x86_64"
+    },
+    {
+      "command": [
+        "/opt/ironwood-toolchain/lib/jvm/bin/java",
+        "-ea",
+        "-cp",
+        "compiler/build/classes:compiler/build/test-classes",
+        "ironwood.compiler.CompilerTests",
+        "--test",
+        "GC4 runtime owners require exact exception layouts and effects"
+      ],
+      "path": "workspace/gc9/x86_64/proof-3.json",
+      "peak_rss_kib": 520940,
+      "report_sha256": "f03725731627fdb5d74067a7eb039a934ba23a43e80138e08d4cc4a805aaa01a",
+      "target": "x86_64"
+    },
+    {
+      "command": [
+        "/opt/ironwood-toolchain/lib/jvm/bin/java",
+        "-ea",
+        "-cp",
+        "compiler/build/classes:compiler/build/test-classes",
+        "ironwood.compiler.CompilerTests",
+        "--test",
+        "GC6 foreign effects require exact versioned transition contexts"
+      ],
+      "path": "workspace/gc9/x86_64/proof-4.json",
+      "peak_rss_kib": 156576,
+      "report_sha256": "c9a924f42dbb3c6afee30686044fdbcbc1aa6f2c6f77d90e0c2b1aa4b7c1d822",
+      "target": "x86_64"
+    },
+    {
+      "command": [
+        "/opt/ironwood-toolchain/lib/jvm/bin/java",
+        "-ea",
+        "-cp",
+        "compiler/build/classes:compiler/build/test-classes",
+        "ironwood.compiler.CompilerTests",
+        "--test",
+        "GC5 final link rejects every reachable legacy managed deallocation family"
+      ],
+      "path": "workspace/gc9/x86_64/proof-5.json",
+      "peak_rss_kib": 442236,
+      "report_sha256": "cb511f12456053b49f5621cd577456b127e8eb31f58f8d12fa2a505850d896d2",
+      "target": "x86_64"
+    }
+  ],
+  "environments": {
+    "armvm": {
+      "arm_image": "sha256:f879993337d6cc2560243018b1c52f0b663efb843757f448a2926018b687e190",
+      "cpus": 6,
+      "execution": "Apple VZ on matching ARM hardware",
+      "java": "Conda OpenJDK 21.0.10-internal",
+      "llvm": "23.1.0",
+      "os": "Ubuntu 24.04.5 container; Linux 6.8.0-117-generic aarch64",
+      "ram_gib": 8,
+      "sysroot": "glibc 2.17",
+      "translated_x86_image": "sha256:6e36ffeb44aa85bb619c6c8de72a7e007f79d84d8050161004c6d797d54b3e9f"
+    },
+    "machost": {
+      "hardware": "Apple M5 arm64, 32 GiB",
+      "idk_java": "Conda OpenJDK 21.0.10",
+      "llvm": "23.1.0",
+      "os": "macOS 27.0.1 (26A434)",
+      "sdk": "Apple 27.2; deployment minimum 14.0",
+      "source_java": "Oracle 21.0.1"
+    },
+    "x86host": {
+      "available": false,
+      "current_emulation": "Rosetta; not matching hardware",
+      "historical_gc8_revision": "e16152d4"
+    }
+  },
+  "format": 1,
+  "phases": [
+    {
+      "observed_exits": [
+        0,
+        86
+      ],
+      "peak_rss_kib": 881968,
+      "report_path": "workspace/gc9/macos/roots-levels/results.json",
+      "report_sha256": "e3ac5a69d8bdb534de6bf695d62d3578c9e2973341da4bb8f5e5dc6fd89ae9c2",
+      "sdk_configuration": "7dd8f8df26a7d041cf99291ca3a2fed3f9384a4839482c4edd01f1497b826a67",
+      "selection": "roots-levels",
+      "source_phase": "retained initial GC9 implementation, before Mach-O protection changes",
+      "stages": 56,
+      "target": "macos"
+    },
+    {
+      "observed_exits": [
+        0,
+        86
+      ],
+      "peak_rss_kib": 992320,
+      "report_path": "workspace/gc9/macos/lifetimes/results.json",
+      "report_sha256": "7bacbd58fe3a212f94ca2ad19adcfafebd96d849dbbd3d0a294a2c071cd1b49f",
+      "sdk_configuration": "7dd8f8df26a7d041cf99291ca3a2fed3f9384a4839482c4edd01f1497b826a67",
+      "selection": "lifetimes",
+      "source_phase": "retained initial GC9 implementation, before Mach-O protection changes",
+      "stages": 37,
+      "target": "macos"
+    },
+    {
+      "observed_exits": [
+        0,
+        86
+      ],
+      "peak_rss_kib": 456800,
+      "report_path": "workspace/gc9/macos/segments/results.json",
+      "report_sha256": "3e3afab1e2b1fa49104bdb9dfeb90ae1b9115ea36043e34c35609ae554a1681e",
+      "sdk_configuration": "7dd8f8df26a7d041cf99291ca3a2fed3f9384a4839482c4edd01f1497b826a67",
+      "selection": "segments",
+      "source_phase": "retained initial GC9 implementation, before Mach-O protection changes",
+      "stages": 34,
+      "target": "macos"
+    },
+    {
+      "observed_exits": [
+        -6,
+        0,
+        86
+      ],
+      "peak_rss_kib": 779152,
+      "report_path": "workspace/gc9/macos/protected-roots-v4/results.json",
+      "report_sha256": "d10dbf06b39423edd026aaafa0166af46b167e198d2350d42446f73e86124440",
+      "sdk_configuration": "f6cdb6e12017ba8d203b7ab46c4f870585e4860c7f5de6ea88bad1c0d60b78ab",
+      "selection": "protected-roots-v4",
+      "source_phase": "final",
+      "stages": 43,
+      "target": "macos"
+    },
+    {
+      "observed_exits": [
+        -6,
+        0,
+        86
+      ],
+      "peak_rss_kib": 914720,
+      "report_path": "workspace/gc9/macos/protected-roots-O0/results.json",
+      "report_sha256": "b056cedb5c4dd9f22eace9e23db7be3aae39dcc3e8d9da85b4ef7ef16e402735",
+      "sdk_configuration": "f6cdb6e12017ba8d203b7ab46c4f870585e4860c7f5de6ea88bad1c0d60b78ab",
+      "selection": "protected-roots-O0",
+      "source_phase": "final",
+      "stages": 17,
+      "target": "macos"
+    },
+    {
+      "observed_exits": [
+        0
+      ],
+      "peak_rss_kib": 933712,
+      "report_path": "workspace/gc9/macos/bad-boundaries/results.json",
+      "report_sha256": "6d83255a9f08d798d32b0f9dd9efcc3baaae77004a11fce51b3c61090abfa089",
+      "sdk_configuration": "f6cdb6e12017ba8d203b7ab46c4f870585e4860c7f5de6ea88bad1c0d60b78ab",
+      "selection": "bad-boundaries",
+      "source_phase": "final",
+      "stages": 20,
+      "target": "macos"
+    },
+    {
+      "observed_exits": [
+        0,
+        86
+      ],
+      "peak_rss_kib": 962816,
+      "report_path": "workspace/gc9/macos/lifetimes-qualified/results.json",
+      "report_sha256": "1fc229843864f99fc3337d2ae8799e307d2b384a1af2a51e16ab720d0f248c5e",
+      "sdk_configuration": "f6cdb6e12017ba8d203b7ab46c4f870585e4860c7f5de6ea88bad1c0d60b78ab",
+      "selection": "lifetimes-qualified",
+      "source_phase": "final",
+      "stages": 37,
+      "target": "macos"
+    },
+    {
+      "observed_exits": [
+        0,
+        86
+      ],
+      "peak_rss_kib": 458224,
+      "report_path": "workspace/gc9/macos/segments-qualified/results.json",
+      "report_sha256": "56b5c69ef4eab0676add9ad9b69f7fb8443c3999681a8fc517122418521a54a0",
+      "sdk_configuration": "f6cdb6e12017ba8d203b7ab46c4f870585e4860c7f5de6ea88bad1c0d60b78ab",
+      "selection": "segments-qualified",
+      "source_phase": "final",
+      "stages": 34,
+      "target": "macos"
+    },
+    {
+      "observed_exits": [
+        0
+      ],
+      "peak_rss_kib": 1021328,
+      "report_path": "workspace/gc9/macos/images-qualified/results.json",
+      "report_sha256": "4e9287dd2a6d277dce9cee59fca73d4d0416bc3b0d3e5b8e95205bd8065ed1a5",
+      "sdk_configuration": "f6cdb6e12017ba8d203b7ab46c4f870585e4860c7f5de6ea88bad1c0d60b78ab",
+      "selection": "images-qualified",
+      "source_phase": "final",
+      "stages": 4,
+      "target": "macos"
+    },
+    {
+      "observed_exits": [
+        1
+      ],
+      "peak_rss_kib": 54464,
+      "report_path": "workspace/gc9/macos/input-boundaries/results.json",
+      "report_sha256": "2eaa19a2df7f2bc6899c562666f8bd6a51a8990cb3bb013352c294e3dc78e5f2",
+      "sdk_configuration": null,
+      "selection": "input-boundaries",
+      "source_phase": "final",
+      "stages": 12,
+      "target": "macos"
+    },
+    {
+      "observed_exits": [
+        0,
+        1
+      ],
+      "peak_rss_kib": 1019904,
+      "report_path": "workspace/gc9/macos/package-smoke-qualified/results.json",
+      "report_sha256": "2ac97356362903f523190d01190b1c213b115974b7891332e1d948d258a058d8",
+      "sdk_configuration": "f6cdb6e12017ba8d203b7ab46c4f870585e4860c7f5de6ea88bad1c0d60b78ab",
+      "selection": "package-smoke-qualified",
+      "source_phase": "final",
+      "stages": 20,
+      "target": "macos"
+    },
+    {
+      "observed_exits": [
+        0,
+        1
+      ],
+      "peak_rss_kib": 699136,
+      "report_path": "workspace/gc9/macos/idk-smoke-qualified/results.json",
+      "report_sha256": "3130074060df14d7329c28b45439e7402c77c8fe2e86949d595c596c1af1d210",
+      "scalar_metadata_stages": 32,
+      "scalar_report_sha256": "07f5da6421f7f7ee198531165995518227c70dcbd382d7204260f45c0caaa5b0",
+      "sdk_configuration": "f6cdb6e12017ba8d203b7ab46c4f870585e4860c7f5de6ea88bad1c0d60b78ab",
+      "selection": "idk-smoke-qualified",
+      "source_phase": "final",
+      "stages": 28,
+      "target": "macos"
+    },
+    {
+      "observed_exits": [
+        0
+      ],
+      "peak_rss_kib": 1012064,
+      "report_path": "workspace/gc9/macos/matching-producer/results.json",
+      "report_sha256": "1beb9e3c0ea27c44498613d1bcf2c88581bbd52a74a0729f4695a753bef91e9b",
+      "sdk_configuration": null,
+      "selection": "matching-producer",
+      "source_phase": "final",
+      "stages": 2,
+      "target": "macos"
+    },
+    {
+      "mark_stack_recovery": {
+        "numeric_target_checks": 65536,
+        "overflow_events": 120,
+        "recovery_returned_successfully": true,
+        "stack_entries_at_overflow": [
+          4096
+        ]
+      },
+      "observed_exits": [
+        0
+      ],
+      "peak_rss_kib": 480804,
+      "report_path": "workspace/gc9/arm64/layouts/results.json",
+      "report_sha256": "6fc6c1a67b3ba122767b4d8e299bf8a7097e446a8788d0eb46ad1ed747415b49",
+      "sdk_configuration": "068964051cf66d13b51274beae545dbf61587cd17af6a09752a8235d24a80bb7",
+      "selection": "layouts",
+      "source_phase": "retained initial GC9 implementation, before Mach-O protection changes",
+      "stages": 13,
+      "target": "arm64"
+    },
+    {
+      "observed_exits": [
+        0,
+        86
+      ],
+      "peak_rss_kib": 625488,
+      "report_path": "workspace/gc9/arm64/roots-v2/results.json",
+      "report_sha256": "afb12e58f7b8f3209a2595306b5df569c4f5966fb97e42a955da6e45facd7fe4",
+      "sdk_configuration": "068964051cf66d13b51274beae545dbf61587cd17af6a09752a8235d24a80bb7",
+      "selection": "roots-v2",
+      "source_phase": "retained initial GC9 implementation, before Mach-O protection changes",
+      "stages": 212,
+      "target": "arm64"
+    },
+    {
+      "observed_exits": [
+        0,
+        86
+      ],
+      "peak_rss_kib": 965240,
+      "report_path": "workspace/gc9/arm64/lifetimes-v2/results.json",
+      "report_sha256": "3e6441a7e3aa52788ea6f8c0fd7be51d4aab5dde17f70a440c3d4cb918143a78",
+      "sdk_configuration": "068964051cf66d13b51274beae545dbf61587cd17af6a09752a8235d24a80bb7",
+      "selection": "lifetimes-v2",
+      "source_phase": "retained initial GC9 implementation, before Mach-O protection changes",
+      "stages": 173,
+      "target": "arm64"
+    },
+    {
+      "observed_exits": [
+        0,
+        86
+      ],
+      "peak_rss_kib": 521400,
+      "report_path": "workspace/gc9/arm64/segments/results.json",
+      "report_sha256": "f64881dbb49bcc52d2b835fbb5ad6a7b07f46b05b8dadaa1214e04551ded1a4d",
+      "sdk_configuration": "068964051cf66d13b51274beae545dbf61587cd17af6a09752a8235d24a80bb7",
+      "selection": "segments",
+      "source_phase": "retained initial GC9 implementation, before Mach-O protection changes",
+      "stages": 34,
+      "target": "arm64"
+    },
+    {
+      "observed_exits": [
+        0
+      ],
+      "peak_rss_kib": 1178808,
+      "report_path": "workspace/gc9/arm64/objects/results.json",
+      "report_sha256": "107d59bb9736040ca6462680faa36693017c61ecb75e0350e88b6e038303ed00",
+      "sdk_configuration": "068964051cf66d13b51274beae545dbf61587cd17af6a09752a8235d24a80bb7",
+      "selection": "objects",
+      "source_phase": "retained initial GC9 implementation, before Mach-O protection changes",
+      "stages": 9,
+      "target": "arm64"
+    },
+    {
+      "observed_exits": [
+        0
+      ],
+      "peak_rss_kib": 1194508,
+      "report_path": "workspace/gc9/arm64/callbacks/results.json",
+      "report_sha256": "44133d610ba20f02f868b4770b2b4b62964eb870d96d5ef5b67c36ee2cf2cdbd",
+      "sdk_configuration": "068964051cf66d13b51274beae545dbf61587cd17af6a09752a8235d24a80bb7",
+      "selection": "callbacks",
+      "source_phase": "retained initial GC9 implementation, before Mach-O protection changes",
+      "stages": 9,
+      "target": "arm64"
+    },
+    {
+      "observed_exits": [
+        0
+      ],
+      "peak_rss_kib": 1498824,
+      "report_path": "workspace/gc9/arm64/images/results.json",
+      "report_sha256": "1785539a2adbc79c4568ef3995b7a212e5122c713a78725b927a837cc9630a24",
+      "sdk_configuration": "068964051cf66d13b51274beae545dbf61587cd17af6a09752a8235d24a80bb7",
+      "selection": "images",
+      "source_phase": "retained initial GC9 implementation, before Mach-O protection changes",
+      "stages": 4,
+      "target": "arm64"
+    },
+    {
+      "observed_exits": [
+        0,
+        1
+      ],
+      "peak_rss_kib": 654972,
+      "report_path": "workspace/gc9/arm64/inputs/results.json",
+      "report_sha256": "e159a43124e9c8334d6dd5e5fef915e7ef67052b4c48469f1cacdf71efe17d98",
+      "sdk_configuration": null,
+      "selection": "inputs",
+      "source_phase": "retained initial GC9 implementation, before Mach-O protection changes",
+      "stages": 16,
+      "target": "arm64"
+    },
+    {
+      "observed_exits": [
+        0
+      ],
+      "peak_rss_kib": 669432,
+      "report_path": "workspace/gc9/arm64/integrated-private/results.json",
+      "report_sha256": "36facf61cd5ebe212ba79b205ba2a6eee84c2112b2abdce66ffafdb28814c2b3",
+      "sdk_configuration": "068964051cf66d13b51274beae545dbf61587cd17af6a09752a8235d24a80bb7",
+      "selection": "integrated-private",
+      "source_phase": "retained initial GC9 implementation, before Mach-O protection changes",
+      "stages": 39,
+      "target": "arm64"
+    },
+    {
+      "observed_exits": [
+        0
+      ],
+      "peak_rss_kib": 1146444,
+      "report_path": "workspace/gc9/arm64/critical/results.json",
+      "report_sha256": "02b2edb0d4f03dab1ca4776b5c81f6f15c98ce8564fc07937759c4454ea4fb1d",
+      "sdk_configuration": "068964051cf66d13b51274beae545dbf61587cd17af6a09752a8235d24a80bb7",
+      "selection": "critical",
+      "source_phase": "retained initial GC9 implementation, before Mach-O protection changes",
+      "stages": 4,
+      "target": "arm64"
+    },
+    {
+      "observed_exits": [
+        0,
+        86
+      ],
+      "peak_rss_kib": 695340,
+      "report_path": "workspace/gc9/arm64/roots-qualified/results.json",
+      "report_sha256": "ec030abc8f464cffe68a1f9a5518900dcc79922207e309e98c8eb2f314b22083",
+      "sdk_configuration": "d8434872c7bd54595bc73e03ec9b245dc4c58748f328d2854b7e6ee030120912",
+      "selection": "roots-qualified",
+      "source_phase": "final",
+      "stages": 19,
+      "target": "arm64"
+    },
+    {
+      "observed_exits": [
+        0,
+        86
+      ],
+      "peak_rss_kib": 505560,
+      "report_path": "workspace/gc9/arm64/segments-qualified/results.json",
+      "report_sha256": "928773f5fcab41ff0a9f01907a556c2dc1a41de778e58519be9393b634edf7eb",
+      "sdk_configuration": "d8434872c7bd54595bc73e03ec9b245dc4c58748f328d2854b7e6ee030120912",
+      "selection": "segments-qualified",
+      "source_phase": "final",
+      "stages": 13,
+      "target": "arm64"
+    },
+    {
+      "observed_exits": [
+        1
+      ],
+      "peak_rss_kib": 102784,
+      "report_path": "workspace/gc9/arm64/input-boundaries/results.json",
+      "report_sha256": "087f3b1b6862c5b257ad450294a8104a61bc409f8a1331a607fcc786263fc650",
+      "sdk_configuration": null,
+      "selection": "input-boundaries",
+      "source_phase": "final",
+      "stages": 12,
+      "target": "arm64"
+    },
+    {
+      "observed_exits": [
+        0,
+        1
+      ],
+      "peak_rss_kib": 1415068,
+      "report_path": "workspace/gc9/arm64/package-smoke-qualified/results.json",
+      "report_sha256": "f6df163a7faa79ab70a9408a4d19a9c6239956f858ce7a1aa06b79423e0d8aa5",
+      "sdk_configuration": "d8434872c7bd54595bc73e03ec9b245dc4c58748f328d2854b7e6ee030120912",
+      "selection": "package-smoke-qualified",
+      "source_phase": "final",
+      "stages": 24,
+      "target": "arm64"
+    },
+    {
+      "observed_exits": [
+        0,
+        1
+      ],
+      "peak_rss_kib": 1348920,
+      "report_path": "workspace/gc9/arm64/idk-smoke-qualified/results.json",
+      "report_sha256": "efca8dad38010ccc8d25be9c0956f74fb928527e80d23af14b6dcbbf148e0dc2",
+      "scalar_metadata_stages": 32,
+      "scalar_report_sha256": "bfe13d24f78fcfec0e202dc4c63c9699e96ce9437cb93eb1b3ad67eab55ad589",
+      "sdk_configuration": "d8434872c7bd54595bc73e03ec9b245dc4c58748f328d2854b7e6ee030120912",
+      "selection": "idk-smoke-qualified",
+      "source_phase": "final",
+      "stages": 33,
+      "target": "arm64"
+    },
+    {
+      "observed_exits": [
+        0
+      ],
+      "peak_rss_kib": 1351376,
+      "report_path": "workspace/gc9/arm64/matching-producer/results.json",
+      "report_sha256": "c05f8d77dd3f490ac14c68ac8489fc871579b16ed7e08c1ce936997706d7f468",
+      "sdk_configuration": null,
+      "selection": "matching-producer",
+      "source_phase": "final",
+      "stages": 2,
+      "target": "arm64"
+    },
+    {
+      "observed_exits": [
+        0,
+        86
+      ],
+      "peak_rss_kib": 698432,
+      "report_path": "workspace/gc9/x86_64/roots-v2/results.json",
+      "report_sha256": "a5477ab60bad78d01dc6c9ace8cabb8111f31023f568f9e40b115f66746ec93a",
+      "sdk_configuration": "c6a4d9941272d65ec512e6e5e24239b7d29ba69fa5a906726f9ddc666fd2f2cd",
+      "selection": "roots-v2",
+      "source_phase": "retained initial GC9 implementation, before Mach-O protection changes",
+      "stages": 212,
+      "target": "x86_64"
+    },
+    {
+      "audit_sha256": "945a39b8f999ab9a7e84e3e0c084e92fd8dc9711ab5085ce67e475865eccd1a7",
+      "derived_sources": 5,
+      "peak_rss_kib": 1747600,
+      "selection": "relocated TLS/wget and staged licenses",
+      "source_phase": "final",
+      "staged_source_files": 289,
+      "stages": 4,
+      "target": "macos",
+      "tls_deadline_seconds": 900,
+      "tls_seconds": 50.949507458135486
+    },
+    {
+      "audit_sha256": "6273f8c4394403dca03b77204e1edefba279784f19f65feb1f2b4ce9c15f1b65",
+      "derived_sources": 5,
+      "peak_rss_kib": 881216,
+      "selection": "relocated TLS/wget and staged licenses",
+      "source_phase": "final",
+      "staged_source_files": 289,
+      "stages": 4,
+      "target": "arm64",
+      "tls_deadline_seconds": 900,
+      "tls_seconds": 51.78368783899987
+    },
+    {
+      "peak_rss_kib": 1201296,
+      "report_sha256": "157bdb2b8e3121092d5773a9ffac4d923cc812f8b7375fc0a65532b2e2d79e3d",
+      "selection": "assembled results.json",
+      "source_phase": "final",
+      "stages": 5
+    },
+    {
+      "peak_rss_kib": 48788,
+      "report_sha256": "6cda387fe11b90e426f345687dba60b37a87558adc913ea11bc6657a4b6220c7",
+      "selection": "assembled arm64-results.json",
+      "source_phase": "final",
+      "stages": 2
+    }
+  ],
+  "retained_source_snapshot": {
+    "path": "workspace/gc9/source-v1.json",
+    "sha256": "c5a9ee79ee27afb8083e9b7dd97e499bb1f550a61b62236e7c290f39c6f30c86"
+  },
+  "status": "GC9 incomplete; no GC10 or release acceptance"
+}

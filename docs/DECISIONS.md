@@ -12793,3 +12793,36 @@ occurrence order. If no
   effects. Keep the 16 GiB RSS guard, bounded children and disk floor. Linux
   arm64/arm64e, broader target/distribution readiness, GC9/GC10 and self-hosting
   remain separately gated; no I1/I2 build or compiler-capacity claim is included.
+
+## D327 - Admit Linux arm64 and harden local GC distribution inputs
+
+- **Status:** Implemented with direct matching-architecture ARM VM execution.
+  [GC9](GC9_IMPLEMENTATION.md) remains incomplete without current Linux x86-64
+  hardware/distribution qualification. See its pre-change review and manifests.
+- **Supersession:** Extends the target gates recorded by D322/D324/D326 to Linux
+  arm64. Their memory/foreign contracts and historical evidence remain intact.
+  D051 and D132/D133 remain mandatory; no automatic collection or conservative
+  fallback is admitted. arm64e remains unsupported.
+- **Reader:** Linux AArch64 uses its actual ELF/FDE, CFA, SP and DWARF x29 state,
+  including suspended JNI segments. It does not inherit Mach-O unwind rules.
+  Mach-O maps move into dyld-protected `__DATA_CONST`; exact native boundary
+  extents come from retained, validated function starts because compact unwind
+  can coalesce C functions. Missing/protection-stripped/malformed coverage
+  refuses before reclamation. Managed return PCs remain exact.
+- **Distribution:** Linux ordinary executables use the existing private GCC
+  support delivery with relative lookup, source and notices, as managed images
+  already do. IDKs prepare the unchanged nonmoving LLVM pass once, verify its
+  source/payload/host/version at link time and refuse incomplete payloads.
+  Preserve exact producer sysroot receipts and separately verified SDK bytes
+  across relocation; resolve selected SDK symlinks before copying. Pin lld 23.1.0
+  and retain the macOS managed minimum of 14.0 across JNI/TLS links.
+- **ABI/evidence:** Ordinary roots 2 / owners 1 and managed schema 2 /
+  objects-gc-v1, roots 3 / owners 2 stay unchanged. Rebuild all affected SDKs;
+  source freshness continues to reject historical payloads. O0-O3 root,
+  exception and real JVM reentry evidence, actual image audits, restricted
+  relocated IDKs, paired source and scalar-only negative controls support the
+  bounded ARM acceptance. No steady-state tracing, TLS bookkeeping or collector
+  algorithm changes are introduced.
+- **Boundary:** Rosetta functionality cannot satisfy D213's hardware gate.
+  Preserve the physical x86-64 GC8 record without treating it as a current GC9
+  package result. No release, GC10, self-hosting or I1/I2 work starts here.

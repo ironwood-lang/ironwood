@@ -65,8 +65,10 @@ implementation or transpiler:
 - Native bridge outputs require GC6 managed admission, schema 2 / objects-gc-v1,
   root ABI 3 / owner ABI 2, exact foreign/suspended roots and private image exports.
   Use the generated RootHandle and ListenerRegistration lifetime APIs; preserve
-  source resource closure separately. macOS arm64 and Linux x86-64 are qualified;
-  Linux arm64 and arm64e remain unqualified. See [GC6](docs/GC6_IMPLEMENTATION.md).
+  source resource closure separately. GC6 qualifies macOS arm64 and Linux x86-64;
+  the [GC9 checkpoint](docs/GC9_IMPLEMENTATION.md) adds matching-hardware Linux
+  arm64 qualification. arm64e stays unqualified. GC9 distribution closure still
+  requires its recorded hardware gates. See [GC6](docs/GC6_IMPLEMENTATION.md).
   GC7 consumer migration and structural retirement are complete within the
   [implementation and disposition ledger](docs/GC7_IMPLEMENTATION.md). Do not
   restore managed-free proofs, private rendering-release helpers or heap-only

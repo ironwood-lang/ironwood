@@ -19,7 +19,8 @@ CASES = ('allocate', 'recursion', 'merge', 'loop', 'pending', 'yield', 'capture'
          'version', 'width', 'endian', 'exceptions', 'foreign', 'static-count', 'native-count', 'scratch', 'interior', 'one-past',
          'missing-map', 'stale-version', 'bad-count', 'bad-location', 'stale-abi', 'stale-pc', 'stale-slot', 'stale-function', 'boundary', 'legacy-heap')
 MUTATED = ('missing-map', 'stale-version', 'bad-count', 'bad-location', 'stale-abi', 'stale-pc', 'stale-slot', 'stale-function')
-ELF_CASES = ('missing-unwind', 'writable-map')
+ELF_CASES = ('missing-unwind',)
+PROTECTION_CASES = ('writable-map', 'readonly-map', 'missing-boundaries', 'bad-boundaries')
 
 
 def mutate_object(original, case):
@@ -190,13 +191,15 @@ def main():
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--target', default=gc.host_target())
     parser.add_argument('--level', action='append', choices=('O0', 'O1', 'O2', 'O3'))
-    parser.add_argument('--case', action='append', choices=CASES + ELF_CASES)
+    parser.add_argument('--case', action='append', choices=CASES + ELF_CASES + PROTECTION_CASES)
     parser.add_argument('--cross-objects', action='store_true', help='structural ELF checks only, no native qualification')
     args = parser.parse_args()
-    if args.target not in ('macos-arm64', 'linux-x86_64') or args.target != gc.host_target():
+    if args.target not in ('macos-arm64', 'linux-arm64', 'linux-x86_64') or args.target != gc.host_target():
         raise ValueError('GC3 root reader has no native qualification for ' + args.target)
     if args.target == 'macos-arm64' and any(case in ELF_CASES for case in args.case or ()):
         raise ValueError('ELF-specific control requires a native Linux target')
+    if args.target != 'macos-arm64' and any(case in ('readonly-map', 'missing-boundaries', 'bad-boundaries') for case in args.case or ()):
+        raise ValueError('Mach-O write-protection probe requires macos-arm64')
     sdk, llvm, out = args.sdk.resolve(), args.llvm_home.resolve(), args.output.resolve()
     manifest, flags = gc.verify(sdk, llvm, args.target)
     assert manifest['configuration']['adapter.abi'] == 'ironwood-gc-engine-3'
@@ -239,18 +242,35 @@ def main():
             results.append(result)
         program_object = generated / level / 'program.o'
         link(program_object, executable, level + '-link')
-        for case in args.case or CASES + (ELF_CASES if args.target.startswith('linux') else ()):
+        for case in args.case or CASES + ('writable-map',) + (ELF_CASES if args.target.startswith('linux') else ('readonly-map', 'missing-boundaries', 'bad-boundaries')):
             destination = executable
-            if case == 'writable-map':
+            if case in ('writable-map', 'missing-boundaries', 'bad-boundaries'):
                 data = bytearray(executable.read_bytes())
-                phoff = struct.unpack_from('<Q', data, 32)[0]
-                phsize, phcount = struct.unpack_from('<HH', data, 54)
-                for header in range(phoff, phoff + phcount * phsize, phsize):
-                    if struct.unpack_from('<I', data, header)[0] == 0x6474e552:
-                        struct.pack_into('<I', data, header, 0)  # Remove actual load-time RELRO protection.
+                if args.target == 'macos-arm64':
+                    position = 32
+                    for _ in range(struct.unpack_from('<I', data, 16)[0]):
+                        command, size = struct.unpack_from('<II', data, position)
+                        if case == 'writable-map' and command == 0x19 and data[position + 8:position + 24].split(b'\0')[0] == b'__DATA_CONST':
+                            segment_flags = struct.unpack_from('<I', data, position + 68)[0]
+                            struct.pack_into('<I', data, position + 68, segment_flags & ~0x10)
+                        if case == 'missing-boundaries' and command == 0x26:
+                            struct.pack_into('<I', data, position + 12, 0)
+                        if case == 'bad-boundaries' and command == 0x26:
+                            offset, size_bytes = struct.unpack_from('<II', data, position + 8)
+                            assert size_bytes >= 10 and offset <= len(data) - size_bytes
+                            data[offset:offset + 10] = b'\xff' * 10
+                        position += size
+                else:
+                    phoff = struct.unpack_from('<Q', data, 32)[0]
+                    phsize, phcount = struct.unpack_from('<HH', data, 54)
+                    for header in range(phoff, phoff + phcount * phsize, phsize):
+                        if struct.unpack_from('<I', data, header)[0] == 0x6474e552:
+                            struct.pack_into('<I', data, header, 0)  # Remove actual load-time RELRO protection.
                 destination = out / (level + '-' + case)
                 destination.write_bytes(data)
                 destination.chmod(0o755)
+                if args.target == 'macos-arm64':
+                    results.append(engine.run(['/usr/bin/codesign', '--force', '--sign', '-', str(destination)], raw, level + '-resign-' + case))
             elif args.target.startswith('linux') and case in ('missing-map', 'missing-unwind'):
                 obj = out / (level + '-' + case + '.o')
                 section = 'ironwood_gc_maps' if case == 'missing-map' else '.eh_frame'
@@ -264,7 +284,11 @@ def main():
                 destination = out / (level + '-' + case)
                 link(obj, destination, level + '-' + case + '-link')
             expected = 86 if case in ('scratch', 'interior', 'one-past', 'boundary', 'legacy-heap', 'missing-unwind') else 0
+            if args.target == 'macos-arm64' and case == 'writable-map': expected = (0, -6)
             results.append(engine.run([str(destination), case], raw, level + '-' + case, expected_exit=expected))
+            if expected == (0, -6) and results[-1]['exit'] != 0:
+                assert 'SG_READ_ONLY' in (raw / (level + '-' + case + '.stderr')).read_text()
+                results[-1]['refused_by_dyld_before_initialization'] = True
     if args.cross_objects:
         cross_objects(args, generated, llvm, raw, out, results)
     report = {'format': 1, 'production_enabled': False, 'target': args.target, 'root_abi': 'ironwood-gc-roots-1',

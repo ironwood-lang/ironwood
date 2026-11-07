@@ -86,7 +86,10 @@ final class BridgeProducer {
                     "-I" + javaHome.resolve("include"), "-I" + javaHome.resolve(macos ? "include/darwin" : "include/linux"), "-I" + runtime.resolve("include"),
                     "-c", adapter.toString(), "-o", object.toString()));
             if (support != null) adapterCommand.addAll(support.compileFlags());
-            if (macTools != null) adapterCommand.addAll(macTools.compileFlags());
+            if (macTools != null) {
+                adapterCommand.addAll(macTools.compileFlags());
+                adapterCommand.add("-mmacosx-version-min=14.0");
+            }
             BridgeBuildTools.run(stage, "JNI adapter compilation", adapterCommand);
             var linked = new NativeBackend().linkManagedBridge(toolchain, objects, image, optimization, List.of(object),
                     List.of("JNI_OnLoad", "Java_" + generation.supportPackage().replace('.', '_') + "_Support_bootstrap"));
@@ -199,7 +202,10 @@ final class BridgeProducer {
         var probeCommand = new ArrayList<>(List.of(toolchain.clang().toString(), "-std=c11", "-S", "-emit-llvm", "-x", "c",
                 "-fvisibility=hidden", probe.toString(), "-o", targetLlvm.toString()));
         if (support != null) probeCommand.addAll(support.compileFlags());
-        if (macTools != null) probeCommand.addAll(macTools.compileFlags());
+        if (macTools != null) {
+            probeCommand.addAll(macTools.compileFlags());
+            probeCommand.add("-mmacosx-version-min=14.0");
+        }
         BridgeBuildTools.run(stage, "native target discovery", probeCommand);
         var target = NativeTarget.fromLlvm(Files.readString(targetLlvm));
         boolean macos = host.equals("macos-arm64");
@@ -216,6 +222,7 @@ final class BridgeProducer {
         inputs.put("adapter.flags", "-std=c11 -Wall -Wextra -Werror -fPIC -fexceptions -fvisibility=hidden " + optimization.clangArgument());
         if (macos) {
             inputs.putAll(macTools.identity());
+            inputs.put("deployment.minimum", "14.0");
             inputs.put("deployment.environment", System.getenv().getOrDefault("MACOSX_DEPLOYMENT_TARGET", "default"));
         } else {
             inputs.put("libc", "glibc-2.17"); inputs.put("link.binding", "now");
@@ -241,8 +248,9 @@ final class BridgeProducer {
         String os = System.getProperty("os.name"), arch = System.getProperty("os.arch");
         boolean arm = Set.of("aarch64", "arm64").contains(arch);
         if (os.equals("Mac OS X") && arm) return "macos-arm64";
+        if (os.equals("Linux") && arm) return "linux-arm64";
         if (os.equals("Linux") && Set.of("amd64", "x86_64").contains(arch)) return "linux-x86_64";
-        throw new IOException("managed Java Bridge producer requires qualified macos-arm64 or linux-x86_64; detected " + os + " " + arch);
+        throw new IOException("managed Java Bridge producer requires qualified macos-arm64, linux-arm64 or linux-x86_64; detected " + os + " " + arch);
     }
 
     private static Map<String, byte[]> directory(Path root) throws IOException {

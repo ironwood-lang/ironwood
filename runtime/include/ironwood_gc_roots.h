@@ -76,7 +76,7 @@ struct iw_gc_segment {
  * arm64 uses SP. x86-64 forces and uses the dispatcher's RBP, independent of
  * temporary outgoing stack arguments; capture also saves its actual SP. */
 __attribute__((always_inline)) static inline uintptr_t iw_gc_stack_boundary(void) {
-#if defined(__APPLE__) && defined(__aarch64__) && !defined(__arm64e__)
+#if (defined(__APPLE__) || defined(__linux__)) && defined(__aarch64__) && !defined(__arm64e__)
     uintptr_t sp;
     __asm__ volatile("mov %0, sp" : "=r"(sp));
     return sp;

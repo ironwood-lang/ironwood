@@ -6,7 +6,7 @@ heap and explicit synchronous Memory.collect(). Source reclamation and managed
 destruction are removed. Historical manual-heap descriptions below are superseded
 by [the GC5 contract](MEMORY.md). [GC6 managed bridges](GC6_IMPLEMENTATION.md) qualify
 macOS arm64 and Linux x86-64 with separate root ABI 3 / owner ABI 2 and isolated
-collector images. Full IDK/distribution and other-target qualification remain GC9
+collector images. GC9 adds matching-hardware Linux arm64 execution. Full distribution qualification remains GC9
 work. Ordinary executables retain root ABI 2 / owner ABI 1.
 The selected GC SDK is staged at toolchain/ironwood-gc, with verified source,
 licenses, root/owner ABIs and exact build identities.
@@ -20,9 +20,9 @@ from source.
 
 The [Java Bridge producer](JAVA_BRIDGE_USAGE.md) additionally
 supports a complete JDK 21 to 25 with compiler/Javadoc tools and JNI headers and
-produces managed macOS arm64 and Linux x86-64 jars with the corresponding
-pinned native toolchain/support SDK. Linux arm64 and arm64e stay refused pending
-qualification. Generated consumers need supported Java and
+produces managed macOS arm64, Linux arm64 and Linux x86-64 jars with the corresponding
+pinned native toolchain/support SDK. Linux arm64 uses the same managed admission
+with a separately qualified SDK; arm64e remains refused. Generated consumers need supported Java and
 the paired jar. Byte-view APIs also require the shared
 `lib/ironwood-bridge-values.jar`, included by IDK packaging with source and
 licenses inside the jar. The producer emits a matching companion automatically;
@@ -409,6 +409,32 @@ No dependency is downloaded by normal linking or offline verification.
 
 Prepare pinned BDWGC 8.2.12 with scripts/prepare-gc.py. GC5's exact profile keeps
 USE_MARK_BYTES=1. See [the current implementation report](GC5_IMPLEMENTATION.md).
-Full IDK/native distribution qualification remains GC9. GC6 paired bridges
+The [GC9 checkpoint](GC9_IMPLEMENTATION.md) records current target and artifact
+qualification, including the outstanding matching-hardware x86-64 gate. GC6 paired bridges
 bind their separate root/owner/segment protocol and actual GC SDK payload hashes;
-paired artifacts include complete BDWGC source/notices. Linux arm64 and arm64e remain unqualified.
+paired artifacts include complete BDWGC source/notices. arm64e remains unqualified.
+
+Linux native executables and managed images require the prepared private GCC
+support SDK at build time. Source/host compiler packages use
+`IRONWOOD_BRIDGE_SUPPORT_HOME`; IDKs discover their bundled copy. Carry the
+manifest-identified adjacent support directory, including its unmodified source,
+recipes and notices, with every deployed executable. Runtime lookup is relative
+to that executable; Java and LLVM are not runtime dependencies. Pair collector
+outputs with the corresponding GC SDK source/notices and configuration manifest.
+
+IDKs prepare the first-party nonmoving statepoint pass during packaging and
+place its binary and source/LLVM/host manifest in `lib/`, outside Conda relocation.
+Linking verifies and loads it, refusing missing or altered payloads. It never
+rebuilds that dependency or downloads inputs. Source/host compiler packages
+build the pass using the selected LLVM headers and external C++ build headers;
+macOS uses the selected Apple SDK/linker. The managed macOS image minimum is
+14.0, including JNI adapters and TLS links, even though the optional TLS component
+SDK has an older deployment floor.
+
+Conda-pack may rewrite package receipt provenance. Linux IDKs preserve the
+producer's exact glibc sysroot receipt, as well as unchanged separately copied
+GC/TLS/support SDKs. Resolved SDK trees are copied even when selected through a
+symlink. `IRONWOOD_DIST_DIR` isolates local package output. Focused smoke commands
+are `scripts/test-package.sh ARCHIVE --gc9 OUTPUT` and
+`scripts/test-idk.sh ARCHIVE --gc9 OUTPUT`. They preserve the 60-second native
+child deadline and 16 GiB process-group RSS guard; bound archive stages separately.

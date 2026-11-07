@@ -42,6 +42,7 @@ case "$IRONWOOD_OS/$IRONWOOD_ARCH" in
 esac
 
 IRONWOOD_REQUIRED_TOOLS=(clang llvm-as opt llc llvm-objcopy llvm-readelf llvm-config conda-pack python)
+if [[ "$IRONWOOD_OS" == Linux ]]; then IRONWOOD_REQUIRED_TOOLS+=(ld.lld); fi
 for IRONWOOD_TOOL in "${IRONWOOD_REQUIRED_TOOLS[@]}"; do
     if [[ ! -x "$IRONWOOD_IDK_TOOLCHAIN_HOME/bin/$IRONWOOD_TOOL" ]]; then
         echo "error: IDK toolchain is missing bin/$IRONWOOD_TOOL" >&2
@@ -104,18 +105,20 @@ if [[ "${IRONWOOD_LLVM_VERSION%%.*}" != 23 ]]; then
 fi
 
 IRONWOOD_TLS_PREFIX=${IRONWOOD_TLS_HOME:-$IRONWOOD_IDK_TOOLCHAIN_HOME/ironwood-tls}
+IRONWOOD_TLS_PREFIX=$(CDPATH= cd -- "$IRONWOOD_TLS_PREFIX" && pwd -P)
 "$IRONWOOD_IDK_TOOLCHAIN_HOME/bin/python" "$IRONWOOD_SCRIPT_DIR/prepare-tls.py" --verify \
     --prefix "$IRONWOOD_TLS_PREFIX" --llvm-home "$IRONWOOD_IDK_TOOLCHAIN_HOME"
 
 IRONWOOD_BRIDGE_SUPPORT_PREFIX=
 if [[ "$IRONWOOD_OS" == Linux ]]; then
     IRONWOOD_BRIDGE_SUPPORT_PREFIX=${IRONWOOD_BRIDGE_SUPPORT_HOME:-$IRONWOOD_IDK_TOOLCHAIN_HOME/ironwood-bridge-support}
+    IRONWOOD_BRIDGE_SUPPORT_PREFIX=$(CDPATH= cd -- "$IRONWOOD_BRIDGE_SUPPORT_PREFIX" && pwd -P)
     "$IRONWOOD_IDK_TOOLCHAIN_HOME/bin/python" "$IRONWOOD_SCRIPT_DIR/prepare-java-bridge-support.py" --check \
         --target "$IRONWOOD_PLATFORM" --prefix "$IRONWOOD_BRIDGE_SUPPORT_PREFIX"
 fi
 
 IRONWOOD_PACKAGE_NAME="ironwood-idk-$IRONWOOD_VERSION-$IRONWOOD_PLATFORM"
-IRONWOOD_DIST_DIR="$IRONWOOD_PROJECT_ROOT/dist"
+IRONWOOD_DIST_DIR=${IRONWOOD_DIST_DIR:-"$IRONWOOD_PROJECT_ROOT/dist"}
 IRONWOOD_STAGE_DIR="$IRONWOOD_DIST_DIR/$IRONWOOD_PACKAGE_NAME"
 IRONWOOD_ARCHIVE="$IRONWOOD_DIST_DIR/$IRONWOOD_PACKAGE_NAME.tar.gz"
 IRONWOOD_TOOLCHAIN_ARCHIVE="$IRONWOOD_DIST_DIR/.idk-toolchain-$IRONWOOD_PLATFORM.tar.gz"
@@ -142,6 +145,9 @@ cp "$IRONWOOD_PROJECT_ROOT/bin/ironjar" "$IRONWOOD_STAGE_DIR/bin/ironjar"
 cp "$IRONWOOD_PROJECT_ROOT/bin/irondoc" "$IRONWOOD_STAGE_DIR/bin/irondoc"
 cp "$IRONWOOD_PROJECT_ROOT/conf/jvm.options" "$IRONWOOD_STAGE_DIR/conf/jvm.options"
 cp "$IRONWOOD_PROJECT_ROOT/compiler/build/ironwoodc.jar" "$IRONWOOD_STAGE_DIR/lib/ironwoodc.jar"
+"$IRONWOOD_IDK_TOOLCHAIN_HOME/lib/jvm/bin/java" -cp "$IRONWOOD_STAGE_DIR/lib/ironwoodc.jar" \
+    ironwood.compiler.backend.NonmovingStatepointPass "$IRONWOOD_PROJECT_ROOT" \
+    "$IRONWOOD_IDK_TOOLCHAIN_HOME" "$IRONWOOD_STAGE_DIR/lib"
 "$IRONWOOD_IDK_TOOLCHAIN_HOME/lib/jvm/bin/java" -jar "$IRONWOOD_PROJECT_ROOT/compiler/build/ironwoodc.jar" \
     --java-bridge-values -o "$IRONWOOD_STAGE_DIR/lib/ironwood-bridge-values.jar"
 cp "$IRONWOOD_PROJECT_ROOT/compiler/build/ironwood-stdlib.ironjar" \
@@ -237,6 +243,12 @@ printf '%s\n' "$IRONWOOD_VERSION" > "$IRONWOOD_STAGE_DIR/VERSION"
     --exclude 'ironwood-gc/*' \
     --force
 tar -xzf "$IRONWOOD_TOOLCHAIN_ARCHIVE" -C "$IRONWOOD_STAGE_DIR/toolchain"
+# Conda-pack rewrites receipt provenance fields. GC profiles bind the producer's
+# exact sysroot receipt, which is not a relocation input. Preserve its bytes.
+if [[ -n "$IRONWOOD_LINUX_SYSROOT_PACKAGE" ]]; then
+    cp "${IRONWOOD_SYSROOT_METADATA[0]}" \
+        "$IRONWOOD_STAGE_DIR/toolchain/conda-meta/$(basename -- "${IRONWOOD_SYSROOT_METADATA[0]}")"
+fi
 # Copy the separately verified application SDK, never the toolchain's OpenSSL.
 rm -rf "$IRONWOOD_STAGE_DIR/toolchain/ironwood-tls"
 cp -R "$IRONWOOD_TLS_PREFIX" "$IRONWOOD_STAGE_DIR/toolchain/ironwood-tls"

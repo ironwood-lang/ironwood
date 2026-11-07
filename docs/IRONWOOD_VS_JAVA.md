@@ -10,7 +10,9 @@ Historical proof discussions and examples mentioning those removed forms are
 superseded by the completed GC7 consumer migration, not alternate supported semantics.
 [GC6 managed bridges](GC6_IMPLEMENTATION.md) qualify macOS arm64 and Linux
 x86-64 with explicit RootHandle/ListenerRegistration lifetimes, exact suspended
-roots and isolated native images. Linux arm64 and arm64e remain unqualified.
+roots and isolated native images. The [GC9 checkpoint](GC9_IMPLEMENTATION.md)
+adds matching-hardware Linux arm64 evidence; arm64e remains unsupported and
+GC9's current Linux x86-64 hardware/distribution gate remains open.
 
 ## Purpose
 

@@ -41,7 +41,8 @@ def run(command, directory, name, extra_env=None, expected_exit=0, executable=No
                 child.wait()
                 raise RuntimeError('16 GiB RSS guard or 60-second limit: ' + name)
             time.sleep(0.05)
-        if child.returncode != expected_exit:
+        allowed = (expected_exit,) if isinstance(expected_exit, int) else expected_exit
+        if child.returncode not in allowed:
             raise RuntimeError(name + ': ' + stderr.read_text()[-2000:])
     return {'case': name, 'exit': child.returncode, 'sampled_peak_rss_kib': peak,
             'stdout.sha256': gc.digest(stdout), 'stderr.sha256': gc.digest(stderr),

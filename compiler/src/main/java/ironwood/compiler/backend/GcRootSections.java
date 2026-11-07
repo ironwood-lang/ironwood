@@ -68,7 +68,8 @@ final class GcRootSections {
                     sectionIndex++;
                     if (name(object, section, "__text") && name(object, section + 16, "__TEXT")) executable.add(sectionIndex);
                     if (name(object, section, "__compact_unwind") || name(object, section, "__eh_frame")) unwind = true;
-                    if (name(object, section, "__llvm_stackmaps") && name(object, section + 16, "__LLVM_STACKMAPS")) {
+                    if (name(object, section, "__llvm_stackmaps") && (name(object, section + 16, "__LLVM_STACKMAPS")
+                            || name(object, section + 16, "__DATA_CONST"))) {
                         if (root != -1 || (data.getInt(section + 64) & 255) != 0) throw invalid("duplicate/nonregular root section");
                         root = section;
                     }
@@ -120,6 +121,11 @@ final class GcRootSections {
         // section$start symbol is referenced, leaving a zero-length placeholder.
         byte[] result = object.clone();
         ByteBuffer.wrap(result).order(ByteOrder.LITTLE_ENDIAN).putInt(root + 64, data.getInt(root + 64) | 0x10000000);
+        // dyld applies function-address fixups, then protects __DATA_CONST.
+        // A retained custom segment alone remains writable after loading.
+        java.util.Arrays.fill(result, root + 16, root + 32, (byte)0);
+        byte[] segment = "__DATA_CONST".getBytes(StandardCharsets.US_ASCII);
+        System.arraycopy(segment, 0, result, root + 16, segment.length);
         long hash = 0xcbf29ce484222325L;
         for (byte value : normalized) hash = (hash ^ Byte.toUnsignedInt(value)) * 0x100000001b3L;
         return new Prepared(result, hash);

@@ -154,7 +154,10 @@ Close files and sockets explicitly; collection never closes them. See
 [Memory management](docs/MEMORY_MANAGEMENT.md) for scheduling and reuse guidance.
 GC6 managed bridges are qualified on macOS arm64 and Linux x86-64 with explicit
 [RootHandle and listener registration lifetimes](docs/GC6_IMPLEMENTATION.md).
-Linux arm64 and arm64e remain unqualified. [GC7](docs/GC7_IMPLEMENTATION.md)
+The [GC9 checkpoint](docs/GC9_IMPLEMENTATION.md) adds matching-hardware Linux
+arm64 execution and distribution evidence. arm64e remains unsupported; GC9
+still requires current matching-hardware Linux x86-64 distribution qualification.
+[GC7](docs/GC7_IMPLEMENTATION.md)
 completes maintained consumer migration and obsolete managed-free proof retirement.
 Intentional migration-negative fixtures and frozen historical evidence remain
 classified in its ledger. Self-hosting has not restarted.
@@ -292,9 +295,13 @@ Like JavaDocs, Ironwood has IronDocs, which generates documentation in the Markd
 
 You can package compiled Ironwood classes into one .ironjar file. This is useful for distributing a library or reusing it in another Ironwood project. You can <a href="docs/IRONJAR.md">click here</a> for more info.
 
-For compiler host/IDK packaging, the isolated
-[GC1 development inputs](docs/GC1_ENGINE_PREPARATION.md) carry preparation pins,
-source and notices without enabling a collector for current programs.
+Normal native linking requires the verified, pinned GC SDK. Host compiler and
+IDK packaging carry its source, recipes, notices and exact payload identities.
+See [IDK preparation](docs/IDK.md#gc-native-inputs) and the
+[GC9 qualification checkpoint](docs/GC9_IMPLEMENTATION.md). Local packaging can
+set `IRONWOOD_DIST_DIR` to an isolated output directory. The package smoke
+runners accept `--gc9` for focused relocation, collection and managed bridge
+checks; their default release selections remain unchanged.
 
 ## Differences from Java
 

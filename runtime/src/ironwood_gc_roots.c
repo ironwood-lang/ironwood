@@ -15,8 +15,9 @@
 #include <libunwind.h>
 #include <mach-o/dyld.h>
 #include <mach-o/loader.h>
-extern const unsigned char iw_map_begin[] __asm__("section$start$__LLVM_STACKMAPS$__llvm_stackmaps");
-extern const unsigned char iw_map_end[] __asm__("section$end$__LLVM_STACKMAPS$__llvm_stackmaps");
+extern const unsigned char iw_map_begin[] __asm__("section$start$__DATA_CONST$__llvm_stackmaps");
+extern const unsigned char iw_map_end[] __asm__("section$end$__DATA_CONST$__llvm_stackmaps");
+static uintptr_t native_boundary_end;
 #if defined(__arm64e__)
 #define IW_ROOT_TARGET_QUALIFIED 0
 #else
@@ -25,10 +26,11 @@ extern const unsigned char iw_map_end[] __asm__("section$end$__LLVM_STACKMAPS$__
 #elif defined(__linux__) && (defined(__aarch64__) || defined(__x86_64__))
 #include <link.h>
 #include <unwind.h>
-#if defined(__x86_64__)
 #define IW_ROOT_TARGET_QUALIFIED 1
+#if defined(__x86_64__)
+#define IW_ELF_FP_REGISTER 6
 #else
-#define IW_ROOT_TARGET_QUALIFIED 0
+#define IW_ELF_FP_REGISTER 29
 #endif
 #else
 #define IW_ROOT_TARGET_QUALIFIED 0
@@ -152,6 +154,43 @@ static int elf_image(struct dl_phdr_info *image, size_t bytes, void *context) {
 }
 #endif
 
+#if defined(__APPLE__) && defined(__aarch64__)
+/* Compact unwind can coalesce adjacent C functions. LC_FUNCTION_STARTS gives
+ * the exact declared boundary's extent without accepting another native frame
+ * merely because it shares that unwind encoding. No frame maps are skipped. */
+static int macho_boundary(const unsigned char *table, size_t bytes, uintptr_t text, uintptr_t code_end) {
+    uintptr_t address = text, boundary = (uintptr_t)configuration.native_boundary;
+    int found = 0;
+    if (!bytes || !in_image((uintptr_t)table, bytes, 0, 0)) return 0;
+    const unsigned char *end = table + bytes;
+    for (size_t count = 0; count < IW_MAX_MAP_ITEMS && table < end; ++count) {
+        uint64_t delta = 0;
+        unsigned shift = 0;
+        for (;;) {
+            if (table == end || shift > 63) return 0;
+            unsigned byte = *table++;
+            if (shift == 63 && (byte & 0x7e)) return 0;
+            delta |= (uint64_t)(byte & 0x7f) << shift;
+            if (!(byte & 0x80)) break;
+            shift += 7;
+        }
+        if (!delta) {
+            if (found && boundary < code_end) { native_boundary_end = code_end; return 1; }
+            return 0;
+        }
+        if (delta > UINTPTR_MAX - address) return 0;
+        address += (uintptr_t)delta;
+        if (found) {
+            native_boundary_end = address < code_end ? address : code_end;
+            return boundary < native_boundary_end && in_image(native_boundary_end - 1, 1, 0, 1);
+        }
+        if (address == boundary) found = 1;
+        else if (address > boundary) return 0;
+    }
+    return 0;
+}
+#endif
+
 static int image_maps(const unsigned char **begin, size_t *bytes) {
 #if defined(__APPLE__) && defined(__aarch64__)
     for (uint32_t image = 0; image < _dyld_image_count(); ++image) {
@@ -162,26 +201,45 @@ static int image_maps(const unsigned char **begin, size_t *bytes) {
         const unsigned char *command = (const unsigned char *)(wide + 1);
         const unsigned char *limit = command + wide->sizeofcmds;
         int owns_reader = 0;
+        uintptr_t text = 0, code_begin = 0, code_end = 0, linkedit = 0;
+        uint32_t starts_offset = 0, starts_bytes = 0;
         range_count = 0;
         *begin = NULL; *bytes = 0;
         for (uint32_t i = 0; i < wide->ncmds; ++i) {
             if ((size_t)(limit - command) < sizeof(struct load_command)) return 0;
             const struct load_command *load = (const struct load_command *)command;
             if (load->cmdsize < sizeof(*load) || load->cmdsize > (size_t)(limit - command)) return 0;
+            if (load->cmd == LC_FUNCTION_STARTS) {
+                if (load->cmdsize < sizeof(struct linkedit_data_command) || starts_bytes) return 0;
+                const struct linkedit_data_command *data = (const struct linkedit_data_command *)load;
+                starts_offset = data->dataoff; starts_bytes = data->datasize;
+            }
             if (load->cmd == LC_SEGMENT_64) {
                 if (load->cmdsize < sizeof(struct segment_command_64)) return 0;
                 const struct segment_command_64 *segment = (const struct segment_command_64 *)load;
                 if (segment->nsects > (load->cmdsize - sizeof(*segment)) / sizeof(struct section_64)) return 0;
                 uintptr_t address = (uintptr_t)segment->vmaddr + (uintptr_t)slide;
+                if (strncmp(segment->segname, "__TEXT", 16) == 0) text = address;
+                if (strncmp(segment->segname, "__LINKEDIT", 16) == 0) {
+                    if (address < segment->fileoff) return 0;
+                    linkedit = address - (uintptr_t)segment->fileoff;
+                }
                 if (!add_range(address, segment->vmsize, (unsigned)(segment->initprot & 1),
                         (unsigned)(segment->initprot & 2), (unsigned)(segment->initprot & 4))) return 0;
                 uintptr_t reader = (uintptr_t)&iw_gc_roots_start;
                 if (reader >= address && reader - address < segment->vmsize) owns_reader = 1;
                 const struct section_64 *sections = (const struct section_64 *)(segment + 1);
                 for (uint32_t n = 0; n < segment->nsects; ++n) {
-                    if (strncmp(sections[n].segname, "__LLVM_STACKMAPS", 16) == 0
+                    if (strncmp(sections[n].segname, "__TEXT", 16) == 0
+                            && strncmp(sections[n].sectname, "__text", 16) == 0) {
+                        code_begin = (uintptr_t)sections[n].addr + (uintptr_t)slide;
+                        if (sections[n].size > UINTPTR_MAX - code_begin) return 0;
+                        code_end = code_begin + (uintptr_t)sections[n].size;
+                    }
+                    if (strncmp(sections[n].segname, "__DATA_CONST", 16) == 0
                             && strncmp(sections[n].sectname, "__llvm_stackmaps", 16) == 0) {
-                        if (*begin != NULL || sections[n].size > SIZE_MAX) return 0;
+                        if (*begin != NULL || sections[n].size > SIZE_MAX
+                                || !(segment->flags & SG_READ_ONLY) || (segment->initprot & 4)) return 0;
                         *begin = (const unsigned char *)((uintptr_t)sections[n].addr + (uintptr_t)slide);
                         *bytes = (size_t)sections[n].size;
                     }
@@ -191,7 +249,12 @@ static int image_maps(const unsigned char **begin, size_t *bytes) {
         }
         if (command != limit) return 0;
         if (owns_reader) return *begin == iw_map_begin && *bytes == (size_t)(iw_map_end - iw_map_begin)
-                && in_image((uintptr_t)*begin, *bytes, 0, 0);
+                && in_image((uintptr_t)*begin, *bytes, 0, 0)
+                && (uintptr_t)configuration.native_boundary >= code_begin
+                && (uintptr_t)configuration.native_boundary < code_end
+                && in_image(code_begin, code_end - code_begin, 0, 1)
+                && starts_offset <= UINTPTR_MAX - linkedit
+                && macho_boundary((const unsigned char *)(linkedit + starts_offset), starts_bytes, text, code_end);
     }
     return 0;
 #elif defined(__linux__) && (defined(__aarch64__) || defined(__x86_64__))
@@ -319,7 +382,7 @@ int iw_gc_roots_start(const struct iw_gc_root_config *config) {
     size_t bytes = 0;
     const uint16_t endian = 1;
 #if !(defined(__APPLE__) && defined(__aarch64__) && !defined(__arm64e__)) \
-        && !(defined(__linux__) && defined(__x86_64__))
+        && !(defined(__linux__) && (defined(__x86_64__) || defined(__aarch64__)))
     if (config != NULL && config->version >= 2) return 0; /* Native qualification gate. */
 #endif
     if (started || !IW_ROOT_TARGET_QUALIFIED || config == NULL || !iw_gc_snapshot().disabled
@@ -462,6 +525,16 @@ static int covers_code(uintptr_t pc, uintptr_t function, uintptr_t limit, uintpt
             && in_image(limit - 1, 1, 0, 1));
 }
 
+static int boundary_code(uintptr_t pc, uintptr_t function, uintptr_t limit) {
+#if defined(__APPLE__) && defined(__aarch64__)
+    return pc >= (uintptr_t)configuration.native_boundary && pc < native_boundary_end
+            && covers_code(pc, function, limit, (uintptr_t)configuration.native_boundary);
+#else
+    (void)pc; (void)limit;
+    return function == (uintptr_t)configuration.native_boundary;
+#endif
+}
+
 static int boundary_state(const struct iw_gc_segment *segment, uintptr_t sp, uintptr_t fp) {
 #if defined(__linux__) && defined(__x86_64__)
     return fp == segment->boundary_sp && sp <= fp && fp - sp <= 16 * 1024 * 1024;
@@ -489,7 +562,7 @@ static int capture_frame(struct segment_capture *walk, uintptr_t pc, uintptr_t f
         pending->high = sp;
     }
     if (covers_code(pc, function, limit, walk->transition)) walk->passed = 1;
-    if (covers_code(pc, function, limit, (uintptr_t)configuration.native_boundary)
+    if (boundary_code(pc, function, limit)
             && boundary_state(segment, sp, fp)) {
         walk->complete = walk->passed && segment->count != 0;
         segment->boundary_frame_sp = sp;
@@ -526,10 +599,10 @@ static int capture_frame(struct segment_capture *walk, uintptr_t pc, uintptr_t f
     return 1;
 }
 
-#if defined(__linux__) && defined(__x86_64__)
+#if defined(__linux__) && (defined(__x86_64__) || defined(__aarch64__))
 static _Unwind_Reason_Code capture_elf_frame(struct _Unwind_Context *context, void *argument) {
     return capture_frame(argument, (uintptr_t)_Unwind_GetIP(context), (uintptr_t)_Unwind_GetRegionStart(context),
-            (uintptr_t)_Unwind_GetCFA(context), (uintptr_t)_Unwind_GetGR(context, 6), 0) ? _URC_NO_REASON : _URC_END_OF_STACK;
+            (uintptr_t)_Unwind_GetCFA(context), (uintptr_t)_Unwind_GetGR(context, IW_ELF_FP_REGISTER), 0) ? _URC_NO_REASON : _URC_END_OF_STACK;
 }
 #endif
 
@@ -546,7 +619,7 @@ __attribute__((noinline)) static int capture_segment(struct segment_capture *wal
         if (!capture_frame(walk, (uintptr_t)pc, (uintptr_t)info.start_ip, (uintptr_t)sp, (uintptr_t)fp, (uintptr_t)info.end_ip)) break;
         if (unw_step(&cursor) <= 0) return 0;
     }
-#elif defined(__linux__) && defined(__x86_64__)
+#elif defined(__linux__) && (defined(__x86_64__) || defined(__aarch64__))
     (void)_Unwind_Backtrace(capture_elf_frame, walk);
 #else
     (void)walk;
@@ -663,9 +736,9 @@ static int scan_foreign_roots(void) {
 }
 
 static int current_boundary(uintptr_t pc, uintptr_t function, uintptr_t limit, uintptr_t sp, uintptr_t fp) {
-    if (configuration.version != 3) return function == (uintptr_t)configuration.native_boundary;
+    if (configuration.version != 3) return boundary_code(pc, function, limit);
     return active_segment != NULL && active_segment->state == 1
-            && covers_code(pc, function, limit, (uintptr_t)configuration.native_boundary)
+            && boundary_code(pc, function, limit)
             && boundary_state(active_segment, sp, fp);
 }
 
@@ -691,7 +764,7 @@ static int scan_suspended_segments(void) {
     return 1;
 }
 
-#if defined(__linux__) && defined(__x86_64__)
+#if defined(__linux__) && (defined(__x86_64__) || defined(__aarch64__))
 struct elf_walk {
     const struct root_record *pending;
     struct root_cursor cursor;
@@ -720,7 +793,8 @@ static _Unwind_Reason_Code elf_frame(struct _Unwind_Context *context, void *argu
         if (!scan_frame(&walk->cursor, walk->pending, walk->cursor.sp, sp)) return _URC_END_OF_STACK;
         ++last_frames;
     }
-    uintptr_t boundary_fp = function == (uintptr_t)configuration.native_boundary ? (uintptr_t)_Unwind_GetGR(context, 6) : 0;
+    uintptr_t boundary_fp = function == (uintptr_t)configuration.native_boundary
+            ? (uintptr_t)_Unwind_GetGR(context, IW_ELF_FP_REGISTER) : 0;
     if (current_boundary(pc, function, 0, sp, boundary_fp)) {
         walk->complete = 1;
         return _URC_END_OF_STACK;
@@ -731,8 +805,8 @@ static _Unwind_Reason_Code elf_frame(struct _Unwind_Context *context, void *argu
     walk->cursor = (struct root_cursor){sp, 0};
     for (size_t i = 0; i < walk->pending->count; ++i) {
         const unsigned char *location = walk->pending->locations + 12 * i;
-        if ((location[0] == 2 || location[0] == 3) && read16(location + 4) == 6) {
-            walk->cursor.fp = (uintptr_t)_Unwind_GetGR(context, 6);
+        if ((location[0] == 2 || location[0] == 3) && read16(location + 4) == IW_ELF_FP_REGISTER) {
+            walk->cursor.fp = (uintptr_t)_Unwind_GetGR(context, IW_ELF_FP_REGISTER);
             break;
         }
     }
@@ -787,7 +861,7 @@ __attribute__((noinline)) void iw_gc_experiment_collect(void) {
     }
     reason = "missing native boundary";
     if (!complete || last_frames == 0) goto refused;
-#elif defined(__linux__) && defined(__x86_64__)
+#elif defined(__linux__) && (defined(__x86_64__) || defined(__aarch64__))
     struct elf_walk walk = {0};
     walk.reason = "unwind coverage/native boundary";
     (void)_Unwind_Backtrace(elf_frame, &walk);

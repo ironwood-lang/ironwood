@@ -14,6 +14,10 @@
 #include <string.h>
 
 #if defined(__APPLE__)
+#include <signal.h>
+#include <sys/wait.h>
+#include <unistd.h>
+static void protection_fault(int signo) { _exit(signo == SIGBUS || signo == SIGSEGV ? 0 : 99); }
 #define IW_SYMBOL(name) "_" name
 #else
 #define IW_SYMBOL(name) name
@@ -174,7 +178,8 @@ int main(int argc, char **argv) {
     if (!strcmp(selected, "boundary")) config.native_boundary = wrong_boundary;
     if (!strcmp(selected, "missing-map") || !strcmp(selected, "stale-version") || !strcmp(selected, "bad-count")
             || !strcmp(selected, "bad-location") || !strcmp(selected, "stale-abi") || !strcmp(selected, "stale-pc")
-            || !strcmp(selected, "stale-slot") || !strcmp(selected, "stale-function") || !strcmp(selected, "writable-map")) refuse_start = 1;
+            || !strcmp(selected, "stale-slot") || !strcmp(selected, "stale-function") || !strcmp(selected, "writable-map")
+            || !strcmp(selected, "missing-boundaries") || !strcmp(selected, "bad-boundaries")) refuse_start = 1;
     if (!strcmp(selected, "scratch")) config.scratch_capacity = 1;
     if (refuse_start) {
         assert(!iw_gc_roots_start(&config));
@@ -183,6 +188,27 @@ int main(int argc, char **argv) {
         return 0;
     }
     assert(iw_gc_roots_start(&config));
+#if defined(__APPLE__)
+    if (!strcmp(selected, "readonly-map")) {
+        extern const unsigned char map[] __asm__("section$start$__DATA_CONST$__llvm_stackmaps");
+        pid_t child = fork();
+        assert(child >= 0);
+        if (child == 0) {
+            /* Qualification only: the loaded map must reject an actual store. */
+            volatile unsigned char *target = (volatile unsigned char *)(uintptr_t)map;
+            assert(*target == 3);
+            assert(signal(SIGBUS, protection_fault) != SIG_ERR && signal(SIGSEGV, protection_fault) != SIG_ERR);
+            *target = *target;
+            _exit(99);
+        }
+        int status;
+        assert(waitpid(child, &status, 0) == child && WIFEXITED(status) && WEXITSTATUS(status) == 0);
+        assert(iw_gc_snapshot().disabled && iw_gc_snapshot().collections == 0);
+        puts("{\"case\":\"readonly-map\",\"write_protected\":true}");
+        iw_gc_roots_stop();
+        return 0;
+    }
+#endif
     assert(atexit(refused_report) == 0);
     native_boundary();
     iw_gc_roots_stop();

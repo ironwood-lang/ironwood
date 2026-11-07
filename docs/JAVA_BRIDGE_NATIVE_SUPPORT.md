@@ -66,14 +66,19 @@ An unset optional override is not a request to use system copies. The compiler
 requires matching platform, LLVM 23.1.0, pins, binary/source hashes, complete
 source/notices and the prepared glibc 2.17 sysroot.
 
-For Linux shared linking only, the compiler disables the Clang configuration
+For Linux executable and shared linking, the compiler disables the Clang configuration
 that injects a development-prefix RPATH. It supplies the same pinned sysroot and
 GCC toolchain explicitly, selects the private libraries at link time, and emits
 an `$ORIGIN` path to a manifest-identified adjacent support directory. Linux
-bridge images retain `-Wl,-z,now`. Linux executable linking is unchanged.
+images retain `-Wl,-z,now`. GC9 extends this delivery to ordinary managed
+executables, removing their development-toolchain RPATH. Preserve the adjacent
+source/support directory when copying either output mode.
 macOS uses the Apple SDK/linker selected through `xcrun` with explicit Clang
 flags, retaining pinned LLVM compilation. The actual SDK/linker hashes and
-versions enter native build identity; SDK 26.5 and 27.0 are qualified.
+versions enter native build identity. Historical bridge qualification used SDK
+26.5 and 27.0; the current GC profile requires the exact SDK 27.2 settings
+identity recorded in [GC9](GC9_IMPLEMENTATION.md). An older bridge SDK record
+does not bypass GC SDK admission.
 All support, source, recipes and notices are copied and verified before the
 support directory is published; an existing directory is reused only after
 verification. The source/support directory is part of the output, not disposable

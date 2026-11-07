@@ -6,6 +6,10 @@ set -euo pipefail
 IRONWOOD_SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 IRONWOOD_PROJECT_ROOT=$(CDPATH= cd -- "$IRONWOOD_SCRIPT_DIR/.." && pwd)
 IRONWOOD_ARCHIVE=${1:-}
+if [[ $# -gt 3 || ( -n "${2:-}" && "${2:-}" != --gc9 ) ]]; then
+    echo "usage: test-package.sh <archive.tar.gz> [--gc9 [output-directory]]" >&2
+    exit 1
+fi
 if [[ -z "$IRONWOOD_ARCHIVE" || ! -f "$IRONWOOD_ARCHIVE" ]]; then
     echo "usage: test-package.sh <ironwood host archive.tar.gz>" >&2
     exit 1
@@ -77,6 +81,18 @@ if [[ ${#IRONWOOD_ROOTS[@]} -ne 1 || ! -d "${IRONWOOD_ROOTS[0]}" ]]; then
 fi
 mv "${IRONWOOD_ROOTS[0]}" "$IRONWOOD_RELOCATE_DIR/ironwood relocated"
 IRONWOOD_PACKAGE_ROOT="$IRONWOOD_RELOCATE_DIR/ironwood relocated"
+
+if [[ "${2:-}" == --gc9 ]]; then
+    IRONWOOD_GC9_ARGS=(--kind host --distribution "$IRONWOOD_PACKAGE_ROOT"
+        --llvm-home "$IRONWOOD_SYSTEM_LLVM_HOME"
+        --java-home "$(CDPATH= cd -- "$IRONWOOD_JAVA_BIN/.." && pwd)"
+        --output "${3:-$IRONWOOD_TEST_DIR/gc9}")
+    if [[ -n "${IRONWOOD_BRIDGE_SUPPORT_HOME:-}" ]]; then
+        IRONWOOD_GC9_ARGS+=(--bridge-support-home "$IRONWOOD_BRIDGE_SUPPORT_HOME")
+    fi
+    python3 "$IRONWOOD_SCRIPT_DIR/test-gc9-distribution.py" "${IRONWOOD_GC9_ARGS[@]}"
+    exit 0
+fi
 
 IRONWOOD_REQUIRED_FILES=(
     bin/ironwoodc

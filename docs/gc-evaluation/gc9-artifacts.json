@@ -1,0 +1,723 @@
+{
+  "assembled": {
+    "bytes": 216586841,
+    "jdk_pins_sha256": "d60a7f90ba9dc8d46b4c0790c342f379af344c52aa878485c74cfe72e30f77a0",
+    "jdk_receipts_sha256": {
+      "linux-arm64": "3d9d6f39ef8d7dc0046abe931e8773050d561b22116670c930168a12dd89f1db",
+      "macos-arm64": "0ff57669cc66e3f25603abdd6c5d4927303e8b36e5584f0d2f3f39c2f059bb2d"
+    },
+    "producer": "matching pinned Temurin 23.0.2+7 on each target",
+    "sha256": "fff5a8b08fb1dfca71cc143cfc1f1038edb46d5412b90537aa14811b87a14641",
+    "targets": [
+      "macos-arm64",
+      "linux-arm64"
+    ]
+  },
+  "baseline_revision": "e16152d45827caf78d2a6efd150107c5308b2f8c",
+  "branch": "codex/bdwgc-integration-plan",
+  "changed_source_sha256": {
+    "compiler/src/main/java/ironwood/compiler/BridgeProducer.java": "e5899fefe70949ac269b9cdcc0ccc40a2fbcf6bf2d199f8373e3b9c512e56590",
+    "compiler/src/main/java/ironwood/compiler/BridgeProducerCommand.java": "674d8a845c4f16377dae51931af3ec34db058ac316a30f586da54cff58b19f25",
+    "compiler/src/main/java/ironwood/compiler/backend/GcDependency.java": "107e1d0aeaf03a4a08898de18480efff995e1a7c179a8333bfb9d35ce3b2e7b8",
+    "compiler/src/main/java/ironwood/compiler/backend/GcRootSections.java": "4c26e8c3d5e2b3be6badfcf13847e8ab6e2942cd37d0a9082f36d91fb5dbe740",
+    "compiler/src/main/java/ironwood/compiler/backend/NativeBackend.java": "5e22d6588df8fe1da34ff68c86be254e40b13370b7f5fcc7b2349da723d3d7eb",
+    "compiler/src/main/java/ironwood/compiler/backend/NonmovingStatepointPass.java": "7bc66284d75f1779d4edec1dd5aee58f67dcc18c9a623d990fb0db332d6328a7",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeGeneration.java": "b540c8f93c49b1c3e3c2c7d787f9da05a972f40781da10ac4e8989f3e131fb0e",
+    "compiler/src/test/java/ironwood/compiler/backend/GcConfigurationTests.java": "317c61b4efed4cbc2ff0082929d229d96aee0a6c7352b70b399e73114db391ef",
+    "packaging/bdwgc-qualified.properties": "5638b7db5f941d9b001b6fb4bdea5945474a13f175dc6045e7d907d80403253c",
+    "packaging/idk-environment.yml": "ef3e43892d84e9c50f5b0576a4b92ce2600517bef576a99b13a0b42656cfb24b",
+    "runtime/include/ironwood_gc_roots.h": "3b8ac7e9a44a14c42c611cb792966c088c8764340a8adb6895a4d1e649b0f97d",
+    "runtime/src/ironwood_gc_roots.c": "4415ee6e00d41936764fa1f72a545bef7491bceb06a8e686fc3f2ee7c14a90e6",
+    "scripts/package-idk.sh": "097c8affc97b2cfdce5165f1e393f288f313e63121c70ae2a8792fc4c1524741",
+    "scripts/package.sh": "7f2e319ab77796c8aac905e083bd5b9354e899e4b8c5bf84a858f892d7600e73",
+    "scripts/test-gc-engine.py": "38b2cde94be7a080c385fe9266ee672c9e0a5b93a949a0c1529d646060b6fe53",
+    "scripts/test-gc-lifetimes.py": "ba477c5793384163aac069127569c71fa62d1c505f9d0a49c4669310f88b5791",
+    "scripts/test-gc-roots.py": "3b590ead630114987c2c44f99954cc9408465be56d7c4502b846ce33ead1127f",
+    "scripts/test-gc9-distribution.py": "a8d52ee30fb0045525cfcd3eac59713d25fb4219a8aff22e697097a541b262df",
+    "scripts/test-idk.sh": "f7fa41bbb3f3053b7878ca5f5b3281163db6601a2957e02b0b80f4cf55b8c47e",
+    "scripts/test-package.sh": "70af82862ff9a9c4c0c31dcfcee7b5d71462f4995ec72100dd0ca72ddb863955"
+  },
+  "elf_image_audit": {
+    "actual_elf_checks_passed": true,
+    "exports": [
+      "000000000003bfe4 T JNI_OnLoad",
+      "000000000003c000 T Java_ironwood_bridge_generated_g1e35ed0d5b377702d57c7943027a97e9c8f6e62bb394280713cf2336d9b1d1e6_Support_bootstrap"
+    ],
+    "image.sha256": "d417999090ccf41fe6870d88525f3c5123133a224fd2ca622c8f1a780b7c9702",
+    "results": [
+      {
+        "case": "headers",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 36752,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "1eaabd095a1a57716b1b0f1743e691b2fed2c80b60231953d82719a0cf80d5d7"
+      },
+      {
+        "case": "dynamic",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 4368,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "51178c3beb694c27f5d91e502a58facf3dd80f19984322df8bdf4e1f8428ae72"
+      },
+      {
+        "case": "exports",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 5696,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "c031c6c15c0487491eb75c31c1e4493266754b50f234e95932119ab074c877a5"
+      },
+      {
+        "case": "imports",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 5220,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "a9a1833d71afd0ce33834a0e100d57f999bbe94de3b744a5b3b1a6c22395121a"
+      }
+    ]
+  },
+  "format": 1,
+  "image_audit": {
+    "ordinary": {
+      "bytes": 146152,
+      "cpu": [
+        16777228,
+        0
+      ],
+      "deployment_minimum": "0xe0000",
+      "flags": "0x200085",
+      "function_starts_bytes": 296,
+      "sections": [
+        {
+          "initprot": 5,
+          "maxprot": 5,
+          "section": "__unwind_info",
+          "segment": "__TEXT",
+          "segment_flags": "0x0",
+          "size": 824
+        },
+        {
+          "initprot": 5,
+          "maxprot": 5,
+          "section": "__eh_frame",
+          "segment": "__TEXT",
+          "segment_flags": "0x0",
+          "size": 976
+        },
+        {
+          "initprot": 3,
+          "maxprot": 3,
+          "section": "__llvm_stackmaps",
+          "segment": "__DATA_CONST",
+          "segment_flags": "0x10",
+          "size": 3256
+        }
+      ],
+      "sha256": "a6f1cdb92d53499a149509d73e9cfc6b995b90d7631a56fa4164d2dbe038d31e"
+    },
+    "pass": {
+      "llvm_lookup": "@loader_path/../toolchain/lib",
+      "minimum": "14.0",
+      "sha256": "804984e92547e0767397a23c62508f8f22fd7f7d92e57ca3487c8006113c2d29"
+    },
+    "production-image": {
+      "bytes": 203952,
+      "cpu": [
+        16777228,
+        0
+      ],
+      "dependencies.sha256": "c7c6a9cc279ad46184e021e2cfb7b6ea5ba40154468e2162fccf460a6204b964",
+      "deployment_minimum": "0xe0000",
+      "exports.sha256": "b21e4561ba3a4baa0705bbcfbd7929f00e1f513eb6a01d30551fb2c7f321ba4c",
+      "flags": "0x900085",
+      "function_starts_bytes": 480,
+      "imports.sha256": "229ec54b6c71770263c71d8fd611c73d6d2922d5ee91fadc61f20554df4ba38f",
+      "sections": [
+        {
+          "initprot": 5,
+          "maxprot": 5,
+          "section": "__unwind_info",
+          "segment": "__TEXT",
+          "segment_flags": "0x0",
+          "size": 1376
+        },
+        {
+          "initprot": 5,
+          "maxprot": 5,
+          "section": "__eh_frame",
+          "segment": "__TEXT",
+          "segment_flags": "0x0",
+          "size": 1920
+        },
+        {
+          "initprot": 3,
+          "maxprot": 3,
+          "section": "__llvm_stackmaps",
+          "segment": "__DATA_CONST",
+          "segment_flags": "0x10",
+          "size": 2672
+        }
+      ],
+      "sha256": "74c25058b5f509a0931e7573136e5aaa7b53898a9cf7e164f36b825d7d792f85"
+    },
+    "suspended-image": {
+      "bytes": 189288,
+      "cpu": [
+        16777228,
+        0
+      ],
+      "deployment_minimum": "0xe0000",
+      "flags": "0x100085",
+      "function_starts_bytes": 616,
+      "sections": [
+        {
+          "initprot": 5,
+          "maxprot": 5,
+          "section": "__unwind_info",
+          "segment": "__TEXT",
+          "segment_flags": "0x0",
+          "size": 1144
+        },
+        {
+          "initprot": 5,
+          "maxprot": 5,
+          "section": "__eh_frame",
+          "segment": "__TEXT",
+          "segment_flags": "0x0",
+          "size": 320
+        },
+        {
+          "initprot": 3,
+          "maxprot": 3,
+          "section": "__llvm_stackmaps",
+          "segment": "__DATA_CONST",
+          "segment_flags": "0x10",
+          "size": 1704
+        }
+      ],
+      "sha256": "e4b242e4a6194b8cce58969569b94716c25370011c62a745d34cb18147c4368f"
+    }
+  },
+  "source_inventory": {
+    "files": 954,
+    "path": "workspace/gc9/source-final.json",
+    "sha256": "e631d75a6848c002bf9bb4f4a3d064f1dc4f3218c2ed44a565dd7b346eafa745"
+  },
+  "status": "GC9 incomplete",
+  "targets": {
+    "linux-arm64": {
+      "archives": [
+        {
+          "bytes": 775477518,
+          "path": "workspace/gc9/arm64/dist/.idk-toolchain-linux-arm64.tar.gz",
+          "qualification": "final runtime/compiler source; documentation finalized separately",
+          "sha256": "28837a1939d49fe1224a8e4df2e54c6f6661b418b44dd59ac218ebbafafd1a15"
+        },
+        {
+          "bytes": 1022024517,
+          "path": "workspace/gc9/arm64/dist/ironwood-idk-0.6.2-gc9-local-linux-arm64.tar.gz",
+          "qualification": "final runtime/compiler source; documentation finalized separately",
+          "sha256": "e82c4086c0ee8b30b50d18bc3dd47b0fa6359efd3a939428397579a75f42b57c"
+        },
+        {
+          "bytes": 5483028,
+          "path": "workspace/gc9/arm64/dist/ironwood-linux-aarch64.tar.gz",
+          "qualification": "final runtime/compiler source; documentation finalized separately",
+          "sha256": "d101f4273c05e3cb288a02012eb4ce19cde94760faeff6ea9e9adf3d19b6c6a9"
+        }
+      ],
+      "execution": "matching ARM hardware, VZ virtualization",
+      "idk-smoke-qualified": {
+        "managed_bridge": {
+          "jar.sha256": "233629c98fe63b341f7a962777952f4aa71517de025f33da8e6e6d931164edca",
+          "payloads.sha256": {
+            "META-INF/ironwood/bridge.properties": "29a717ac02172981dbf9038f4748cce5dfc1eeb111e2fdab70b2e680709cc914",
+            "META-INF/ironwood/native/linux-arm64/1e35ed0d5b377702d57c7943027a97e9c8f6e62bb394280713cf2336d9b1d1e6/.ironwood-bridge-support-69c7780bd9c9acc8b59d4248a4193b38b5fb075728950fb50ce2a39717ca9039/build.properties": "69c7780bd9c9acc8b59d4248a4193b38b5fb075728950fb50ce2a39717ca9039",
+            "META-INF/ironwood/native/linux-arm64/1e35ed0d5b377702d57c7943027a97e9c8f6e62bb394280713cf2336d9b1d1e6/.ironwood-bridge-support-69c7780bd9c9acc8b59d4248a4193b38b5fb075728950fb50ce2a39717ca9039/lib/libgcc_s.so": "f9f912590d8c8e66db51be54304d86c3a6a72d27d762b60640371265d8ea0534",
+            "META-INF/ironwood/native/linux-arm64/1e35ed0d5b377702d57c7943027a97e9c8f6e62bb394280713cf2336d9b1d1e6/.ironwood-bridge-support-69c7780bd9c9acc8b59d4248a4193b38b5fb075728950fb50ce2a39717ca9039/lib/libstdc++.so": "e5576834aad55a83f12fb97f7131bb68191b026ba8c34888302d989110bcfe23",
+            "META-INF/ironwood/native/linux-arm64/1e35ed0d5b377702d57c7943027a97e9c8f6e62bb394280713cf2336d9b1d1e6/libbridge.so": "d417999090ccf41fe6870d88525f3c5123133a224fd2ca622c8f1a780b7c9702",
+            "META-INF/ironwood/source/BDWGC/configurations/d8434872c7bd54595bc73e03ec9b245dc4c58748f328d2854b7e6ee030120912/build.properties": "47d8fe76ea5924a062d484f5c6c89dc16dd8fb96f52f330c867bb4cb5079bef7",
+            "META-INF/ironwood/source/BDWGC/configurations/d8434872c7bd54595bc73e03ec9b245dc4c58748f328d2854b7e6ee030120912/configuration.json": "d8434872c7bd54595bc73e03ec9b245dc4c58748f328d2854b7e6ee030120912"
+          }
+        },
+        "native_artifacts": {
+          "archive": {
+            "bytes": 681168,
+            "collector_manifest_sha256": "eaee333bd54e5a3c4f15265930fc88d30ee130e149ef7b0f4b196689b1b26791",
+            "sha256": "ba77ce27f6c4d45f1da45e7f8f208fe4a356ef516ff827bdde57be1369ed1072"
+          },
+          "class": {
+            "bytes": 681168,
+            "collector_manifest_sha256": "eaee333bd54e5a3c4f15265930fc88d30ee130e149ef7b0f4b196689b1b26791",
+            "sha256": "4a8d661eb9103f2fe073de5d62f6e392ea7417a3e162eab6a2f2aa162e4c3963"
+          }
+        },
+        "report_sha256": "efca8dad38010ccc8d25be9c0956f74fb928527e80d23af14b6dcbbf148e0dc2",
+        "sdk_payloads_preserved": true
+      },
+      "idk_prepared_payloads": {
+        "ironwood-nonmoving-statepoints.properties": {
+          "bytes": 363,
+          "properties": {
+            "format": "1",
+            "llvm.version": "23.1.0",
+            "pass.binary.sha256": "4a81a4c36898d0756edbd3e1a3769444baa50cb3e27674f4b54eaace6ad1146a",
+            "pass.source.sha256": "e02de411d077b3519655d8fd547b98ef72a11b06420fa94788d1d650733de50e",
+            "producer.opt.sha256": "3d084eb039c0f914c2f3df9aa16ba04fb171ac8e8a542d502034dfa9465140a6",
+            "target.arch": "aarch64",
+            "target.os": "Linux"
+          },
+          "sha256": "7e3e3f1bbec45817014a0b7a506136b9b9ec0bc771da4db852fb7eb3deda0373"
+        },
+        "ironwood-nonmoving-statepoints.so": {
+          "bytes": 82112,
+          "sha256": "4a81a4c36898d0756edbd3e1a3769444baa50cb3e27674f4b54eaace6ad1146a"
+        },
+        "ironwoodc.jar": {
+          "bytes": 2018504,
+          "sha256": "3c76266006b0ea8083dfe157d5251386b6706a86d18ac6f9ab030dfc62953a1d"
+        }
+      },
+      "matching_producer_jar": {
+        "bytes": 216509237,
+        "sha256": "d1d8b6d34398fa95a54cb0ebd59c0dbaa427c652732bfed7e2307b8b7b11e10a"
+      },
+      "package-smoke-qualified": {
+        "managed_bridge": {
+          "jar.sha256": "dc306e34d84083beb7b41531dd592e3004e0b24321658adb10d81989dd4ad8b0",
+          "payloads.sha256": {
+            "META-INF/ironwood/bridge.properties": "73a5a267fd9d5da659b8c1d083dbfc88c3291c37f7af994879121d496b33d0db",
+            "META-INF/ironwood/native/linux-arm64/4a85d6cb8adb2994736127921d232d511c036fdf35d78e698454cde55a70179e/.ironwood-bridge-support-69c7780bd9c9acc8b59d4248a4193b38b5fb075728950fb50ce2a39717ca9039/build.properties": "69c7780bd9c9acc8b59d4248a4193b38b5fb075728950fb50ce2a39717ca9039",
+            "META-INF/ironwood/native/linux-arm64/4a85d6cb8adb2994736127921d232d511c036fdf35d78e698454cde55a70179e/.ironwood-bridge-support-69c7780bd9c9acc8b59d4248a4193b38b5fb075728950fb50ce2a39717ca9039/lib/libgcc_s.so": "f9f912590d8c8e66db51be54304d86c3a6a72d27d762b60640371265d8ea0534",
+            "META-INF/ironwood/native/linux-arm64/4a85d6cb8adb2994736127921d232d511c036fdf35d78e698454cde55a70179e/.ironwood-bridge-support-69c7780bd9c9acc8b59d4248a4193b38b5fb075728950fb50ce2a39717ca9039/lib/libstdc++.so": "e5576834aad55a83f12fb97f7131bb68191b026ba8c34888302d989110bcfe23",
+            "META-INF/ironwood/native/linux-arm64/4a85d6cb8adb2994736127921d232d511c036fdf35d78e698454cde55a70179e/libbridge.so": "18ad691ff59e68e3de0ed18f1214747f42878a19ce8c412a20c6f4f01a12eae0",
+            "META-INF/ironwood/source/BDWGC/configurations/d8434872c7bd54595bc73e03ec9b245dc4c58748f328d2854b7e6ee030120912/build.properties": "47d8fe76ea5924a062d484f5c6c89dc16dd8fb96f52f330c867bb4cb5079bef7",
+            "META-INF/ironwood/source/BDWGC/configurations/d8434872c7bd54595bc73e03ec9b245dc4c58748f328d2854b7e6ee030120912/configuration.json": "d8434872c7bd54595bc73e03ec9b245dc4c58748f328d2854b7e6ee030120912"
+          }
+        },
+        "native_artifacts": {
+          "archive": {
+            "bytes": 681168,
+            "collector_manifest_sha256": "eaee333bd54e5a3c4f15265930fc88d30ee130e149ef7b0f4b196689b1b26791",
+            "sha256": "c28cae4792b3879568794b442cfd9a312ef3b1a0439eb90789885bc6f6ff76ef"
+          },
+          "class": {
+            "bytes": 681168,
+            "collector_manifest_sha256": "eaee333bd54e5a3c4f15265930fc88d30ee130e149ef7b0f4b196689b1b26791",
+            "sha256": "85faceccf38bd4f065ffa3671c4cfbc7db68ac38dbb66f1c68fcef7ebcfb3bcb"
+          }
+        },
+        "report_sha256": "f6df163a7faa79ab70a9408a4d19a9c6239956f858ce7a1aa06b79423e0d8aa5",
+        "sdk_payloads_preserved": true
+      },
+      "sdk": {
+        "configuration": {
+          "archive.sha256": "42e5194ad06ab6ffb806c83eb99c03462b495d979cda782f3c72c08af833cd4e",
+          "endianness": "little",
+          "foreign.roots.version": 3,
+          "foreign.runtime.owner.version": 2,
+          "foreign.segments.version": 1,
+          "pointer.width": 64,
+          "recipe.sha256": "c566b921b518f51a6a5994db0fea5037f59c24c5b37e0791ed3b03738d7da2dd",
+          "roots.version": 2,
+          "runtime.owner.version": 1,
+          "statepoint.pass.sha256": "e02de411d077b3519655d8fd547b98ef72a11b06420fa94788d1d650733de50e",
+          "system": {
+            "sysroot.package": "sysroot_linux-aarch64",
+            "sysroot.record.sha256": "2cbb493daf6f0c064e728723fb6341a42f6d32e6c5a09d0fe0fdd7e1c2aad1a4",
+            "sysroot.version": "2.17"
+          },
+          "target.data-layout": "e-m:e-p270:32:32-p271:32:32-p272:64:64-i8:8:32-i16:16:32-i64:64-i128:128-n32:64-S128-Fn32",
+          "target.triple": "aarch64-unknown-linux-gnu"
+        },
+        "configuration_sha256": "d8434872c7bd54595bc73e03ec9b245dc4c58748f328d2854b7e6ee030120912",
+        "manifest_sha256": "eaee333bd54e5a3c4f15265930fc88d30ee130e149ef7b0f4b196689b1b26791",
+        "payloads_sha256": {
+          "adapter.o": "75984c5ccfebffb443009ba97a69168f3bcca2e0c93822d687b3a38c10a86928",
+          "build.properties": "47d8fe76ea5924a062d484f5c6c89dc16dd8fb96f52f330c867bb4cb5079bef7",
+          "compiler/src/main/cpp/GcNonmovingStatepoints.cpp": "e02de411d077b3519655d8fd547b98ef72a11b06420fa94788d1d650733de50e",
+          "configuration-audit.json": "f82c6945bec43810bddb8b0ecac66ceb27364f214baa9045e94e982e7cf83065",
+          "configuration.json": "d8434872c7bd54595bc73e03ec9b245dc4c58748f328d2854b7e6ee030120912",
+          "include/config.h": "1cabd1f7524d28ccf2a16c476aa674eb1758fbf33b29eb280e2f073ef0358a62",
+          "include/gc/cord.h": "1830d4eaa868ea2f15873659f0a2838c3309b9b32b912fc6c68f9e007827c6c6",
+          "include/gc/cord_pos.h": "f46fba45f62f97351eb1dd748ccaa1f55cc0a72272e07a788c351146411efc9d",
+          "include/gc/ec.h": "8bc9c2f888c3f3ef3464b851ff24f8be90672b13990e05cf88a4d906e7f516ba",
+          "include/gc/gc.h": "02cfecefca6aca4bf59280aaa3f967fff862857d087e5e8987f3db8bda6ed3f2",
+          "include/gc/gc_allocator.h": "b2a281c01c85af83007c859a62ed85413d4eb9ab892a26487b7a9aa5be97e90a",
+          "include/gc/gc_backptr.h": "6c2ecdc5fdcca5019a904179a2eb95805f8ff60482f2a429bdc5fd67957d1c95",
+          "include/gc/gc_config_macros.h": "1321e010e0c1c22123fe0af5fc72d2065cf098d3c09b0cf76535cb8c3ea04230",
+          "include/gc/gc_cpp.h": "86534282e80e6d9bcd9e15cebfccc002ee8c8a8d52a42ad5b2378712d0743750",
+          "include/gc/gc_disclaim.h": "ff742436ba82f7157e3ae270f2b8d22f53f9fd2611b941d4310a41cc1ea2a5df",
+          "include/gc/gc_gcj.h": "87c8493463ff62edc7faa256f03e3a24cdf8b9375e3a0d3298530bdf74d95005",
+          "include/gc/gc_inline.h": "d032a0b1e8891dd25b6c3673b58fac6ddcb059e01285696a6878ef9c022f14df",
+          "include/gc/gc_mark.h": "5cac8cf04cee93b1186a5a50e2980b780dbd0717cd42e4511a170f33156329f5",
+          "include/gc/gc_pthread_redirects.h": "e68ce92ca0280b42bb1a0db62357e883d3e37235d18c2bd0d3ad6bd59209b09b",
+          "include/gc/gc_tiny_fl.h": "c0dfbd526405ae28e108b608dd2c77e2dbe2858cbeb880d2d67749fd04a49bc5",
+          "include/gc/gc_typed.h": "fa7910da9155fb836d48ac9723b239dfe10d64b414d90801d5b9d72a64877d0c",
+          "include/gc/gc_version.h": "a45df41e4a6615f00e6991b7e67151d73e0f593bc1112463568a7eff45470e28",
+          "include/gc/javaxfc.h": "1a89edc382dbc9e2c7d3a6bcf749ec71411c9c45f2da96b63efaf3cc1d8bbaba",
+          "include/gc/leak_detector.h": "7b36b85eb6cf5478758884981b4c4d92192da61fb74483f0101acf1b11866659",
+          "include/ironwood_gc_configuration.h": "09d12ef82c635287972f98c83177f948e8d2d7a495bd08d0bd67135495a77255",
+          "lib/libgc.a": "5c65bbec7d7cb94e021e1a8a63fbc0cb262c5b937e332b78d3670970e5a96b0a",
+          "lib/libironwood_gc_engine.a": "66db64381024954c41b42daa34cbfd3703a55f4ebc4907d554cad99f0fa85c1e",
+          "licenses/BDWGC-NOTICES.txt": "7c4e37589e956dae4872387ef1a295f16e24c8ebc47b8f1c1330d7422b87b399",
+          "packaging/bdwgc.json": "9fe371a0e50a11fee89f13fa78333cc2ab13b6f8391669f9589e9091ccf9504e",
+          "runtime/include/ironwood_gc_engine.h": "8dc4b0ea6b343e46aa8ef2b5877292e27d552e88456b3995e05d9ffe1a235f66",
+          "runtime/include/ironwood_gc_roots.h": "3b8ac7e9a44a14c42c611cb792966c088c8764340a8adb6895a4d1e649b0f97d",
+          "runtime/include/ironwood_runtime.h": "cd034e8edbf202babfc8694cc57b28838593a59da14d62e0166475622775aa9d",
+          "runtime/src/ironwood_gc_engine.c": "6c103d7fcd8fc4b208f35a8fe929fd91eb866c04c839456d78c859063d08cbcf",
+          "runtime/src/ironwood_gc_roots.c": "4415ee6e00d41936764fa1f72a545bef7491bceb06a8e686fc3f2ee7c14a90e6",
+          "runtime/src/ironwood_runtime.c": "4e82bfc7c4b9943e4f4ec532374e6255c214fea05643053de7b6a6199e5aaef3",
+          "scripts/prepare-gc.py": "c566b921b518f51a6a5994db0fea5037f59c24c5b37e0791ed3b03738d7da2dd",
+          "sources/gc-8.2.12.tar.gz": "42e5194ad06ab6ffb806c83eb99c03462b495d979cda782f3c72c08af833cd4e"
+        },
+        "source_inputs_sha256": {
+          "compiler/src/main/cpp/GcNonmovingStatepoints.cpp": "e02de411d077b3519655d8fd547b98ef72a11b06420fa94788d1d650733de50e",
+          "runtime/include/ironwood_gc_engine.h": "8dc4b0ea6b343e46aa8ef2b5877292e27d552e88456b3995e05d9ffe1a235f66",
+          "runtime/include/ironwood_gc_roots.h": "3b8ac7e9a44a14c42c611cb792966c088c8764340a8adb6895a4d1e649b0f97d",
+          "runtime/include/ironwood_runtime.h": "cd034e8edbf202babfc8694cc57b28838593a59da14d62e0166475622775aa9d",
+          "runtime/src/ironwood_gc_engine.c": "6c103d7fcd8fc4b208f35a8fe929fd91eb866c04c839456d78c859063d08cbcf",
+          "runtime/src/ironwood_gc_roots.c": "4415ee6e00d41936764fa1f72a545bef7491bceb06a8e686fc3f2ee7c14a90e6",
+          "runtime/src/ironwood_runtime.c": "4e82bfc7c4b9943e4f4ec532374e6255c214fea05643053de7b6a6199e5aaef3"
+        }
+      },
+      "tool_payloads_sha256": {
+        "llvm": {
+          "bin/clang": "98fe74f8214157a0292cffed90a350c352249101300c37a9f519c033d524f8f2",
+          "bin/ld.lld": "844a4ed0d626e639b0f50ced3aeaee22458353f8b9ada199bed70347d6e87308",
+          "bin/llc": "fe51e34fff49345165bd8ed803b695c6f7ebeea60b63f74b5d1c2bc6de185ea5",
+          "bin/llvm-as": "89eb6e480f17ba6d81dc0f0de994e9a9d4f72401e46e9f6c0f46b3b1c204c525",
+          "bin/llvm-objcopy": "2b753bbbfc4a3201e3e531b5108cb2d4c26cf9994d0095f0ce3e952e5866eb70",
+          "bin/llvm-readelf": "93a37b8b7cc21d8684aa89014d57697befc62233d61062d0c9afb28ef2a21979",
+          "bin/opt": "3d084eb039c0f914c2f3df9aa16ba04fb171ac8e8a542d502034dfa9465140a6",
+          "lib/libLLVM.so": "926c940323c0010f0f76de8cd77a7b72981a5bd53d3c16f0c20137d489693998"
+        },
+        "source_java": {
+          "bin/java": "4ed208b95ba0f1adae9a5092c937dc4c697b7c8817f7b3dd1070fc664251cedc",
+          "bin/javac": "f2b90483095f3379d121b450102cf940c26671fea21100a7b1fff7cc2d4d98d4",
+          "bin/javadoc": "2bfa096e766c321f96eafa606d0a22949b7fda3df606b1b944ca9470b56c2220",
+          "release": "3d933e5ea01c6d938e823139e01a4ff52bfd0196404dbf431a24196092120417"
+        },
+        "temurin23": {
+          "bin/java": "002cb71cc2dd7716167776eb646c924a03227f97b05c9e9bb3ab8963d74734a4",
+          "bin/javac": "8e40041ab3f50c16aeccf83dd43edc64c2ef9e8ed3ccff53efb2d463ba253966",
+          "bin/javadoc": "3434ea9f3abf9b47cc02314839ea137ab8608c86e9d2d3e1bdb8d1c31c6d4af0",
+          "release": "de143c55ed9d34bf8b3eec0d9167c4357774d17b082c3fb018f6ef4f00c290a5"
+        }
+      }
+    },
+    "linux-x86_64": {
+      "archives": [
+        {
+          "bytes": 1043211192,
+          "path": "workspace/gc9/x86_64/dist/ironwood-idk-0.6.2-gc9-local-linux-x86_64.tar.gz",
+          "qualification": "provisional pre-protection source; not final distribution acceptance",
+          "sha256": "fd22e0d05efb52bc03abbe78a578652bfb08d259a0050113e326d7323340ef03"
+        },
+        {
+          "bytes": 5476611,
+          "path": "workspace/gc9/x86_64/dist/ironwood-linux-x86_64.tar.gz",
+          "qualification": "provisional pre-protection source; not final distribution acceptance",
+          "sha256": "75ef113b45df04026e52e18ee633fcb0ede7f3de4bab647c2bbdcfce324291b9"
+        }
+      ],
+      "execution": "Rosetta translation on ARM hardware; hardware gate open",
+      "sdk": {
+        "configuration": {
+          "archive.sha256": "42e5194ad06ab6ffb806c83eb99c03462b495d979cda782f3c72c08af833cd4e",
+          "endianness": "little",
+          "foreign.roots.version": 3,
+          "foreign.runtime.owner.version": 2,
+          "foreign.segments.version": 1,
+          "pointer.width": 64,
+          "recipe.sha256": "c566b921b518f51a6a5994db0fea5037f59c24c5b37e0791ed3b03738d7da2dd",
+          "roots.version": 2,
+          "runtime.owner.version": 1,
+          "statepoint.pass.sha256": "e02de411d077b3519655d8fd547b98ef72a11b06420fa94788d1d650733de50e",
+          "system": {
+            "sysroot.package": "sysroot_linux-64",
+            "sysroot.record.sha256": "82573c10a11db164255da8c2d7fe5a254e46db1e8771866b84c6a1f63ad4a070",
+            "sysroot.version": "2.17"
+          },
+          "target.data-layout": "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128",
+          "target.triple": "x86_64-unknown-linux-gnu"
+        },
+        "configuration_sha256": "b147ad665f5c5639127bf333342034717793c4e9f53d52680597a39069e0b827",
+        "manifest_sha256": "71c3d13e4ea18b75274d2b69f1b7572593740f341fcb50719429e809b30477c5",
+        "payloads_sha256": {
+          "adapter.o": "47984ddf37bec63355fd749fa67b88270fefa32f8413e218635228c3d0a612c2",
+          "build.properties": "aa88283279f5bff98871d55dba6953df10159797500f727c61a945f1ae0f9957",
+          "compiler/src/main/cpp/GcNonmovingStatepoints.cpp": "e02de411d077b3519655d8fd547b98ef72a11b06420fa94788d1d650733de50e",
+          "configuration-audit.json": "5bede15644ae194488fc68e5e788308e85de436b20df1f597ba06bead77a8a9b",
+          "configuration.json": "b147ad665f5c5639127bf333342034717793c4e9f53d52680597a39069e0b827",
+          "include/config.h": "1cabd1f7524d28ccf2a16c476aa674eb1758fbf33b29eb280e2f073ef0358a62",
+          "include/gc/cord.h": "1830d4eaa868ea2f15873659f0a2838c3309b9b32b912fc6c68f9e007827c6c6",
+          "include/gc/cord_pos.h": "f46fba45f62f97351eb1dd748ccaa1f55cc0a72272e07a788c351146411efc9d",
+          "include/gc/ec.h": "8bc9c2f888c3f3ef3464b851ff24f8be90672b13990e05cf88a4d906e7f516ba",
+          "include/gc/gc.h": "02cfecefca6aca4bf59280aaa3f967fff862857d087e5e8987f3db8bda6ed3f2",
+          "include/gc/gc_allocator.h": "b2a281c01c85af83007c859a62ed85413d4eb9ab892a26487b7a9aa5be97e90a",
+          "include/gc/gc_backptr.h": "6c2ecdc5fdcca5019a904179a2eb95805f8ff60482f2a429bdc5fd67957d1c95",
+          "include/gc/gc_config_macros.h": "1321e010e0c1c22123fe0af5fc72d2065cf098d3c09b0cf76535cb8c3ea04230",
+          "include/gc/gc_cpp.h": "86534282e80e6d9bcd9e15cebfccc002ee8c8a8d52a42ad5b2378712d0743750",
+          "include/gc/gc_disclaim.h": "ff742436ba82f7157e3ae270f2b8d22f53f9fd2611b941d4310a41cc1ea2a5df",
+          "include/gc/gc_gcj.h": "87c8493463ff62edc7faa256f03e3a24cdf8b9375e3a0d3298530bdf74d95005",
+          "include/gc/gc_inline.h": "d032a0b1e8891dd25b6c3673b58fac6ddcb059e01285696a6878ef9c022f14df",
+          "include/gc/gc_mark.h": "5cac8cf04cee93b1186a5a50e2980b780dbd0717cd42e4511a170f33156329f5",
+          "include/gc/gc_pthread_redirects.h": "e68ce92ca0280b42bb1a0db62357e883d3e37235d18c2bd0d3ad6bd59209b09b",
+          "include/gc/gc_tiny_fl.h": "c0dfbd526405ae28e108b608dd2c77e2dbe2858cbeb880d2d67749fd04a49bc5",
+          "include/gc/gc_typed.h": "fa7910da9155fb836d48ac9723b239dfe10d64b414d90801d5b9d72a64877d0c",
+          "include/gc/gc_version.h": "a45df41e4a6615f00e6991b7e67151d73e0f593bc1112463568a7eff45470e28",
+          "include/gc/javaxfc.h": "1a89edc382dbc9e2c7d3a6bcf749ec71411c9c45f2da96b63efaf3cc1d8bbaba",
+          "include/gc/leak_detector.h": "7b36b85eb6cf5478758884981b4c4d92192da61fb74483f0101acf1b11866659",
+          "include/ironwood_gc_configuration.h": "843a55486504d9debbdb427090a7f860ee662a7a725e8f2b41b2c92e71e67d53",
+          "lib/libgc.a": "83a3bd26b2bb8ff58ca3d4e422c928b11833bde1e984704534ae60c980cfbba3",
+          "lib/libironwood_gc_engine.a": "4b255dc2c6f454fc504d2d32e9dca1660724fc2caa0229fd3ab908c33e630369",
+          "licenses/BDWGC-NOTICES.txt": "7c4e37589e956dae4872387ef1a295f16e24c8ebc47b8f1c1330d7422b87b399",
+          "packaging/bdwgc.json": "9fe371a0e50a11fee89f13fa78333cc2ab13b6f8391669f9589e9091ccf9504e",
+          "runtime/include/ironwood_gc_engine.h": "8dc4b0ea6b343e46aa8ef2b5877292e27d552e88456b3995e05d9ffe1a235f66",
+          "runtime/include/ironwood_gc_roots.h": "3b8ac7e9a44a14c42c611cb792966c088c8764340a8adb6895a4d1e649b0f97d",
+          "runtime/include/ironwood_runtime.h": "cd034e8edbf202babfc8694cc57b28838593a59da14d62e0166475622775aa9d",
+          "runtime/src/ironwood_gc_engine.c": "6c103d7fcd8fc4b208f35a8fe929fd91eb866c04c839456d78c859063d08cbcf",
+          "runtime/src/ironwood_gc_roots.c": "4415ee6e00d41936764fa1f72a545bef7491bceb06a8e686fc3f2ee7c14a90e6",
+          "runtime/src/ironwood_runtime.c": "4e82bfc7c4b9943e4f4ec532374e6255c214fea05643053de7b6a6199e5aaef3",
+          "scripts/prepare-gc.py": "c566b921b518f51a6a5994db0fea5037f59c24c5b37e0791ed3b03738d7da2dd",
+          "sources/gc-8.2.12.tar.gz": "42e5194ad06ab6ffb806c83eb99c03462b495d979cda782f3c72c08af833cd4e"
+        },
+        "source_inputs_sha256": {
+          "compiler/src/main/cpp/GcNonmovingStatepoints.cpp": "e02de411d077b3519655d8fd547b98ef72a11b06420fa94788d1d650733de50e",
+          "runtime/include/ironwood_gc_engine.h": "8dc4b0ea6b343e46aa8ef2b5877292e27d552e88456b3995e05d9ffe1a235f66",
+          "runtime/include/ironwood_gc_roots.h": "3b8ac7e9a44a14c42c611cb792966c088c8764340a8adb6895a4d1e649b0f97d",
+          "runtime/include/ironwood_runtime.h": "cd034e8edbf202babfc8694cc57b28838593a59da14d62e0166475622775aa9d",
+          "runtime/src/ironwood_gc_engine.c": "6c103d7fcd8fc4b208f35a8fe929fd91eb866c04c839456d78c859063d08cbcf",
+          "runtime/src/ironwood_gc_roots.c": "4415ee6e00d41936764fa1f72a545bef7491bceb06a8e686fc3f2ee7c14a90e6",
+          "runtime/src/ironwood_runtime.c": "4e82bfc7c4b9943e4f4ec532374e6255c214fea05643053de7b6a6199e5aaef3"
+        }
+      },
+      "tool_payloads_sha256": {
+        "llvm": {
+          "bin/clang": "58cfd12434b62655ac4dfc3c4639c6d3b7627953ca121cbdbd8db8caea7c6fbf",
+          "bin/ld.lld": "6b57f65ad0b505992c55f961ddb3c80f616fe4bd4be7e6150326d78389ed7d75",
+          "bin/llc": "0e448532695fca306d9503a6cb2f08bb131b72befd11f9b7763da9f06d80285f",
+          "bin/llvm-as": "52e705dc9ef091e1181fa78fd87288b6aa8ac792a0171ff397b8e2999e469d4b",
+          "bin/llvm-objcopy": "626e896775dbab0c72b6a2e7c680a56ab3300ec57415cd69765f6c8339e19ff2",
+          "bin/llvm-readelf": "6acc17f18c9535f7bb8ab7251a769f6b886c56140f2640843c78547a2af82f9f",
+          "bin/opt": "527522990b5fa44a680ad36b1b5b7d4bd9ebea106ef6a754417a1b0adcf9b5ac",
+          "lib/libLLVM.so": "b4efaa390fb0d070b8415885b850ed082e642419a1b79c2426a33b67988b081a"
+        },
+        "source_java": {
+          "bin/java": "dbe310905f511a3ba1a5f440558883846d56f4db6525b3ce25d64783cd7ed489",
+          "bin/javac": "4fa7d108d697b5c3cbe15678c3ad6003f612a481c6229b143cc30a80e8c638b7",
+          "bin/javadoc": "29aeb2e9a64504457aafbe749c157c8262fd19bdec479cedfb5099424c740ef9",
+          "release": "054db9f09bd3518a7f26df83ec7136c0492fd11520e9954d16a081b530b3e558"
+        },
+        "temurin23": {
+          "bin/java": "39651cd982b259de1dbe6860fd1f8d5388ce2bab9fb0ca0b34a16aa81b3f485c",
+          "bin/javac": "e4d212d299ba5d23e31d687d50f01d3fbab4a1baadc0b2b050c670ae7baa9b2f",
+          "bin/javadoc": "d2d6a3a6e7e42b4ec0216189e99efc0daf23768aa16bd101ec8e513bb460edde",
+          "release": "9badf708cd8e08dbf3db2eb3117e471fc00912774e80d9f8669537e4244cbcdf"
+        }
+      }
+    },
+    "macos-arm64": {
+      "archives": [
+        {
+          "bytes": 543623874,
+          "path": "workspace/gc9/macos/dist/ironwood-idk-0.6.2-gc9-local-macos-arm64.tar.gz",
+          "qualification": "final runtime/compiler source; documentation finalized separately",
+          "sha256": "632ae4c5ae25fc440a8b0b63ac7e4792ff273f7797819c79ef1dfe245e57b9d4"
+        },
+        {
+          "bytes": 5474823,
+          "path": "workspace/gc9/macos/dist/ironwood-macos-arm64.tar.gz",
+          "qualification": "final runtime/compiler source; documentation finalized separately",
+          "sha256": "6d1331562451650444e1797a901974687fe9d9619853b971193ea824c98ce471"
+        }
+      ],
+      "execution": "native",
+      "idk-smoke-qualified": {
+        "managed_bridge": {
+          "jar.sha256": "3616e0bbbb6caff4f4edf5a89c023320f64a28c8521ad46f958162e2d2b9d278",
+          "payloads.sha256": {
+            "META-INF/ironwood/bridge.properties": "3f6e58be0a2697877afda16594d7dbb06a7f6660ffa570030c8a392e8fcf802b",
+            "META-INF/ironwood/native/macos-arm64/1e35ed0d5b377702d57c7943027a97e9c8f6e62bb394280713cf2336d9b1d1e6/libbridge.dylib": "74c25058b5f509a0931e7573136e5aaa7b53898a9cf7e164f36b825d7d792f85",
+            "META-INF/ironwood/source/BDWGC/configurations/f6cdb6e12017ba8d203b7ab46c4f870585e4860c7f5de6ea88bad1c0d60b78ab/build.properties": "d4ab2d5c1ac5347b8df0c4e2573f3989976bc5f6f0c595232217d200eb0ea8f8",
+            "META-INF/ironwood/source/BDWGC/configurations/f6cdb6e12017ba8d203b7ab46c4f870585e4860c7f5de6ea88bad1c0d60b78ab/configuration.json": "f6cdb6e12017ba8d203b7ab46c4f870585e4860c7f5de6ea88bad1c0d60b78ab"
+          }
+        },
+        "native_artifacts": {
+          "archive": {
+            "bytes": 437968,
+            "collector_manifest_sha256": "1a03c928911aadd3183db83361bf9937785e84e3d6b6923d8b53b014490e6b29",
+            "sha256": "be6db4a6b700398fba14e800e9487e77c85192f2fb76c2e18ac39f2c96b5644d"
+          },
+          "class": {
+            "bytes": 437968,
+            "collector_manifest_sha256": "1a03c928911aadd3183db83361bf9937785e84e3d6b6923d8b53b014490e6b29",
+            "sha256": "69cc7864ca92b31735d2385d0427b8407c2d40a89577306b4944807c72866978"
+          }
+        },
+        "report_sha256": "3130074060df14d7329c28b45439e7402c77c8fe2e86949d595c596c1af1d210",
+        "sdk_payloads_preserved": true
+      },
+      "idk_prepared_payloads": {
+        "ironwood-nonmoving-statepoints.properties": {
+          "bytes": 366,
+          "properties": {
+            "format": "1",
+            "llvm.version": "23.1.0",
+            "pass.binary.sha256": "804984e92547e0767397a23c62508f8f22fd7f7d92e57ca3487c8006113c2d29",
+            "pass.source.sha256": "e02de411d077b3519655d8fd547b98ef72a11b06420fa94788d1d650733de50e",
+            "producer.opt.sha256": "d57512a68f74234d4b454963d3b8a9f027dfccbcb8c46bf8cb6fcab8bd4e738d",
+            "target.arch": "aarch64",
+            "target.os": "Mac OS X"
+          },
+          "sha256": "e0690090a77815536809ad6c0d7bf480bdd461111f6a83691fdae0c0c17c8e1f"
+        },
+        "ironwood-nonmoving-statepoints.so": {
+          "bytes": 83312,
+          "sha256": "804984e92547e0767397a23c62508f8f22fd7f7d92e57ca3487c8006113c2d29"
+        },
+        "ironwoodc.jar": {
+          "bytes": 2018513,
+          "sha256": "38fceb882758b09ce183a7785f811acf9ad89f9b0103338807a6bf5087f6e79f"
+        }
+      },
+      "matching_producer_jar": {
+        "bytes": 5744049,
+        "sha256": "d86bae68076173ba7decf46e7cfdfc593a8df54ed30995beb5d20024a44bc014"
+      },
+      "package-smoke-qualified": {
+        "managed_bridge": {
+          "jar.sha256": "181fc320ee527f8817ec367cd1d3fdc12ecb7c43fd1043431fc5165aceda4e30",
+          "payloads.sha256": {
+            "META-INF/ironwood/bridge.properties": "64c6c27b74d70c2441deaf4b60a6a12aed1e423b34c168766df777ab614b4593",
+            "META-INF/ironwood/native/macos-arm64/4a85d6cb8adb2994736127921d232d511c036fdf35d78e698454cde55a70179e/libbridge.dylib": "8748b40dd07772abb34b2c28e28f84c514e78e3d1da68201c9396d2277bbc0fe",
+            "META-INF/ironwood/source/BDWGC/configurations/f6cdb6e12017ba8d203b7ab46c4f870585e4860c7f5de6ea88bad1c0d60b78ab/build.properties": "d4ab2d5c1ac5347b8df0c4e2573f3989976bc5f6f0c595232217d200eb0ea8f8",
+            "META-INF/ironwood/source/BDWGC/configurations/f6cdb6e12017ba8d203b7ab46c4f870585e4860c7f5de6ea88bad1c0d60b78ab/configuration.json": "f6cdb6e12017ba8d203b7ab46c4f870585e4860c7f5de6ea88bad1c0d60b78ab"
+          }
+        },
+        "native_artifacts": {
+          "archive": {
+            "bytes": 437968,
+            "collector_manifest_sha256": "1a03c928911aadd3183db83361bf9937785e84e3d6b6923d8b53b014490e6b29",
+            "sha256": "41b35077dec2ab6a507c532c91f0823833acbe50d5eb1daac4894a36bdd0e710"
+          },
+          "class": {
+            "bytes": 437968,
+            "collector_manifest_sha256": "1a03c928911aadd3183db83361bf9937785e84e3d6b6923d8b53b014490e6b29",
+            "sha256": "2ec589ec1b88f7157dbea35e12a94c4ffe0762ef22539eccbf902aca1f597cf2"
+          }
+        },
+        "report_sha256": "2ac97356362903f523190d01190b1c213b115974b7891332e1d948d258a058d8",
+        "sdk_payloads_preserved": true
+      },
+      "sdk": {
+        "configuration": {
+          "archive.sha256": "42e5194ad06ab6ffb806c83eb99c03462b495d979cda782f3c72c08af833cd4e",
+          "endianness": "little",
+          "foreign.roots.version": 3,
+          "foreign.runtime.owner.version": 2,
+          "foreign.segments.version": 1,
+          "pointer.width": 64,
+          "recipe.sha256": "c566b921b518f51a6a5994db0fea5037f59c24c5b37e0791ed3b03738d7da2dd",
+          "roots.version": 2,
+          "runtime.owner.version": 1,
+          "statepoint.pass.sha256": "e02de411d077b3519655d8fd547b98ef72a11b06420fa94788d1d650733de50e",
+          "system": {
+            "deployment": "14.0",
+            "sdk.settings.sha256": "82165b15ee21419d4cffaba8895797391b908ac9499ba70f561f3e1bd16758d6",
+            "sdk.version": "27.2"
+          },
+          "target.data-layout": "e-m:o-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-n32:64-S128-Fn32",
+          "target.triple": "arm64-apple-macosx14.0.0"
+        },
+        "configuration_sha256": "f6cdb6e12017ba8d203b7ab46c4f870585e4860c7f5de6ea88bad1c0d60b78ab",
+        "manifest_sha256": "1a03c928911aadd3183db83361bf9937785e84e3d6b6923d8b53b014490e6b29",
+        "payloads_sha256": {
+          "adapter.o": "d607151187072c5e3cf71cceda0430b9ab230b309d5683d11f18df0b8ab4dc41",
+          "build.properties": "d4ab2d5c1ac5347b8df0c4e2573f3989976bc5f6f0c595232217d200eb0ea8f8",
+          "compiler/src/main/cpp/GcNonmovingStatepoints.cpp": "e02de411d077b3519655d8fd547b98ef72a11b06420fa94788d1d650733de50e",
+          "configuration-audit.json": "0a4c4d7044941138b175d89a95cca85f2d3ef3c214114f99a7a830097013d404",
+          "configuration.json": "f6cdb6e12017ba8d203b7ab46c4f870585e4860c7f5de6ea88bad1c0d60b78ab",
+          "include/config.h": "76cbbe2419a8f2791c8a49b47a83a9389160b4222841fd0c58f2ba662ddbf82e",
+          "include/gc/cord.h": "1830d4eaa868ea2f15873659f0a2838c3309b9b32b912fc6c68f9e007827c6c6",
+          "include/gc/cord_pos.h": "f46fba45f62f97351eb1dd748ccaa1f55cc0a72272e07a788c351146411efc9d",
+          "include/gc/ec.h": "8bc9c2f888c3f3ef3464b851ff24f8be90672b13990e05cf88a4d906e7f516ba",
+          "include/gc/gc.h": "02cfecefca6aca4bf59280aaa3f967fff862857d087e5e8987f3db8bda6ed3f2",
+          "include/gc/gc_allocator.h": "b2a281c01c85af83007c859a62ed85413d4eb9ab892a26487b7a9aa5be97e90a",
+          "include/gc/gc_backptr.h": "6c2ecdc5fdcca5019a904179a2eb95805f8ff60482f2a429bdc5fd67957d1c95",
+          "include/gc/gc_config_macros.h": "1321e010e0c1c22123fe0af5fc72d2065cf098d3c09b0cf76535cb8c3ea04230",
+          "include/gc/gc_cpp.h": "86534282e80e6d9bcd9e15cebfccc002ee8c8a8d52a42ad5b2378712d0743750",
+          "include/gc/gc_disclaim.h": "ff742436ba82f7157e3ae270f2b8d22f53f9fd2611b941d4310a41cc1ea2a5df",
+          "include/gc/gc_gcj.h": "87c8493463ff62edc7faa256f03e3a24cdf8b9375e3a0d3298530bdf74d95005",
+          "include/gc/gc_inline.h": "d032a0b1e8891dd25b6c3673b58fac6ddcb059e01285696a6878ef9c022f14df",
+          "include/gc/gc_mark.h": "5cac8cf04cee93b1186a5a50e2980b780dbd0717cd42e4511a170f33156329f5",
+          "include/gc/gc_pthread_redirects.h": "e68ce92ca0280b42bb1a0db62357e883d3e37235d18c2bd0d3ad6bd59209b09b",
+          "include/gc/gc_tiny_fl.h": "c0dfbd526405ae28e108b608dd2c77e2dbe2858cbeb880d2d67749fd04a49bc5",
+          "include/gc/gc_typed.h": "fa7910da9155fb836d48ac9723b239dfe10d64b414d90801d5b9d72a64877d0c",
+          "include/gc/gc_version.h": "a45df41e4a6615f00e6991b7e67151d73e0f593bc1112463568a7eff45470e28",
+          "include/gc/javaxfc.h": "1a89edc382dbc9e2c7d3a6bcf749ec71411c9c45f2da96b63efaf3cc1d8bbaba",
+          "include/gc/leak_detector.h": "7b36b85eb6cf5478758884981b4c4d92192da61fb74483f0101acf1b11866659",
+          "include/ironwood_gc_configuration.h": "f130431c45bbb3f59aa36aff7bab2c2751d3d032675e6021d60560fe65097126",
+          "lib/libgc.a": "a2ba905dda9fac9b15e1fe7f0fa7b2049c8c06623cdac30c0de2f628d9e59335",
+          "lib/libironwood_gc_engine.a": "9dab13311e05993f03ca306b2d4d80372aee71f73b1f7869aa54009f474eb7cd",
+          "licenses/BDWGC-NOTICES.txt": "7c4e37589e956dae4872387ef1a295f16e24c8ebc47b8f1c1330d7422b87b399",
+          "packaging/bdwgc.json": "9fe371a0e50a11fee89f13fa78333cc2ab13b6f8391669f9589e9091ccf9504e",
+          "runtime/include/ironwood_gc_engine.h": "8dc4b0ea6b343e46aa8ef2b5877292e27d552e88456b3995e05d9ffe1a235f66",
+          "runtime/include/ironwood_gc_roots.h": "3b8ac7e9a44a14c42c611cb792966c088c8764340a8adb6895a4d1e649b0f97d",
+          "runtime/include/ironwood_runtime.h": "cd034e8edbf202babfc8694cc57b28838593a59da14d62e0166475622775aa9d",
+          "runtime/src/ironwood_gc_engine.c": "6c103d7fcd8fc4b208f35a8fe929fd91eb866c04c839456d78c859063d08cbcf",
+          "runtime/src/ironwood_gc_roots.c": "4415ee6e00d41936764fa1f72a545bef7491bceb06a8e686fc3f2ee7c14a90e6",
+          "runtime/src/ironwood_runtime.c": "4e82bfc7c4b9943e4f4ec532374e6255c214fea05643053de7b6a6199e5aaef3",
+          "scripts/prepare-gc.py": "c566b921b518f51a6a5994db0fea5037f59c24c5b37e0791ed3b03738d7da2dd",
+          "sources/gc-8.2.12.tar.gz": "42e5194ad06ab6ffb806c83eb99c03462b495d979cda782f3c72c08af833cd4e"
+        },
+        "source_inputs_sha256": {
+          "compiler/src/main/cpp/GcNonmovingStatepoints.cpp": "e02de411d077b3519655d8fd547b98ef72a11b06420fa94788d1d650733de50e",
+          "runtime/include/ironwood_gc_engine.h": "8dc4b0ea6b343e46aa8ef2b5877292e27d552e88456b3995e05d9ffe1a235f66",
+          "runtime/include/ironwood_gc_roots.h": "3b8ac7e9a44a14c42c611cb792966c088c8764340a8adb6895a4d1e649b0f97d",
+          "runtime/include/ironwood_runtime.h": "cd034e8edbf202babfc8694cc57b28838593a59da14d62e0166475622775aa9d",
+          "runtime/src/ironwood_gc_engine.c": "6c103d7fcd8fc4b208f35a8fe929fd91eb866c04c839456d78c859063d08cbcf",
+          "runtime/src/ironwood_gc_roots.c": "4415ee6e00d41936764fa1f72a545bef7491bceb06a8e686fc3f2ee7c14a90e6",
+          "runtime/src/ironwood_runtime.c": "4e82bfc7c4b9943e4f4ec532374e6255c214fea05643053de7b6a6199e5aaef3"
+        }
+      },
+      "tool_payloads_sha256": {
+        "apple_linker_sha256": "7f7041b1bb30e5e6a815a55edf374065d5c82e1ab93f84d5b6ed5656ded24bcf",
+        "idk_tools": {
+          "bin/clang": "38b4ec114a964fe3d6d07ba9f377f3b2d231b5ee5a0466685776edadfb259dad",
+          "bin/llc": "3fa356b6730c402981bbedb3ea71179fe938789e8441104ab3389dd7282691b5",
+          "bin/llvm-as": "538efa3dc89d8818b85e8482b22a3d7143af09cc7dbd570f5adef91662df04c6",
+          "bin/opt": "d57512a68f74234d4b454963d3b8a9f027dfccbcb8c46bf8cb6fcab8bd4e738d",
+          "lib/jvm/bin/java": "ec64ac719290ad080c7f8a4f5d83402e4152f98f486fe14150cf734a46ebcbb1",
+          "lib/jvm/bin/javadoc": "7eff6eac57dce4f51508480e05e9ad7f43a7db4271d78dee9459d89975b5b007",
+          "lib/jvm/release": "55832773a853df87e6e281bd7b35c0316a8e6c1d28919097c807c5d17e4a6d25"
+        },
+        "llvm": {
+          "bin/clang": "4e4fd968922cd634ebb6445325703a6276effde7b39337a6a9ff40b3b0c657b8",
+          "bin/llc": "68ec93686ac68bb70b93fa413bf2a9696face192bb949043734fb1053094c793",
+          "bin/llvm-as": "6397ea4fd2917de4ff86d0a01a3a729ebe17026195248cc92439c2d1fa26591d",
+          "bin/llvm-objcopy": "062537ef66839da7afc09b75cc09f89c8c392b5574278b230244cba56327e029",
+          "bin/llvm-readelf": "9ff1c0f23cd0809ff80e33cdf2ccbf11868027977f3b574d0388c3e2e8618a3c",
+          "bin/opt": "bc0c3344c3ce3c5c9614d2f132836c9e590304e2021b104433992cbf75e6d71c",
+          "lib/libLLVM.dylib": "407f3a39e56a727ea161e95767eafd96bdcd09071638f583beff0106bffa34f5"
+        },
+        "source_java": {
+          "bin/java": "00e1f85b58fbb7b9e28c78740288028fc3d5146fc2810b78fe4f1a3ed7765d98",
+          "bin/javac": "7c23e4d156cf9787bc072ddb6c851aec909d0581638cef021d7771b37adf1ce8",
+          "bin/javadoc": "e7bf8f97bb2633bec38512d8baf8015ed8792d4ee77f12c4c35cd802b89ef2f5",
+          "release": "bdf88ef645f2bbc753189e9bafcc1ee76909a770ba91095e6fd3db7b157ac805"
+        },
+        "temurin23": {
+          "bin/java": "bf6082c544c3d7e5d303f5f7900c9a58efdd5cccc0384be2c528e2b21127089c",
+          "bin/javac": "4cd70a9da91d8508d02a0d049a276f71dc1326115ae7c1c3306568d4ac45262b",
+          "bin/javadoc": "c869fc3545e0a98995f08ed3db7f22aa9c284de04c647e1e79fad9d0b4f6bc2b",
+          "release": "9c6cad97ebabeb255c73e1b07eb342dd6691f4ad77dd22751b04534960e4e46b"
+        }
+      }
+    }
+  }
+}

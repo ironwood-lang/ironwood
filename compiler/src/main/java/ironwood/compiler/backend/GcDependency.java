@@ -19,7 +19,8 @@ record GcDependency(Path home, List<String> compileFlags, List<String> linkFlags
         if (override != null && override.isBlank()) throw failure("IRONWOOD_GC_HOME is empty");
         String os = System.getProperty("os.name"), arch = System.getProperty("os.arch");
         String platform = os.startsWith("Mac") && arch.equals("aarch64") ? "macos-arm64"
-                : os.equals("Linux") && arch.equals("amd64") ? "linux-x86_64" : "unqualified";
+                : os.equals("Linux") && arch.equals("amd64") ? "linux-x86_64"
+                : os.equals("Linux") && arch.equals("aarch64") ? "linux-arm64" : "unqualified";
         Properties qualified = read(distribution.resolve("packaging/bdwgc-qualified.properties"));
         Properties build = read(home.resolve("build.properties"));
         var profile = qualifiedProfile(qualified, platform, build.getProperty("configuration.sha256"));
@@ -76,7 +77,8 @@ record GcDependency(Path home, List<String> compileFlags, List<String> linkFlags
             if (!profile.matchesSystemInput(TlsDependency.sha256(sdk.resolve("SDKSettings.json")))) throw failure("unqualified Apple SDK");
             compile.addAll(List.of("-isysroot", sdk.toString(), "-mmacosx-version-min=14.0"));
         } else {
-            Path sdk = toolchain.home().resolve("x86_64-conda-linux-gnu/sysroot");
+            boolean arm = platform.equals("linux-arm64");
+            Path sdk = toolchain.home().resolve((arm ? "aarch64" : "x86_64") + "-conda-linux-gnu/sysroot");
             Path featuresPath = sdk.resolve("usr/include/features.h");
             if (!Files.isRegularFile(featuresPath)) throw failure("glibc 2.17 sysroot missing");
             String features = Files.readString(featuresPath);
@@ -86,7 +88,7 @@ record GcDependency(Path home, List<String> compileFlags, List<String> linkFlags
             }
             List<Path> records;
             try (var files = Files.list(toolchain.home().resolve("conda-meta"))) {
-                records = files.filter(path -> path.getFileName().toString().startsWith("sysroot_linux-64-"))
+                records = files.filter(path -> path.getFileName().toString().startsWith(arm ? "sysroot_linux-aarch64-" : "sysroot_linux-64-"))
                         .filter(path -> path.toString().endsWith(".json")).toList();
             }
             if (records.size() != 1 || !profile.matchesSystemInput(TlsDependency.sha256(records.getFirst()))) {
@@ -114,7 +116,7 @@ record GcDependency(Path home, List<String> compileFlags, List<String> linkFlags
     static QualifiedProfile qualifiedProfile(Properties qualified, String platform, String identity) throws IOException {
         List<String> profiles = platform.equals("linux-x86_64")
                 ? List.of(platform, platform + ".native-host")
-                : platform.equals("macos-arm64") ? List.of(platform) : List.of();
+                : List.of("macos-arm64", "linux-arm64").contains(platform) ? List.of(platform) : List.of();
         if (identity != null && identity.matches("[a-f0-9]{64}")) {
             for (String prefix : profiles) {
                 if (!identity.equals(qualified.getProperty(prefix + ".configuration.sha256"))) continue;

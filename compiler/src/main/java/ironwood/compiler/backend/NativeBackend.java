@@ -32,7 +32,9 @@ public final class NativeBackend {
         boolean macho = target.triple().startsWith("arm64-apple-macosx")
                 && target.dataLayout().equals("e-m:o-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-n32:64-S128-Fn32");
         boolean elf = target.triple().equals("x86_64-unknown-linux-gnu")
-                && target.dataLayout().equals("e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128");
+                && target.dataLayout().equals("e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128")
+                || target.triple().equals("aarch64-unknown-linux-gnu")
+                && target.dataLayout().equals("e-m:e-p270:32:32-p271:32:32-p272:64:64-i8:8:32-i16:16:32-i64:64-i128:128-n32:64-S128-Fn32");
         if (!macho && !elf) {
             return new LinkResult(false, "GC3 native root reader is not qualified for " + target.triple());
         }
@@ -219,7 +221,7 @@ public final class NativeBackend {
                     runtime.source().orElseThrow().getParent().getParent().getParent(), toolchain) : null;
             Path distribution = runtime.source().orElseThrow().getParent().getParent().getParent();
             GcDependency gc = GcDependency.discover(distribution, toolchain);
-            BridgeNativeSupport bridgeSupport = shared && System.getProperty("os.name").startsWith("Linux")
+            BridgeNativeSupport bridgeSupport = System.getProperty("os.name").startsWith("Linux")
                     ? BridgeNativeSupport.discover(toolchain) : null;
             MacNativeTools macTools = System.getProperty("os.name").startsWith("Mac")
                     ? selectedMacTools == null ? MacNativeTools.discover() : selectedMacTools : null;
@@ -280,15 +282,7 @@ public final class NativeBackend {
                 return new LinkResult(false, "cannot finalize stack-trace metadata: "
                         + exception.getMessage());
             }
-            Path plugin = temporaryDirectory.resolve("nonmoving-statepoints.so");
-            var passBuild = new java.util.ArrayList<>(List.of(toolchain.clang().toString(), "--driver-mode=g++"));
-            if (System.getProperty("os.name").equals("Linux")) passBuild.addAll(List.of("--no-default-config", "--gcc-toolchain=/usr", "--sysroot=/"));
-            passBuild.addAll(List.of("-std=c++17", "-fno-exceptions", "-fPIC", "-shared", "-O2",
-                    "-I" + toolchain.home().resolve("include"), "-L" + toolchain.home().resolve("lib"),
-                    "-Wl,-rpath," + toolchain.home().resolve("lib"), "-lLLVM",
-                    distribution.resolve("compiler/src/main/cpp/GcNonmovingStatepoints.cpp").toString(), "-o", plugin.toString()));
-            LinkResult pass = run("required nonmoving statepoint pass build", passBuild);
-            if (!pass.success()) return pass;
+            Path plugin = NonmovingStatepointPass.select(toolchain, distribution, temporaryDirectory, macTools);
             Path rooted = temporaryDirectory.resolve("program.roots.ll");
             LinkResult rewrite = run("required nonmoving statepoints and final verification", List.of(toolchain.opt().toString(),
                     "-load-pass-plugin=" + plugin, "-passes=ironwood-nonmoving-statepoints,verify", "-S",
@@ -400,6 +394,9 @@ public final class NativeBackend {
                 linkCommand.add(tlsObject.toString());
                 linkCommand.addAll(tls.linkFlags());
             }
+            // TLS inputs may have an older component floor. Every managed image
+            // still needs the collector's qualified macOS deployment minimum.
+            if (macTools != null) linkCommand.add("-mmacosx-version-min=14.0");
             linkCommand.addAll(List.of(System.getProperty("os.name").startsWith("Mac")
                     ? "-Wl,-dead_strip" : "-Wl,--gc-sections", "-o", output.toString()));
             LinkResult linked = run("native link", linkCommand);

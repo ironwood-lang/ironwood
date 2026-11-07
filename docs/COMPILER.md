@@ -10,8 +10,10 @@ Historical proof discussions and examples mentioning those removed forms are
 superseded by the completed GC7 consumer migration, not alternate supported semantics.
 Managed bridge output requires [GC6 admission and isolated images](GC6_IMPLEMENTATION.md),
 root ABI 3 / owner ABI 2 and schema 2. macOS arm64 and Linux x86-64 are qualified.
-Ordinary executables retain root ABI 2 / owner ABI 1. Linux arm64 and arm64e remain
-unqualified. Historical manual bridge ownership descriptions are superseded by
+Ordinary executables retain root ABI 2 / owner ABI 1. The
+[GC9 checkpoint](GC9_IMPLEMENTATION.md) adds matching-hardware Linux arm64
+qualification. arm64e stays unsupported and the current Linux x86-64 hardware
+distribution gate stays open. Historical manual bridge ownership descriptions are superseded by
 the GC6 handle/registration projection.
 
 ## Launcher JVM configuration
@@ -92,6 +94,12 @@ and foreign segments refuse admission. Linux arm64 remains unqualified. See the
 separate [Linux x86-64 record](GC4_LINUX_X86_64_QUALIFICATION.md). On Linux the
 host-only pass build explicitly selects installed GCC development headers with
 `--gcc-toolchain=/usr`; generated code and the C runtime retain the pinned SDK.
+These are historical GC4 limits. GC9 implements the Linux arm64 reader and
+prepares the unchanged pass in IDKs with verified source, payload and host
+identity. Relocated IDK links load that pass without host C++ headers. Mach-O
+root maps reside in dyld-protected `__DATA_CONST`; startup requires function
+starts to delimit the exact native boundary even when compact unwind coalesces
+adjacent C functions.
 
 ## Managed Java Bridge producer
 

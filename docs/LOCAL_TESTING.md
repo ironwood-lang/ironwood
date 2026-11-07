@@ -60,7 +60,21 @@ an unfiltered suite.
 GC SDK input hashes must match the checkout. After a verified input changes,
 prepare a fresh SDK and qualify its identity instead of copying old payloads.
 See [GC7 verification](GC7_IMPLEMENTATION.md) for exact executed selections and
-remaining platform gates. Linux arm64 and arm64e remain unqualified.
+remaining platform gates. The [GC9 checkpoint](GC9_IMPLEMENTATION.md) adds Linux
+arm64 on matching hardware; arm64e remains unqualified. Keep the bridge hardware
+evidence rules below when interpreting translated x86-64 results.
+
+`test-package.sh ARCHIVE --gc9 OUTPUT` and `test-idk.sh ARCHIVE --gc9 OUTPUT`
+select focused GC distribution checks without invoking compiler suites. The
+default package smoke selections remain intact. The GC9 driver clears development
+overrides, checks relocation and SDK payloads, links class/archive inputs and
+loads real managed bridges. On Linux it also executes through the pinned glibc
+2.17 loader/libraries on the current kernel, which is not an older-OS claim.
+The Mach-O root driver adds `--case readonly-map`, `writable-map`,
+`missing-boundaries` and `bad-boundaries`: actual store protection,
+dyld/runtime refusal and stripped/malformed exact
+native-boundary metadata. Native children retain the 60-second/16 GiB bounds;
+archive orchestration needs its separately bounded packaging stage.
 
 ## Maintained consumer checks
 

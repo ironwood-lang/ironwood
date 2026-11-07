@@ -9,14 +9,17 @@ use one exact managed model with explicit synchronous Memory.collect(). See
 [the GC5 report](GC5_IMPLEMENTATION.md). [GC6](GC6_IMPLEMENTATION.md) completes
 managed bridges on those two targets with exact foreign/suspended roots, generated
 handle/registration lifetimes, explicit JNI cleanup and private collector images.
-Linux arm64 and arm64e remain gated. [GC7](GC7_IMPLEMENTATION.md) completes
+GC6 left Linux arm64 and arm64e gated; the GC9 checkpoint below adds Linux arm64.
+[GC7](GC7_IMPLEMENTATION.md) completes
 repository consumer migration and structural retirement: no managed-free proof
 fixed point, legacy reclamation IR or alternate bridge memory path remains.
 See its [disposition ledger](GC7_DISPOSITION.md) and compact verification.
 [GC8](GC8_IMPLEMENTATION.md) completes bounded native macOS arm64 critical-path
 and resident-memory qualification, extended by the separate
 [physical Linux x86-64 record](GC7_GC8_LINUX_X86_64_QUALIFICATION.md) with current
-GC7 consumer checks. GC9/GC10 and self-hosting remain unstarted.
+GC7 consumer checks. [GC9 is an incomplete local qualification checkpoint](GC9_IMPLEMENTATION.md),
+with Linux arm64 implementation and distribution repairs; its hardware exit
+criteria remain open. GC10 and self-hosting remain unstarted.
 
 The selected direction is BDWGC 8.2.12 with compiler-provided roots and exact
 layout metadata, synchronous `Memory.collect()`, removal of source `free` and
@@ -776,6 +779,14 @@ substituted for another target. Hosted release jobs and an unfiltered full
 compiler suite require a separate explicit request. No such job or suite is
 authorized by this milestone plan.
 
+**Local checkpoint, 2026-11-06:** see the [implementation/qualification report](GC9_IMPLEMENTATION.md)
+and [pre-change matrix](GC9_QUALIFICATION_PLAN.md). Linux arm64 now has matching-hardware
+execution, ELF root/suspended-frame support and real JVM evidence. Local SDK,
+native and IDK paths exercise exact identities, relocation and redistribution.
+Mach-O maps move into protected storage with exact native boundary extents.
+Translated x86-64 checks do not close its matching-hardware stack gate. GC9 is
+not complete and does not authorize GC10, self-hosting or a release.
+
 ### GC10. Accept the completed model and hand off
 
 Synchronize `MEMORY.md`, language/spec/compatibility docs, `COMPILER.md`, stdlib
@@ -859,6 +870,7 @@ GC0-GC8 are complete within their documented boundaries. Preserve exact native
 and suspended roots, runtime owners, independent handle/registration lifetimes,
 explicit resource closure, isolated images and configuration/payload/pass
 verification. Raw shared IR and unsupported foreign lifetimes refuse. Carry
-forward Linux arm64 and arm64e gates. The bounded GC9 handoff is broader native
-target and distribution qualification. GC8 changes no memory-model contract and
-makes no self-hosting capacity claim. GC9/GC10 and self-hosting remain unstarted.
+forward arm64e and unmatched-hardware gates. GC9 remains an incomplete target
+and distribution checkpoint, with details in its report. GC8 changes no
+memory-model contract and makes no self-hosting capacity claim. GC10 and
+self-hosting remain unstarted.

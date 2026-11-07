@@ -31,7 +31,7 @@ def main():
     parser.add_argument('--level', action='append', choices=('O0', 'O1', 'O2', 'O3'))
     parser.add_argument('--case', action='append', choices=CASES + ELF_CASES)
     args = parser.parse_args()
-    if args.target not in ('macos-arm64', 'linux-x86_64') or args.target != gc.host_target():
+    if args.target not in ('macos-arm64', 'linux-arm64', 'linux-x86_64') or args.target != gc.host_target():
         raise ValueError('unqualified native GC4 target: ' + args.target)
     if args.target == 'macos-arm64' and any(case in ELF_CASES for case in args.case or ()):
         raise ValueError('ELF-specific control requires a native Linux target')
