@@ -219,7 +219,6 @@ def contracts():
     source = source.replace("SocketOption<boolean>", "SocketOption<Boolean>")
     source = source.replace("public String valueKind()", "public Class<Boolean> type()").replace('return "boolean";', "return Boolean.class;")
     source = source.replace("public static int main(String[] args)", "public static void main(String[] args)").replace("        return 0;", "        return;")
-    source = "\n".join(line for line in source.splitlines() if not line.strip().startswith("free ")) + "\n"
     java_source = OUT / "Contracts.java"
     java_source.write_text(source)
     run("javac-contracts", ["javac", "--release", "21", "-d", OUT / "java-contracts", java_source])

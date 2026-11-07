@@ -29,7 +29,7 @@ class Parent {
         this.self = this;
         this.helper = new Helper(this.self);
         this.seen = this.self.marker;
-        // Every field is complete, so rollback destroys the owned helper.
+        // Completed fields remain an ordinary graph if the following call throws.
         this.helper.check(fail);
     }
 

@@ -94,7 +94,6 @@ def java_fixture(source, main):
     version = run("java-version", ["java", "-version"])
     assert re.search(r'version "21\.', version.stderr), "Put Java 21 first in PATH"
     text = (CASES / (source + ".iron")).read_text().replace("ironwood.net", "java.net").replace("ironwood.io", "java.io")
-    text = re.sub(r"\bfree [^;]+;", "", text)
     text = text.replace("public static int main(String[] args)", "public static void main(String[] args)")
     text = text.replace("        return 0;", "        return;")
     path = OUT / (main + ".java")

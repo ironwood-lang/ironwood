@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * ArrayList.sortWithComparator (B2): stable explicit-comparator sorting that
- * keeps the list's storage and frees its workspace. The call is not an audited
+ * keeps the list's storage and uses managed workspace. The call is not an audited
  * container method, so it conservatively exposes the stored items.
  */
 final class ListSortTests {

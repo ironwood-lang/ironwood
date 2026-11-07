@@ -6,7 +6,7 @@
 // non-executable file, a file of an unknown executable format, a shell
 // script and a missing directory. Each case prints one line with the scratch
 // path replaced by <s>; the test compares the lines. Paths come from the
-// arguments, so no case frees a String it placed in a command; the two cases
+// arguments; command arrays share their String references. The two cases
 // with fresh special Strings call the runner directly. Exit 42.
 import ironwood.io.FileInputStream;
 import ironwood.io.IOException;

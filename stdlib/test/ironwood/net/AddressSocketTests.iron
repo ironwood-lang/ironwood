@@ -146,8 +146,8 @@ public final class AddressSocketTests extends TestSuite {
         InetAddress[] addresses = InetAddress.getAllByName("localhost");
         boolean valid = addresses.length > 0;
         boolean seenIpv6 = false;
-        // Detach each independently owned result before reclamation. Defer the
-        // assertion until all results are freed, including a mismatching result.
+        // Clear each array slot after checking its shared result. Defer the
+        // assertion until traversal finishes, including a mismatching result.
         for (int index = 0; index < addresses.length; index++) {
             InetAddress address = addresses[index];
             addresses[index] = null;

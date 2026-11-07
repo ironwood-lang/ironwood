@@ -1,0 +1,326 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Independent normal-path memory oracles. Each mode exits zero after checking
+// counts and contents; capacity additionally requires qualification-only startup.
+import ironwood.lang.Memory;
+import ironwood.ds.ArrayList;
+
+class GcAudit {
+
+    static class Base {
+
+        Node shared;
+    }
+
+    static class Node extends Base {
+
+        Node next;
+        int value;
+        int[] numbers;
+        byte[] large;
+        char[] units;
+        Node(int value) {
+
+            this.value = value;
+        }
+
+        void destructor() {
+
+            calls++;
+        }
+
+        void free() {
+
+            calls += 10;
+        }
+    }
+
+    static class Failed extends Node {
+
+        Failed() {
+
+            super(73);
+            published = this;
+            throw failure;
+        }
+    }
+
+    static class Fault extends RuntimeException {
+
+        Node child;
+
+        Fault(int value) {
+
+            super("audit exception");
+            this.child = new Node(value);
+        }
+    }
+
+    static Node[] graph;
+    static String text;
+    static Node published;
+    static RuntimeException failure;
+    static Fault exceptionGraph;
+    static ArrayList<Node> cache;
+    static byte[][] capacity;
+    static int calls;
+    static int made;
+
+    static void require(boolean condition) {
+
+        if (!condition) throw new IllegalStateException("independent GC audit assertion");
+    }
+
+    static void build(int seed) {
+
+        graph = new Node[3];
+        Node first = new Node(seed);
+        Node second = new Node(seed + 1);
+        Node child = new Node(seed + 2);
+        first.next = second;
+        second.next = first;
+        first.shared = child;
+        second.shared = child;
+        first.numbers = new int[5];
+        first.large = new byte[1048576];
+        first.units = new char[3];
+        first.units[0] = 'G'; first.units[1] = 'C'; first.units[2] = 'A';
+        text = new String(first.units);
+        for (int i = 0; i < first.numbers.length; i++) first.numbers[i] = seed + i * 7;
+        for (int i = 0; i < first.large.length; i++) first.large[i] = (byte)(i * 13 + seed);
+        graph[0] = first; graph[1] = second; graph[2] = first;
+    }
+
+    static void verify(int seed) {
+
+        require(graph[0] == graph[2] && graph[0].next == graph[1] && graph[1].next == graph[0]);
+        require(graph[0].shared == graph[1].shared && graph[0].shared.value == seed + 2);
+        require(graph[0].value == seed && graph[1].value == seed + 1 && text.equals("GCA"));
+        for (int i = 0; i < graph[0].numbers.length; i++) require(graph[0].numbers[i] == seed + i * 7);
+        for (int i = 0; i < graph[0].large.length; i++) require(graph[0].large[i] == (byte)(i * 13 + seed));
+    }
+
+    static void drop() {
+
+        graph = null;
+        text = null;
+    }
+
+    static void graphs() {
+
+        build(1); verify(1); drop();
+        Memory.collect();
+        long baseline = System.liveAllocationCount();
+        for (int phase = 0; phase < 12; phase++) {
+            long total = System.allocationCount();
+            build(phase + 19);
+            // Exactly three nodes, one reference array, three primitive arrays,
+            // and one inline-storage String. Literals are immortal image values.
+            require(System.allocationCount() == total + 8);
+            require(System.liveAllocationCount() == baseline + 8);
+            for (int repeat = 0; repeat < 3; repeat++) {
+                Memory.collect();
+                verify(phase + 19);
+                require(System.liveAllocationCount() == baseline + 8);
+            }
+            drop();
+            // No local graph reference escapes build/verify/drop helper frames.
+            require(System.liveAllocationCount() == baseline + 8);
+            Memory.collect();
+            require(System.liveAllocationCount() == baseline && calls == 0);
+        }
+        System.out.println("graphs: 12 phases, 8 retained, 0 after drop");
+    }
+
+    static void failConstruction() {
+
+        try { new Failed(); }
+        catch (RuntimeException same) { require(same == failure); }
+    }
+
+    static void accounting() {
+
+        failure = new RuntimeException("preallocated failure");
+        failConstruction(); published = null;
+        Memory.collect();
+        long baseline = System.liveAllocationCount();
+        long total = System.allocationCount();
+        failConstruction();
+        require(System.allocationCount() == total + 1 && System.liveAllocationCount() == baseline + 1);
+        Memory.collect();
+        require(published.value == 73 && published instanceof Failed);
+        require(System.liveAllocationCount() == baseline + 1);
+        published = null;
+        Memory.collect();
+        require(System.liveAllocationCount() == baseline && calls == 0);
+        System.out.println("construction: 1 counted, published survivor, 0 after drop");
+    }
+
+    static void populateCache() {
+
+        cache.add(new Node(47));
+    }
+
+    static void raise(Fault fault) {
+
+        throw fault;
+    }
+
+    static void buildExceptions() {
+
+        Fault primary = new Fault(31);
+        Fault cause = new Fault(32);
+        Fault secondary = new Fault(33);
+        primary.initCause(cause);
+        try {
+            defer raise(secondary);
+            throw primary;
+        } catch (Fault same) {
+            require(same == primary);
+            exceptionGraph = same;
+        }
+    }
+
+    static void verifyExceptions() {
+
+        require(exceptionGraph.child.value == 31);
+        require(((Fault)exceptionGraph.getCause()).child.value == 32);
+        require(exceptionGraph.getSecondaryExceptionCount() == 1);
+        require(((Fault)exceptionGraph.getSecondaryException(0)).child.value == 33);
+    }
+
+    static void exceptions() {
+
+        buildExceptions(); exceptionGraph = null; Memory.collect();
+        long baseline = System.liveAllocationCount();
+        for (int phase = 0; phase < 12; phase++) {
+            long total = System.allocationCount();
+            buildExceptions();
+            // Three real exceptions and their three child nodes count. Trace,
+            // cause association and ordered-secondary sidecars do not count.
+            require(System.allocationCount() == total + 6);
+            for (int repeat = 0; repeat < 3; repeat++) {
+                Memory.collect(); verifyExceptions();
+                require(System.liveAllocationCount() == baseline + 6);
+                require(System.allocationCount() == total + 6);
+            }
+            exceptionGraph = null;
+            Memory.collect();
+            require(System.liveAllocationCount() == baseline);
+        }
+        System.out.println("exceptions: 12 phases, 6 retained, sidecars excluded, 0 after drop");
+    }
+
+    static void inspectCache() {
+
+        require(cache.get(0).value == 47);
+    }
+
+    static void retention() {
+
+        cache = new ArrayList<Node>(2);
+        populateCache(); cache.clear(); Memory.collect();
+        long baseline = System.liveAllocationCount();
+        for (int phase = 0; phase < 12; phase++) {
+            populateCache(); cache.resetForReuse();
+            Memory.collect();
+            require(cache.size() == 0 && System.liveAllocationCount() == baseline + 1);
+            cache.clearUnusedReferences();
+            Memory.collect();
+            require(System.liveAllocationCount() == baseline);
+            populateCache(); Memory.collect(); inspectCache();
+            require(System.liveAllocationCount() == baseline + 1);
+            cache.clear(); Memory.collect();
+            require(System.liveAllocationCount() == baseline);
+        }
+        System.out.println("cache: 12 phases, retained slot +1, explicit clear +0");
+    }
+
+    static void namedCalls() {
+
+        Node value = new Node(9);
+        defer value.free();
+        value.destructor();
+        Memory.collect();
+        require(calls == 1 && value.value == 9);
+    }
+
+    static void names() {
+
+        namedCalls();
+        require(calls == 11);
+        Memory.collect(); Memory.collect();
+        require(calls == 11);
+        System.out.println("names: only 2 explicit calls, no automatic cleanup");
+    }
+
+    static void fill() {
+
+        made = 0;
+        try {
+            for (int i = 0; i < capacity.length; i++) {
+                capacity[i] = new byte[1048576];
+                capacity[i][0] = (byte)i;
+                capacity[i][1048575] = (byte)(i + 17);
+                made++;
+            }
+        } catch (OutOfMemoryError expected) { }
+    }
+
+    static void cannotAllocate() {
+
+        try { byte[] unexpected = new byte[1048576]; require(unexpected.length == 0); }
+        catch (OutOfMemoryError expected) { }
+    }
+
+    static void clearCapacity() {
+
+        for (int i = 0; i < capacity.length; i++) capacity[i] = null;
+    }
+
+    static void reuse() {
+
+        capacity = new byte[64][];
+        Memory.collect();
+        // Warm large-block geometry and emergency delivery before measurement.
+        // Fresh heap expansion can admit fewer blocks than a swept heap.
+        fill();
+        clearCapacity();
+        Memory.collect();
+        long baseline = System.liveAllocationCount();
+        int previous = 0;
+        for (int phase = 0; phase < 6; phase++) {
+            fill();
+            require(made > 1 && made < 64);
+            if (phase > 0) require(made == previous);
+            previous = made;
+            for (int i = 0; i < made; i++) {
+                require(capacity[i][0] == (byte)i && capacity[i][1048575] == (byte)(i + 17));
+            }
+            // Retained roots prevent reuse, including across explicit collection.
+            Memory.collect(); cannotAllocate();
+            clearCapacity();
+            // Dropping roots and reading counters must not collect on exhaustion.
+            long total = System.allocationCount();
+            require(System.liveAllocationCount() == baseline + made);
+            cannotAllocate();
+            require(System.allocationCount() == total);
+            Memory.collect();
+            require(System.liveAllocationCount() == baseline);
+        }
+        System.out.println("capacity: 6 exhaustion/drop/collect/refill phases");
+        System.out.println(previous);
+    }
+
+    public static int main(String[] args) {
+
+        if (args.length != 1) return 2;
+        if (args[0].equals("graphs")) graphs();
+        else if (args[0].equals("accounting")) accounting();
+        else if (args[0].equals("exceptions")) exceptions();
+        else if (args[0].equals("retention")) retention();
+        else if (args[0].equals("names")) names();
+        else if (args[0].equals("reuse")) reuse();
+        else return 3;
+        return 0;
+    }
+}

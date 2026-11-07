@@ -7093,7 +7093,7 @@ final class FunctionAnalyzer {
                 && (callable.parameterTypes().isEmpty() || callable.parameterTypes().equals(
                         List.of(IrType.reference("ironwood.io.PrintStream"))))
                 && throwableTraceCallbacksDoNotPublish()) {
-            // The visited list borrows graph nodes and is destroyed before return.
+            // The visited list keeps graph nodes reachable during this traversal.
             // Preserve publication by virtual descriptions, causes or destination overloads.
             return summary.withBorrowingContract(true, true);
         }

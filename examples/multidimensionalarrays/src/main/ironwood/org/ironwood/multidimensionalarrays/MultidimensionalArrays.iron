@@ -6,7 +6,7 @@ public class MultidimensionalArrays {
 
     private static int checkArrayType(int[][] probe) {
 
-        // Keep the widened and cast views within this call, before the caller frees probe.
+        // Exercise widened and cast views of the same managed probe.
         Object widened = probe;
         if (!(widened instanceof int[][]) || widened instanceof long[][]) return 1;
         int[][] exact = (int[][]) widened;

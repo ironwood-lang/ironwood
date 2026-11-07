@@ -8,7 +8,7 @@ import ironwood.io.InputStream;
 import ironwood.io.OutputStream;
 
 // An actual extension delegates to the platform implementation. Counters observe
-// primitive generic dispatch and destruction without changing production code.
+// primitive generic dispatch and explicit closure without changing production code.
 final class TestingSocketImpl extends SocketImpl {
 
     int reads;

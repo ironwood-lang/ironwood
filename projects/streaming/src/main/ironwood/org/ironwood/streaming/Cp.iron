@@ -7,7 +7,7 @@ import ironwood.nio.file.*;
 
 // Binary cp copies arbitrary bytes in bounded chunks, including NUL and invalid
 // UTF-8. Existing destinations are truncated; same-inode aliases are rejected.
-// Deferred cleanup closes both descriptors and frees every wrapper/buffer even if
+// Deferred cleanup closes both descriptors, including exceptional exits.
 final class Cp {
 
     static int copy(String source, String destination) throws IOException {

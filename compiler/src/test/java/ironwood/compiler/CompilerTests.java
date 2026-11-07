@@ -4749,17 +4749,7 @@ public final class CompilerTests {
                 """, "does not return a value on every path");
     }
 
-    /**
-     * A reference read from a field of a wrapper other than {@code this} used to carry
-     * no allocation identity, so the retained child could be freed by its original
-     * name while the read value was live. A final encapsulated field holds exactly
-     * the retained argument, so the read value is that allocation; another field
-     * yields a value that may be any child the wrapper retains, blocking their frees
-     * only while something holds it; a field the wrapper's destructor releases is the
-     * wrapper's own storage, which the analyzer does not know: the wrapper cannot be
-     * freed while the read value is held, and a value stored through it escapes.
-     */
-
+    /** Array checks preserve element typing, index checks and shared-reference flow. */
     private void arrayTypesAndIndicesAreChecked() {
         CompilationArtifact accepted = compile("""
                 class Base {}
@@ -10696,7 +10686,7 @@ public final class CompilerTests {
             assertEquals(0, archiveExit, "lazy archive create exit; stderr: "
                     + archiveError.toString(StandardCharsets.UTF_8));
 
-            Path main = writeSource(root, "application/com/app/Main.iron", "package com.app;\nimport com.lib.Answer;\npublic class Main {\n    public static int main(String[] args) {\n        Answer answer = new Answer();\n        ;\n        return Answer.destroyed() == 1 ? 42 : 1;\n    }\n}\n");
+            Path main = writeSource(root, "application/com/app/Main.iron", "package com.app;\nimport com.lib.Answer;\npublic class Main {\n    public static int main(String[] args) {\n        Answer answer = new Answer();\n        ;\n        return Answer.destroyed() == 0 ? 42 : 1;\n    }\n}\n");
             Path applicationClasses = root.resolve("application-classes");
             ByteArrayOutputStream compileError = new ByteArrayOutputStream();
             int compilerExit = Main.run(new String[]{"-cp", archive.toString(), "--source-path",
@@ -13977,7 +13967,6 @@ public final class CompilerTests {
         try {
             Path fixture = Path.of("integration-tests/cases/stdlib_u3_differential.iron");
             String java = Files.readString(fixture).replace("import ironwood.io.*;", "import java.io.*;")
-                    .replaceAll("free\\s+\\w+\\s*;", "")
                     .replace("public static int main(String[] args)", "private static int run(String[] args)")
                     .replace("class Main {", "class Main { public static void main(String[] args) throws IOException { System.exit(run(args)); }");
             Path javaSource = root.resolve("Main.java"); Files.writeString(javaSource, java);
@@ -14963,7 +14952,6 @@ public final class CompilerTests {
             Path fixture = Path.of("integration-tests/cases", name);
             String source = Files.readString(fixture)
                     .replace("import ironwood.time.", "import java.time.")
-                    .replaceAll("free\\s+\\w+\\s*;", "")
                     .replace("public static int main(String[] args)", "private static int run(String[] args)")
                     .replace("class Main {", "class Main { public static void main(String[] args) { System.exit(run(args)); }");
             Path javaSource = root.resolve("Main.java");
@@ -15556,9 +15544,9 @@ public final class CompilerTests {
                 RUN - Testing framework
                 RUN - Testing framework expected failures
                 RUN - Pool behavior
-                RUN - Pool destruction
+                RUN - Pool retention
                 RUN - Data-structure behavior
-                RUN - Data-structure destruction
+                RUN - Collection retention
                 RUN - Bench behavior
                 RUN - NanoBench behavior
                 RUN - Networking Milestone 1
@@ -15571,17 +15559,17 @@ public final class CompilerTests {
                 ok - Testing framework: 3 passed, 1 skipped, 4 total
                 ok - Testing framework expected failures: intentional failure reporting verified
                 ok - Pool behavior: 24 passed, 0 skipped, 24 total
-                ok - Pool destruction: 10 passed, 0 skipped, 10 total
+                ok - Pool retention: 11 passed, 0 skipped, 11 total
                 ok - Data-structure behavior: 46 passed, 0 skipped, 46 total
-                ok - Data-structure destruction: 24 passed, 0 skipped, 24 total
+                ok - Collection retention: 25 passed, 0 skipped, 25 total
                 ok - Bench behavior: 18 passed, 0 skipped, 18 total
                 ok - NanoBench behavior: 6 passed, 0 skipped, 6 total
                 ok - Networking Milestone 1: 9 passed, 0 skipped, 9 total
-                ok - Networking Milestone 2: 10 passed, 0 skipped, 10 total
+                ok - Networking Milestone 2: 11 passed, 0 skipped, 11 total
                 ok - Networking Milestone 3: 8 passed, 0 skipped, 8 total
-                ok - Networking Milestone 4: 10 passed, 0 skipped, 10 total
+                ok - Networking Milestone 4: 11 passed, 0 skipped, 11 total
                 ok - Networking Milestone 5: 4 passed, 0 skipped, 4 total
-                TOTAL: 172 passed, 1 skipped, 173 total across 12 test suites
+                TOTAL: 176 passed, 1 skipped, 177 total across 12 test suites
                 PASS: all 13 standard-library suite checks passed
                 """.stripIndent().strip(), output.strip(),
                 "standard-library testing verification output");

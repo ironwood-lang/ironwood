@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 // Explicit numeric fields print one result per line and exit 42 on success.
-// Each call must retain only its result and return to the prior live allocation
-// count after the caller frees that result. Invalid arguments remain catchable.
+// Each call creates only its required result. Invalid arguments remain catchable.
 class Main {
 
     public static int main(String[] args) {

@@ -12,7 +12,7 @@ import ironwood.util.Iterator;
 import ironwood.util.NoSuchElementException;
 
 // Controlled ordinary failures allocate escaping exception objects. Native
-// resource balances and managed OOM rollback are checked separately by the driver.
+// resource balances and managed OOM delivery are checked separately by the driver.
 class HostFailures {
 
     public static int main(String[] args) throws Exception {

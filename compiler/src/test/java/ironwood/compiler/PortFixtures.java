@@ -18,8 +18,8 @@ import java.util.concurrent.TimeUnit;
 /**
  * Shared steps of the M5 differential tests: compile a fixture with port or
  * library sources, link it from its class directory and from an archive at
- * -O3, run it, run a Java 21 reference in a fresh JVM, compile ownership
- * controls in every unfreed mode, and sweep allocation limits.
+ * -O3, run it, run a Java 21 reference in a fresh JVM, compile managed-reference
+ * controls, and sweep allocation limits.
  */
 final class PortFixtures {
     static final String PORT = "compiler/src/main/ironwood/ironwood/compiler/port/";
@@ -28,7 +28,7 @@ final class PortFixtures {
 
     private PortFixtures() { }
 
-    /** Compiles with no diagnostics at all; port code compiles under --unfreed=warn. */
+    /** Compiles with no diagnostics at all. */
     static void compile(List<String> arguments) {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         try (PrintStream stream = new PrintStream(output, true, StandardCharsets.UTF_8)) {

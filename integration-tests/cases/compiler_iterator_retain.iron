@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-// Mirrors RejectedFreeEvidence.retainArrayStores: traverse a value-keyed map,
+// Traverse a value-keyed map with retained shared array entries,
 // skip live keys and remove every other entry through the iterator. The first
 // eight keys share one String hash, so removals hit chain heads, middles and
 // tails. Prints the removal count and survivors in key order per case, which

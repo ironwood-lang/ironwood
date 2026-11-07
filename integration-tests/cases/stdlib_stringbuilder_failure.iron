@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 // Allocation-limit sweeps fail every allocation inside each selected operation.
-// Failed growth preserves the original content/capacity and frees renderings.
+// Failed growth preserves the original content/capacity; renderings use GC.
 class Rendered {
 
     @Override

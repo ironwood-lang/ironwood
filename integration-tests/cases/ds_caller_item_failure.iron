@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-// Inject allocation failure during view construction and list growth. Normal
-// cleanup and rollback must release container loans before the caller frees its
-// item, and a failed view factory must not leave a phantom backing-list loan.
-// Expected exit: 42, with no live-allocation growth or output, even on OOM.
+// Inject allocation failure during view construction and list growth. Shared
+// caller items remain usable on failure. Expected exit: 42 with no output.
+// Managed storage remains eligible for a later explicit collection.
 import ironwood.ds.ArrayList;
 import ironwood.ds.Collections;
 import ironwood.ds.UnmodifiableList;

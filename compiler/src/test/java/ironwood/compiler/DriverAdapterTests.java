@@ -35,7 +35,7 @@ final class DriverAdapterTests {
 
     private DriverAdapterTests() { }
 
-    /** Arguments are owned by their Command, outputs lent by their Probes, in every unfreed mode. */
+    /** Commands and Probes retain shared managed arguments and outputs. */
     static void ownership() throws Exception {
         List<SourceFile> helpers = new ArrayList<>();
         for (String helper : ADAPTERS) {
@@ -51,7 +51,7 @@ final class DriverAdapterTests {
         String holder = "class Holder { private String[] values;\n    Holder(String value) { this.values = new String[1]; String fresh = copy(value);\n        this.values[0] = fresh; }\n    private static String copy(String value) { return new String(value); }\n    String joined() { return String.join(\",\", this.values); }\n     }\n";
         // This fixture scope preserves independent local names.
 {
-            // The caller frees its own Strings; the command keeps copies.
+            // The command keeps independent copies of caller Strings.
             expect(helpers, prefix + "String tool = \"/bin/echo\".substring(0); Path out = Path.of(\"o.log\"); Command c = new Command(2); c.add(tool).add(out); ; ProcessResult r = c.run(null, out); ; ; ; return 0; }}", null);
             expect(helpers, prefix + "Command c = new Command(1); c.add(\"/bin/echo\"); String lent = c.argument(0); ; ; return 0; }}", null);
             expect(helpers, prefix + "Command c = new Command(1); ; c.add(\"/bin/echo\"); return 0; }}",

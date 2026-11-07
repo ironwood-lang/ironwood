@@ -14,12 +14,8 @@ cd "$EXAMPLE_DIR"
 SCENARIO_NAME=$1
 SOURCE="src/valid/ironwood/org/ironwood/ownedhelperborrows/$SCENARIO_NAME.iron"
 mkdir -p target/classes
-# Scenario 19 deliberately skips cleanup on its already-destroyed failure branch.
-# Keep this exception local to that scenario, including direct compile19.sh runs.
+# Positive scenarios use shared managed references and explicit phase collection.
 COMMAND=(ironwoodc)
-if [[ "$SCENARIO_NAME" == FreeInsertedElement ]]; then
-    COMMAND+=()
-fi
 COMMAND+=(--source-path src/valid/ironwood -d target/classes "$SOURCE")
 printf '+'
 printf ' %q' "${COMMAND[@]}"

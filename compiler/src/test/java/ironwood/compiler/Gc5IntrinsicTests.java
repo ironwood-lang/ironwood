@@ -62,25 +62,33 @@ final class Gc5IntrinsicTests {
         Files.createDirectories(Path.of("workspace"));
         Path directory = Files.createTempDirectory(Path.of("workspace"), "gc5-legacy-");
         Path loose = directory.resolve("Legacy.ironclass"), archive = directory.resolve("legacy.ironjar");
-        IronClass.write(loose, SourceParser.parse(source).unit().orElseThrow(), "Legacy");
-        var bytes = new java.io.ByteArrayOutputStream();
-        try (var input = new java.util.zip.ZipInputStream(Files.newInputStream(loose));
-             var output = new java.util.zip.ZipOutputStream(bytes)) {
-            java.util.zip.ZipEntry entry;
-            while ((entry = input.getNextEntry()) != null) {
-                byte[] payload = input.readAllBytes();
-                if (entry.getName().startsWith("source/")) payload = new String(payload, java.nio.charset.StandardCharsets.UTF_8)
-                        .replace("new Object();", "new Object(); free value;").getBytes(java.nio.charset.StandardCharsets.UTF_8);
-                output.putNextEntry(new java.util.zip.ZipEntry(entry.getName()));
-                output.write(payload); output.closeEntry();
+        for (String obsolete : List.of(
+                "class Legacy { void old() { Object value = new Object(); free value; } }",
+                "class Legacy { void old() { Object value = new Object(); defer free value; } }",
+                "class Legacy { destructor {} }",
+                "class Legacy { @SuppressUnfreed Object value; }")) {
+            rejected(SourceFile.of("Legacy.iron", obsolete), "removed");
+            IronClass.write(loose, SourceParser.parse(source).unit().orElseThrow(), "Legacy");
+            var bytes = new java.io.ByteArrayOutputStream();
+            try (var input = new java.util.zip.ZipInputStream(Files.newInputStream(loose));
+                 var output = new java.util.zip.ZipOutputStream(bytes)) {
+                java.util.zip.ZipEntry entry;
+                while ((entry = input.getNextEntry()) != null) {
+                    byte[] payload = input.readAllBytes();
+                    if (entry.getName().startsWith("source/")) {
+                        payload = obsolete.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                    }
+                    output.putNextEntry(new java.util.zip.ZipEntry(entry.getName()));
+                    output.write(payload); output.closeEntry();
+                }
             }
-        }
-        Files.write(loose, bytes.toByteArray());
-        IronJar.create(archive, List.of(loose));
-        for (SourceFile embedded : List.of(IronClass.read(loose).source("Legacy").orElseThrow(),
-                IronJar.read(archive).source("Legacy").orElseThrow())) {
-            check(embedded.path().toString().contains("!/"), "lost embedded source identity");
-            rejected(embedded, "removed");
+            Files.write(loose, bytes.toByteArray());
+            IronJar.create(archive, List.of(loose));
+            for (SourceFile embedded : List.of(IronClass.read(loose).source("Legacy").orElseThrow(),
+                    IronJar.read(archive).source("Legacy").orElseThrow())) {
+                check(embedded.path().toString().contains("!/"), "lost embedded source identity");
+                rejected(embedded, "removed");
+            }
         }
     }
 

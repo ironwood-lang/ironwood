@@ -139,29 +139,6 @@ final class LoopReachabilityTests {
         }
     }
 
-    static void reclamationProofs() {
-        String prefix = "class Box { int number; } class Main { "
-                + "public static int main(String[] args) { return value(); } "
-                + "static int value() { Box value = new Box(); ";
-        for (String loop : List.of("while (true)", "for (;;)", "do")) {
-            String suffix = loop.equals("do") ? " while (true);" : "";
-            String freed = prefix + loop + " { ; break; }" + suffix;
-            CompilationArtifact safe = compile(freed + " return 42; } }");
-            require(safe.successful(), safe.diagnostics().toString());
-            for (String tail : List.of("return value.number;", "; return 42;")) {
-                CompilationArtifact unsafe = compile(freed + tail + " } }");
-                require(!unsafe.successful() && unsafe.diagnostics().stream().anyMatch(diagnostic ->
-                                diagnostic.isError() && diagnostic.message().contains("freed")),
-                        "reused freed allocation was accepted: " + unsafe.diagnostics());
-            }
-            CompilationArtifact backEdge = compile(prefix + loop + " { ; continue; }"
-                    + suffix + " } }");
-            require(!backEdge.successful() && backEdge.diagnostics().stream().anyMatch(diagnostic ->
-                            diagnostic.isError() && diagnostic.message().contains("loop back edge")),
-                    "freed allocation crossed a back edge: " + backEdge.diagnostics());
-        }
-    }
-
     private static List<IrFunction> endlessLoops(CompilationArtifact artifact) {
         var functions = artifact.program().orElseThrow().functions().stream()
                 .filter(function -> function.ownerClass().equals("Main")

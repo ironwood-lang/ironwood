@@ -72,7 +72,7 @@ class Failures {
     }
 }
 
-// Destructors touch only primitive counters, never allocating class initializers.
+// Resource checks use explicit close and primitive counters.
 class Main {
 
     static long live;

@@ -87,7 +87,7 @@ final class NullGuardTests {
         }
     }
 
-/** Calls on the destroyed object keep the fields still known where they are made (D290). */
+/** Calls retain field facts at their original evaluation points (D290). */
 
     /** A `throw new` whose fresh object is no longer null-checked still calls the cold helper. */
     static void explicitThrowsStayOutlined() {

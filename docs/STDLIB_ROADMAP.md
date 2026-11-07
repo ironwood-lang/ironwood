@@ -20,8 +20,9 @@
 The language gate is complete: no numbered language feature remains pending.
 The completed model includes the D046 object foundations, D063 native
 specialization for unbounded primitive generic arguments, checked exceptions,
-deterministic resource cleanup, deterministic class destruction with failed-
-construction rollback, arrays, modern statements, and modern switch.
+explicit resource cleanup, synchronous managed collection, arrays, modern
+statements, and modern switch. Failed construction preserves reachable partial
+graphs and does not run managed rollback.
 D047 deliberately excludes varargs so call syntax cannot create an unowned
 hidden array. S0 and the U1 text-capable CLI tranche are complete without
 requiring another numbered language feature.
@@ -820,11 +821,11 @@ Requirements:
 - reliable partial-read/partial-write and interrupted-call handling;
 - platform error translation into stable Ironwood exception categories while
   retaining useful diagnostic text;
-- no implicit resource release by `free` and no finalizer fallback;
+- explicit resource closure independent of collection, with no finalizer fallback;
 - double-close behavior and post-close failures specified and tested;
 - I/O-created arrays, strings, paths, stream objects, and buffers represented
-  with compiler-visible allocation provenance so safe `free` can reason about
-  them rather than treating every result as permanently unknown;
+  with exact compiler-visible layouts and roots, retaining conservative native
+  lifetime and reference effects;
 - standard streams represented as immortal process-owned objects distinct from
   ordinary closeable file streams;
 - PIC/PIE-safe native objects and no JVM, JNI, native registration, or dynamic
@@ -870,7 +871,7 @@ exclusion.
 | Gate | Status | Required end-to-end result | Main library surface |
 | --- | --- | --- | --- |
 | L0: language fundamentals | Complete | representative object-model, generic, exception, resource, array, statement, and switch programs | completed language foundations; varargs and other deliberate exclusions remain excluded |
-| S0: porting and reclamation foundation | Complete | independently reviewed String slice with packaged provenance and caller-reclaimable `substring`, `toCharArray`, builder snapshots, and default object identity text | independent/native boundaries, allocation-result provenance, deterministic owned-child teardown and rollback, safe-`free`, live-count, artifact, native, and package tests |
+| S0: porting and reclamation foundation | Complete | independently reviewed String slice with packaged provenance and managed `substring`, `toCharArray`, builder snapshots, and default object identity text | independent/native boundaries, exact layouts and roots, explicit collection accounting, artifact, native, and package tests |
 | U1: text-capable CLI | Complete | `echo` with stdout/stderr, checked integer parsing, and primitive conversion | String construction/search/value conversion, primitive helpers including the completed floating parser follow-up, common Math, `PrintStream` overloads, `System.err`, environment, and clocks |
 | U2: file-capable CLI | Complete | literal `minigrep` over UTF-8 files | `IOException`, `Path`/`Paths`, `Files` whole-file operations |
 | U3: streaming CLI | Complete | `projects/streaming`: binary cat/cp, incremental wc, and interactive prompt; `projects/minitee`: stdin-to-stdout/file tee with append and deterministic close/reclamation | byte and character hierarchies, owned/borrowed wrappers, UTF-8, immortal System.in, Files factories and same-file guard |

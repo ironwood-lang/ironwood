@@ -659,18 +659,14 @@ the existing char-range copy operation, not a full-builder snapshot.
 returns a fresh-or-null String through the same allocation proof, while typed
 clock and unary/binary math instructions keep native services and LLVM
 `sqrt`/`pow` lowering out of ad hoc source-library code.
-Private Object-rendering consumption points in StringBuilder and PrintStream
-lower to `IrReleaseOwnedToStringResultInstruction`. The runtime consults the
-concrete descriptor bit and deallocates only a proven fresh result; borrowed or
-mixed-result overrides remain untouched. String concatenation emits the same
-instruction for every object conversion after the result has been copied. It
-also creates cleanup landing paths for already produced renderings if a later
-conversion or the final concatenation throws; a null source object makes the
-release operation a no-op. D118 reuses this boundary for Object insertion.
-Its call-site borrowing refinement checks every possible `toString` target for
-receiver publication. Symbolic return analysis preserves the String type of a
-literal receiver, allowing a factory call on a literal to prove a fresh result
-without treating the literal itself or a published result as owned.
+Object renderings consumed by StringBuilder, PrintStream, insertion and String
+concatenation are ordinary managed Strings. Shared, fresh and mixed-result
+overrides follow the same reachability rules. Copying their contents does not
+emit a release instruction or a rendering-cleanup landing path. Exceptions from
+later conversions preserve ordinary evaluation order and exact roots; only
+explicit collection reclaims unreachable rendering storage. Symbolic return
+analysis still preserves value types and reference flow, without granting
+exclusive ownership or a reclamation capability.
 
 `Throwable.toString()` and its virtual localized getter remain source-written.
 The private description helper lowers to `IrThrowableDescriptionInstruction`,
@@ -972,7 +968,7 @@ ABI or array covariance/store-check mechanism is added.
 
 The descriptor header, flat base-first layouts, global signature table, dense
 type ids, and opaque pointers are bootstrap implementation details, not a stable
-native ABI. The deallocation boundary may later refine allocation metadata while
+native ABI. The allocation boundary may later refine allocation metadata while
 preserving source reference semantics and object identity.
 
 At the final native-link boundary, the configured LLVM 23 Clang emits an empty

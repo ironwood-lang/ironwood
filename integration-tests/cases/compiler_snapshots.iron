@@ -64,7 +64,7 @@ class Main {
         try {
             throw new NullPointerException();
         } catch (NullPointerException failure) {
-            // Isolate the ordinary retained exception from constructor rollback.
+            // Measure the ordinary exception allocation before construction checks.
         }
         long exceptionDelta = System.liveAllocationCount() - before;
         before = System.liveAllocationCount();

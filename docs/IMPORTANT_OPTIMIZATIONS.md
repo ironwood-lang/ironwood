@@ -75,8 +75,8 @@ inliner's estimated cost. Every implicit safety check (null receiver, array
 bounds, array length, division, checked cast) lowers to a block that allocates
 the exception object, calls its constructor and calls `ironwood_throw`; an
 explicit `throw new X(...)` additionally runs the type-initialization barrier
-for `X`, invokes the constructor with a rollback landing pad for failed
-construction, and null-checks the fresh object before throwing it. `get` had
+for `X`, invokes the constructor and throws the fresh object. Failed
+construction unwinds without managed rollback. `get` had
 three such paths (two null checks and the bounds check) plus the explicit
 `IndexOutOfBoundsException` of the inlined `checkBounds`. LLVM's cost model has
 no notion of an uncommon trap: it counts every call in those blocks at full
@@ -125,16 +125,11 @@ an `IrCallInstruction` to a constructor of that class whose first argument is
 the allocation, terminated by an `IrThrowTerminator` of the allocation with no
 unwind target. This is how every implicit check fails.
 
-The explicit shape is the lowering of `throw new X(...)` outside any local
-handler: a block with an optional `IrEnsureTypeInitializedInstruction` for `X`
-and the allocation, terminated by an invoke of the constructor; an unwind block
-holding the landing pad, the `IrRollbackInstruction` of the allocation and a
-rethrow with no unwind target; a continuation block holding only the null check
-of the allocation and its branch; a throw block with no instructions; and a
-failure block of the bundled shape. Each of the four absorbed blocks must be
-referenced exactly once in the function, so nothing else can jump into the
-middle of the sequence. Sequences inside a `try` (whose allocation, constructor
-and throw carry unwind edges to the local landing pad) are left inline.
+The second shape follows the same allocation/constructor pair through empty,
+uniquely reached jump blocks to a throw with no local handler. The matcher
+requires the same allocation identity and refuses cycles, extra instructions,
+shared jump targets and locally handled throws. It absorbs only those empty
+continuation blocks. There is no managed rollback block or cleanup producer.
 
 Both shapes lower to:
 
@@ -147,40 +142,20 @@ null.failure.4:
   unreachable
 ```
 
-One helper exists per constructor and shape, named after the constructor's
-linkage name with `$ensure` and `$rollback` suffixes, and takes the constructor
-arguments other than the allocation as parameters:
-
-```llvm
-define internal void @"ironwood.throw....IllegalStateException.<init>$ref_...String$ensure$rollback"(ptr %a0)
-    noinline cold noreturn personality ptr @__gxx_personality_v0 {
-entry:
-  call void @"ironwood.initialize.ironwood.lang.IllegalStateException"()
-  %size.ptr = getelementptr %"ironwood.class.ironwood.lang.IllegalStateException", ptr null, i32 1
-  %size = ptrtoint ptr %size.ptr to i64
-  %exception = call ptr @ironwood_allocate(i64 %size, ptr @"ironwood.typeinfo....", ptr @"ironwood.immortal.implicit allocation failure")
-  invoke void @"ironwood.ironwood.lang.IllegalStateException.<init>$ref_ironwood_dlang_dString"(ptr %exception, ptr %a0)
-      to label %throw unwind label %rollback
-rollback:
-  %landing = landingpad { ptr, i32 } catch ptr null
-  %handle = extractvalue { ptr, i32 } %landing, 0
-  %pending = call ptr @ironwood_exception_take(ptr %handle)
-  call void @"ironwood.rollback"(ptr %exception)
-  call void @ironwood_throw(ptr %pending)
-  unreachable
-throw:
-  call void @ironwood_throw(ptr %exception)
-  unreachable
-}
-```
+One helper exists per constructor signature and takes the constructor's
+arguments other than the allocation as parameters. Its body allocates the exact
+dynamic layout, invokes the constructor and throws the resulting object. It is
+cold, nonreturning and collection-capable, with exact statepoints. It contains
+no destructor, release or rollback call. See `matchThrowChain`,
+`matchBundledThrow` and `emitThrowHelpers` in
+[the emitter](../compiler/src/main/java/ironwood/compiler/backend/LlvmEmitter.java).
 
 Why this preserves behavior:
 
-- The helper performs exactly the sequence the block performed, including the
-  initialization barrier and failed-construction rollback. Exceptions raised by
-  the constructor or the allocator unwind through the helper into the caller
-  exactly as they unwound from the inline code, because the outlined shapes
-  have no local handler by construction.
+- The helper preserves allocation, construction and throw order. Any required
+  type-initialization barrier stays in the caller. Constructor or allocator
+  exceptions unwind through the helper into the caller because admitted shapes
+  have no local handler. Published partial graphs keep their managed lifetime.
 - The absorbed blocks have no successors outside the sequence, so removing them
   changes no phi and no control-flow edge elsewhere.
 - Stack traces keep their lines. The pseudo probes of the outlined operations
@@ -257,8 +232,7 @@ Three declarations now state what the language guarantees:
 
 - The receiver parameter of every instance callable is `nonnull noundef`. Every
   explicit receiver is null-checked before the call or dispatch, allocation
-  never yields null, and the destroy and rollback helpers test for null before
-  reaching an instance method body, so `this` never carries null. LLVM
+  never yields null, so `this` never carries null. LLVM
   folds the redundant receiver checks that callees used to repeat.
 - `ironwood_allocate` and `ironwood_allocate_array` are `noalias nonnull`:
   they return fresh storage or raise the allocation failure. The null check on

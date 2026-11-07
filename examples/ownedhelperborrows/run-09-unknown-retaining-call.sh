@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT OR Apache-2.0
-# Expected: compile error because polymorphic dispatch may retain the borrow.
+# Historical scenario: reject removed reclamation syntax with a migration diagnostic.
 set -euo pipefail
 EXAMPLE_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 exec "$EXAMPLE_DIR/run-invalid-scenario.sh" UnknownRetainingCall \
-    "cannot free 'list': allocation escapes through argument 1 of method 'accept'"
+    "source free has been removed"

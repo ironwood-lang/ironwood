@@ -4,7 +4,7 @@ import ironwood.pool.ArrayObjectPool;
 import ironwood.pool.ObjectBuilder;
 
 // Exit 42 proves capture timing, block cleanup, exception identity and dispatch.
-// Fresh captured text stays alive; ordinary explicit frees follow completed calls.
+// Fresh captured text stays alive through all deferred calls.
 class Failure extends Exception {
 
 }
@@ -437,7 +437,7 @@ class Main {
             if (failure != BrokenRendered.failure) return false;
         }
         if (events != 1) return false;
-        // Constructor cleanups complete before the allocation rollback edge.
+        // Explicit deferred calls still complete when construction throws.
         for (int i = 0; i < 2; i++) {
             long baseline = System.liveAllocationCount();
             events = 0;

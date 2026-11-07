@@ -85,11 +85,11 @@ Resolve the following before dependent implementation:
   rather than silently changing a Java-shaped method's behavior.
 - **Lifetimes:** specify owners and borrowers for selectors, registrations,
   keys, channel-backed socket views, buffers, attachments, sets, and iterators.
-  Prove safe reclamation with cancelled keys or views still referenced,
+  Preserve exact managed reachability with cancelled keys or views still referenced,
   multiple registrations, attachment replacement, and failure partway through
-  construction or registration. Cancellation and native close are not proof
-  that a managed object can be freed. Retained keys must never expose a freed
-  channel or selector. Cover both accepted cleanup and rejected unsafe `free`.
+  construction or registration. Cancellation and native close do not reclaim
+  managed objects. Retained keys must obey channel/selector resource protocols.
+  Cover accepted resource cleanup and rejected native lifetime violations.
 - **Native model:** evaluate a fixed native provider and the supported OS
   readiness backends, including whether a portable `poll` backend suffices or
   `epoll`/`kqueue` is warranted. Compare scale, idle CPU, latency, allocation,

@@ -216,5 +216,5 @@ printf 'ok - Networking Milestone 2: %s\n' "${IRONWOOD_TEST_NET_M2_SUMMARY#PASS:
 printf 'ok - Networking Milestone 3: %s\n' "${IRONWOOD_TEST_NET_M3_SUMMARY#PASS: }"
 printf 'ok - Networking Milestone 4: %s\n' "${IRONWOOD_TEST_NET_M4_SUMMARY#PASS: }"
 printf 'ok - Networking Milestone 5: %s\n' "${IRONWOOD_TEST_NET_M5_SUMMARY#PASS: }"
-printf 'TOTAL: 172 passed, 1 skipped, 173 total across 12 test suites\n'
+printf 'TOTAL: 176 passed, 1 skipped, 177 total across 12 test suites\n'
 printf 'PASS: all 13 standard-library suite checks passed\n'

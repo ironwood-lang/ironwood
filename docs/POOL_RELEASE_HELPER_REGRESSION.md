@@ -140,7 +140,7 @@ before implementation and select checks for them. A general instruction to
 Record a short review in the feature's plan or verification notes before coding:
 
 - State the existing invariants that must survive, including fixed ownership,
-  mandatory reclamation safety in every unfreed mode, and D132/D133 performance
+  exact managed roots/layouts and native resource safety, and D132/D133 performance
   constraints. Distinguish accepted new semantics from implementation details.
 - Map the shared machinery being changed to its consumers, including existing
   library contracts and artifact reconstruction where applicable. Follow the

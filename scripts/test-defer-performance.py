@@ -300,7 +300,7 @@ def main():
         parser.error(f'Expected LLVM 23, got {version}')
     OUT.mkdir(parents=True, exist_ok=True)
     if options.control:
-        control(options.case or ['free'], options.rounds, options.iterations or 32000000)
+        control(options.case or ['call'], options.rounds, options.iterations or 32000000)
         return
     for case in options.case or CASES:
         variants = ['deferred', 'nested', 'flat'] if '-' in case else ['deferred', 'nested']
@@ -354,14 +354,14 @@ def main():
             # Check full-run counts independently as well as matching paired output.
             n = int(case.rsplit('-', 1)[1]) if '-' in case else 1
             blocks = count // 4 * 8 + [0, 1, 4, 5][count % 4] if case.startswith('transfers-') else count
-            allocation_count = count if case == 'free' else (count * (1 + (mode == 2)) if case in NULLABLE_CASES
+            allocation_count = (count * (1 + (mode == 2)) if case in NULLABLE_CASES
                 else count * n + (count + 1) // 2) if mode else 0
             counts = {'captures': 0 if case in ['pool'] else blocks * n,
                       'bodies': blocks, 'failures': count if mode else 0,
                       'actions': 0 if case in ['pool'] else count * (1 if mode else 2)
                       if case in NULLABLE_CASES else blocks * n,
                       'allocations': allocation_count, 'live_delta': allocation_count if mode else 0,
-                      'first_allocations': 1 if case == 'free' else 0, 'first_live_delta': 0}
+                      'first_allocations': 0, 'first_live_delta': 0}
             actual = report['runs'][str(mode)]['results']
             assert all(actual[key] == value for key, value in counts.items()), (case, mode, actual, counts)
             print(f'PASS {case} mode={mode}: ' + str(report['runs'][str(mode)]['median_ns']), flush=True)

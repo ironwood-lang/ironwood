@@ -42,7 +42,7 @@ public final class TransferProbe {
 
     public static int main(String[] args) throws Exception {
 
-        // Destroy the response and transport before ending the measured lifecycle.
+        // Close the response and transport before ending the measured lifecycle.
         int result = transfer(args);
         if (result != 0) return result;
         System.out.println("@tls:end");

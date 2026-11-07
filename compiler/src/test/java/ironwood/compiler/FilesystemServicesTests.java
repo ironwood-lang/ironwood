@@ -59,7 +59,7 @@ final class FilesystemServicesTests {
 
     }
 
-    /** Inputs are borrowed for the call; results are fresh and caller-owned in every mode. */
+    /** Shared inputs and fresh managed results remain valid without manual reclamation. */
     static void ownership() {
         String prefix = """
                 import ironwood.nio.file.Files;
@@ -71,12 +71,12 @@ final class FilesystemServicesTests {
                 """;
         // This fixture scope preserves independent local names.
 {
-            // Safe: inputs freed after each call, every fresh result freed once.
+            // Independent results and shared inputs are ordinary managed references.
             accept(prefix + "Path t = Files.createTempFile(dir, \"a\", null); Path d = Files.createTempDirectory(dir, null); ; boolean gone = Files.deleteIfExists(t); ; ; return gone ? 0 : 1; }}");
             accept(prefix + "Path t = Files.createTempFile(null, \"b\"); Path d = Files.createTempDirectory(\"p\"); ; ; ; return 0; }}");
             accept(prefix + "Path r = dir.toRealPath(); ; BasicFileAttributes a = Files.readAttributesNoFollow(r); boolean link = a.isSymbolicLink(); ; ; return link ? 1 : 0; }}");
             accept(prefix + "boolean r = Files.isReadable(dir) && Files.isExecutable(dir); ; return r ? 0 : 1; }}");
-            // Unsafe: double free, use after free and freeing a retained result stay rejected.
+            // Aliased, published and subsequently used results are all legal.
             accept(prefix + "Path t = Files.createTempFile(dir, null, null); ; ; ; return 0; }}");
             accept(prefix + "Path d = Files.createTempDirectory(dir, null); ; ; return d.getNameCount(); }}");
             accept(prefix + "Path r = dir.toRealPath(); ; ; return r.getNameCount(); }}");
@@ -85,13 +85,13 @@ final class FilesystemServicesTests {
             accept(prefix + "Path t = Files.createTempFile(dir, null, null); kept = t; ; ; return 0; }}");
             accept(prefix + "; return Files.isReadable(dir) ? 0 : 1; }}");
         }
-        // A result that is never freed is reported, so each result is classified fresh.
+        // An unused managed result needs no reclamation statement or warning.
         for (String call : List.of("Files.createTempFile(dir, null, null)", "Files.createTempDirectory(null)",
                 "dir.toRealPath()", "Files.readAttributesNoFollow(dir)")) {
-            CompilationArtifact leaked = new CompilerPipeline().compile(SourceFile.of("test/Main.iron",
+            CompilationArtifact unused = new CompilerPipeline().compile(SourceFile.of("test/Main.iron",
                     prefix + "Object kept = " + call + "; ; return 0; }}"));
-            require(!leaked.successful() && messages(leaked).contains("without being freed"),
-                    "missing free not reported for " + call + ": " + messages(leaked));
+            require(unused.successful() && unused.diagnostics().isEmpty(),
+                    "unused managed result rejected for " + call + ": " + messages(unused));
         }
     }
 

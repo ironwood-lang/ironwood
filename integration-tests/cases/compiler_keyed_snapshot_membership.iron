@@ -2,8 +2,8 @@
 
 // Immutable keyed membership distinguishes value equality from reference
 // identity, including equal-looking keys, later builder changes and absent keys.
-// Null source checks compare ordinary retained exceptions with constructor
-// rollback. Storage baselines follow those checks; exceptions retain their
+// Null source checks compare ordinary exceptions with failed construction.
+// Both use the same managed lifetime.
 import ironwood.ds.*;
 import ironwood.compiler.port.*;
 

@@ -14,11 +14,11 @@ set -e
 printf '%s\n' "$OUTPUT"
 printf 'exit status: %d\n' "$STATUS"
 
-EXPECTED='normal: body -> close -> free
-body failure: primary preserved, resource reclaimed
-close failure: primary preserved, resource reclaimed
-body + close failure: body primary, close secondary, resource reclaimed
-pool: 3 checkouts, no new allocations, all storage reclaimed'
+EXPECTED='normal: body -> close
+body failure: primary preserved, resource closed
+close failure: primary preserved, resource closed
+body + close failure: body primary, close secondary, resource closed
+pool: 3 checkouts, no new allocations'
 if [[ $STATUS -ne 42 ]]; then
     echo "error: expected exit status 42" >&2
     exit 1

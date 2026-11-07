@@ -41,7 +41,7 @@ class EncapsulatedBacklinkOwner {
 
 }
 
-// Expected: compile, link, and exit 42. The owner destroys its encapsulated helper.
+// Expected: compile, link, and exit 42. Shared helper links remain valid through collection.
 public class EncapsulatedBacklink {
 
     public static int main(String[] args) {

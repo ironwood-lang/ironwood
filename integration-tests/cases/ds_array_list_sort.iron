@@ -254,7 +254,7 @@ class Main {
     }
 
     // A failure on any comparison propagates, keeps every element exactly once
-    // and frees the workspace.
+    // and leaves temporary workspace eligible for later explicit collection.
     static boolean failureKeepsElements(int size) {
 
         ArrayList<Record> list = build(size, 13, 0);

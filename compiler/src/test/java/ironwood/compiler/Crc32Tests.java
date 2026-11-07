@@ -31,11 +31,8 @@ final class Crc32Tests {
     }
 
     /**
-     * Updates borrow their array only for the call, so the caller may free it
-     * afterwards, even in a program that also has a retaining subclass; an
-     * override that keeps the array makes that free unsafe whether it is
-     * reached directly, through whole-array delegation or through a CRC32
-     * reference.
+     * Updates and retaining overrides accept shared managed arrays, including
+     * direct, whole-array delegation and base-reference dispatch forms.
      */
     static void ownership() {
         String keeping = """

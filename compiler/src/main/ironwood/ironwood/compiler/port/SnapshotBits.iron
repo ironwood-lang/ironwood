@@ -12,7 +12,7 @@ public final class SnapshotBits {
      * Unused source capacity is not part of this compiler-private contract.
      * The result is independent managed storage and may be shared by callers.
      * The source is observed only during this call; no payload is retained.
-     * Failure destroys partially allocated result storage.
+     * Failed construction leaves partial storage eligible for explicit collection.
      *
      * @param source the non-null bit set to observe
      * @return a fresh mutable bit set with the same logical bits

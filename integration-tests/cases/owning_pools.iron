@@ -38,7 +38,7 @@ class Main {
         pool.release(external);
         // The compiler conservatively bounds even this unsupported alias by the pool.
         alias.number = 7;
-        // One value remains checked out. The pool still owns and destroys it.
+        // One value remains checked out and retained by the pool.
 
 
         return 0;
@@ -63,7 +63,7 @@ class Main {
         pool.release(external);
         // The compiler conservatively bounds even this unsupported alias by the pool.
         alias.number = 7;
-        // One value remains checked out. The pool still owns and destroys it.
+        // One value remains checked out and retained by the pool.
 
 
         return 0;

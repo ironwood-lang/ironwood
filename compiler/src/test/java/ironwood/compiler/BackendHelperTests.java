@@ -232,7 +232,7 @@ final class BackendHelperTests {
             require(helpers, prefix + "String text = LlvmText.scientific(1.5); String hex = LlvmText.hexBits(1L); int r = text.length() + hex.length(); ; ; return r; }}", null);
             require(helpers, prefix + "String text = LlvmText.decodeSymbol(\"@main\"); ; return text.length(); }}", null);
             require(helpers, prefix + "String value = LlvmScan.specification(\"target triple = \\\"t\\\"\", \"triple\"); ; ; return 0; }}", null);
-            // A parse owns a copy: the caller frees its text at once, and keys outlive the parse.
+            // A parse owns a copy: caller text may be shared, and keys outlive the parse.
             require(helpers, prefix + "String text = \"k=v\".substring(0); PropertiesText parsed = PropertiesText.parse(text); ; String key = parsed.key(0); ; int r = key.length(); ; return r; }}", null);
             require(helpers, prefix + "PropertiesText parsed = PropertiesText.parse(\"k=v\"); ; return parsed.size(); }}", null);
             // Library roots are lent by their owner.

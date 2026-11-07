@@ -102,9 +102,8 @@ class Main {
         System.out.println("sorted " + positions.toString());
     }
 
-    // A list lent to a helper, copied and lent again through the copy in the
-    // same frame stays unfreeable there (the retained M1 copy-lent limit), so
-    // each snapshot lives in its own frame. Returns min id * 100 + max id.
+    // Exercise copied snapshots through independent helper frames.
+    // Returns min id * 100 + max id.
     static int frozenExtremes(ArrayList<Ranked> candidates, ByRank byRank) {
 
         SnapshotList<Ranked> frozen = new SnapshotList<Ranked>(candidates);

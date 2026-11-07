@@ -11,7 +11,7 @@ class Value {
 }
 
 // Run under allocation limits through the array and four element allocations.
-// Both successful and failed acquisition detach each slot before destroying it.
+// Successful and failed construction preserve the managed graph contract.
 class Partial {
 
     private static Value[] create() {

@@ -79,7 +79,7 @@ additional mechanisms:
 - generic maps, lists, and object pools;
 - validation and policy branches;
 - time-in-force and other lifecycle state; and
-- `try`, `finally`, rollback, and uncommon failure paths.
+- `try`, `finally`, native acquisition rollback, and uncommon failure paths.
 
 These features can remain allocation-free in steady state and still cost CPU
 time. They add calls, branches, dispatch, code size, and control-flow edges.
@@ -120,7 +120,7 @@ LLVM's ordinary inline cost model counts that cold machinery when deciding
 whether to inline the surrounding method. Ironwood recognizes common failure
 shapes and moves them into shared `cold noinline noreturn` helpers. The small
 normal path then becomes inexpensive enough to inline. Exception semantics,
-rollback, and source-level traces remain unchanged.
+native resource safety, and source-level traces remain unchanged.
 
 This matters for operations such as list access, pool acquisition and release,
 builder capacity checks, receiver checks, and array access. Each operation is

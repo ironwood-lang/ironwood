@@ -8,7 +8,7 @@ import ironwood.net.InetSocketAddress;
 import ironwood.net.ServerSocket;
 import ironwood.net.Socket;
 
-// Exit 42 proves exact loopback output, close-before-free, and no per-cycle retention.
+// Exit 42 proves exact loopback output and explicit socket/stream closure.
 class Main {
 
     static int cycle() throws IOException {

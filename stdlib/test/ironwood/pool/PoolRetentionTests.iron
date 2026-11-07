@@ -50,7 +50,7 @@ public final class PoolRetentionTests extends TestSuite {
     }
 
     @Test
-    private void arrayPreloadedValuesAreDestroyed() {
+    private void arrayPreloadedValuesAreCreated() {
 
         RetainedPoolBuilder builder = new RetainedPoolBuilder();
         ArrayObjectPool<RetainedPoolValue> pool =
@@ -60,7 +60,7 @@ public final class PoolRetentionTests extends TestSuite {
     }
 
     @Test
-    private void arrayCheckedOutValuesAreDestroyed() {
+    private void arrayCheckedOutValuesRemainUsable() {
 
         RetainedPoolBuilder builder = new RetainedPoolBuilder();
         ArrayObjectPool<RetainedPoolValue> pool =
@@ -75,7 +75,7 @@ public final class PoolRetentionTests extends TestSuite {
     }
 
     @Test
-    private void arrayReleasedValuesAreDestroyedOnce() {
+    private void arrayReleasedValuesAreReusable() {
 
         RetainedPoolBuilder builder = new RetainedPoolBuilder();
         ArrayObjectPool<RetainedPoolValue> pool =
@@ -92,7 +92,7 @@ public final class PoolRetentionTests extends TestSuite {
     }
 
     @Test
-    private void arrayGrowthReclaimsEveryAllocation() {
+    private void arrayGrowthCreatesEachValue() {
 
         RetainedPoolBuilder builder = new RetainedPoolBuilder();
         ArrayObjectPool<RetainedPoolValue> pool =
@@ -113,7 +113,7 @@ public final class PoolRetentionTests extends TestSuite {
     }
 
     @Test
-    private void multiArrayPreloadedValuesAreDestroyed() {
+    private void multiArrayPreloadedValuesAreCreated() {
 
         RetainedPoolBuilder builder = new RetainedPoolBuilder();
         MultiArrayObjectPool<RetainedPoolValue> pool =
@@ -123,7 +123,7 @@ public final class PoolRetentionTests extends TestSuite {
     }
 
     @Test
-    private void multiArrayCheckedOutValuesAreDestroyed() {
+    private void multiArrayCheckedOutValuesRemainUsable() {
 
         RetainedPoolBuilder builder = new RetainedPoolBuilder();
         MultiArrayObjectPool<RetainedPoolValue> pool =
@@ -138,7 +138,7 @@ public final class PoolRetentionTests extends TestSuite {
     }
 
     @Test
-    private void multiArrayReleasedValuesAreDestroyedOnce() {
+    private void multiArrayReleasedValuesAreReusable() {
 
         RetainedPoolBuilder builder = new RetainedPoolBuilder();
         MultiArrayObjectPool<RetainedPoolValue> pool =
@@ -155,7 +155,7 @@ public final class PoolRetentionTests extends TestSuite {
     }
 
     @Test
-    private void multiArrayGrowthReclaimsEverySegment() {
+    private void multiArrayGrowthCreatesEachValue() {
 
         RetainedPoolBuilder builder = new RetainedPoolBuilder();
         MultiArrayObjectPool<RetainedPoolValue> pool =

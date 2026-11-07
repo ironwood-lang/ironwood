@@ -58,7 +58,7 @@ public class InstanceOfPatterns {
         NumberValue candidate = new NumberValue(2);
         if (candidate instanceof NumberValue owned) {
             int result = owned.read();
-            candidate = null; // End the original alias before freeing through the pattern.
+            candidate = null; // Exercise the pattern reference after clearing the original alias.
             return result;
         }
         return 0;

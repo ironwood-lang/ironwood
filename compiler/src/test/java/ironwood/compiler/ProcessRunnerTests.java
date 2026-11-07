@@ -50,7 +50,7 @@ final class ProcessRunnerTests {
 
     /**
      * The command array, its Strings and both Paths are borrowed for the call
-     * in every unfreed mode; the result is fresh. An ordinary method that
+     * without restricting managed aliases; the result is fresh. An ordinary method that
      * receives a String[] still exposes its elements.
      */
     static void ownership() {
@@ -66,10 +66,10 @@ final class ProcessRunnerTests {
         String suffix = " ; return 0; }}";
         // This fixture scope preserves independent local names.
 {
-            // Safe: a Path spelling and a fresh String placed in the command are freed after the call.
+            // A Path spelling and a fresh String may share the command array.
             accept(prefix + "String[] c = {tool.toString(), fresh}; Path d = Path.of(\"/tmp\"); ProcessResult r = ProcessRunner.runToFile(c, d, output); ; ; ; ; ;" + suffix);
             accept(prefix + "String[] c = new String[2]; c[0] = tool.toString(); c[1] = fresh; ProcessResult r = ProcessRunner.runToFile(c, null, output); ; ; ; ;" + suffix);
-            // Unsafe: the result is freed once; an element freed while the array is live stays rejected.
+            // Results and elements remain usable through shared references.
             accept(prefix + "String[] c = {\"/bin/echo\"}; ProcessResult r = ProcessRunner.runToFile(c, null, output); ; ; ; ; ;" + suffix);
             accept(prefix + "String[] c = {\"/bin/echo\"}; ProcessResult r = ProcessRunner.runToFile(c, null, output); ; ; ; ; return r.exitValue(); }}");
             accept(prefix + "String[] c = {tool.toString(), fresh}; ; ProcessResult r = ProcessRunner.runToFile(c, null, output); ; ; ;" + suffix);

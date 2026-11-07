@@ -95,8 +95,8 @@ independent-allocation semantics without a separate, explicit contract.
 
 Automatic allocation coalescing is another possibility when the compiler can
 prove it preserves behavior. It must account for object identity, observable
-construction and initialization order, allocation failure, and independent
-`free` operations. Merely noticing adjacent `new` expressions is insufficient.
+construction and initialization order, allocation failure/accounting and exact
+roots/layouts at explicit collection. Adjacent `new` expressions alone are insufficient.
 
 Recommendation: explore one narrow ownership model before exposing a general
 arena facility. Preserve Java-shaped access and mandatory static lifetime proofs;
@@ -140,8 +140,8 @@ values, potentially keeping them in registers and removing the allocation.
 
 Prioritize this automatic route. Developers should be able to write ordinary
 objects and receive better code when the compiler proves their lifetimes and
-uses. Preserve identity, initialization, exception behavior, and observable
-`free` semantics. Analyze aliases and calls, including foreign calls, rather
+uses. Preserve identity, initialization, exception behavior, accounting and
+explicit collection effects. Analyze aliases and calls, including foreign calls, rather
 than assuming a local variable implies a local object lifetime.
 
 An explicit scoped-storage feature could eventually express intent and reject

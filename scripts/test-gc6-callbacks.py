@@ -46,8 +46,9 @@ def main():
         stdout = (raw / (level + '-consumer.stdout')).read_text()
         stderr = (raw / (level + '-consumer.stderr')).read_text()
         diagnostic_lines = stderr.splitlines() if args.diagnostics else []
+        prefixes = ('GC6 capture step=', 'GC3 ELF frame pc=' if engine.gc.host_target().startswith('linux') else 'GC3 frame pc=')
         unexpected = [line for line in stderr.splitlines() if line not in diagnostic_lines
-                      or not line.startswith(('GC3 frame pc=', 'GC6 capture step='))]
+                      or not line.startswith(prefixes)]
         if stdout != 'GC6 generated callbacks passed\n' or unexpected:
             raise RuntimeError('unexpected JNI diagnostics in ' + level)
         if args.batch_fallback:
@@ -56,7 +57,7 @@ def main():
                  'Gc6Callbacks', folder / 'support.txt'], level + '-batch-fallback')
             fallback_error = (raw / (level + '-batch-fallback.stderr')).read_text().splitlines()
             if args.diagnostics:
-                fallback_error = [line for line in fallback_error if not line.startswith(('GC3 frame pc=', 'GC6 capture step='))]
+                fallback_error = [line for line in fallback_error if not line.startswith(prefixes)]
             if (raw / (level + '-batch-fallback.stdout')).read_text() != 'GC6 generated callbacks passed\n' or fallback_error:
                 raise RuntimeError('unexpected JNI fallback diagnostics in ' + level)
     (out / 'results.json').write_text(json.dumps({'format': 1, 'gc6_complete': False, 'target': engine.gc.host_target(),

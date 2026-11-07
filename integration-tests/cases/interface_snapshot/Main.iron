@@ -133,7 +133,7 @@ class Main {
 
     public static int main(String[] args) {
 
-        // The baseline also checks rollback of every partially filled owner.
+        // Partial snapshots use managed lifetime when construction fails.
         try {
             InterfaceView snapshot = new InterfaceView(3);
             try {

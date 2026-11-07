@@ -5,10 +5,8 @@ set -euo pipefail
 
 EXAMPLE_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
-# Scenario 19 alone uses in compile-valid-scenario.sh and link.sh.
-# Its failure branch avoids touching an element whose destructor already ran;
-# forcing cleanup there would invalidate the destruction check. All other scenarios
-# keep the default warnings, and mandatory memory-safety errors remain enabled.
+# Positive scenarios check managed aliases and explicit collection or pool reuse.
+# Historical negative inputs must report that reclamation syntax was removed.
 COMPILERS=(
     compile01.sh
     compile02.sh
