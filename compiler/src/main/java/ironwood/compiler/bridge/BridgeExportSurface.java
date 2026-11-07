@@ -91,12 +91,6 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
         return select(artifact, exports, Shape.OBJECT_VALUE, listeners);
     }
 
-    /** P5 signature inventory only; callback invocation and lifetime proofs remain mandatory. */
-
-
-    /** Stateful P5 inventory only; complete storage, slots, guards and adapters remain separate. */
-
-
     private enum Shape { SCALAR, VALUE, CONCRETE, OBJECT_VALUE }
 
     private static boolean objects(Shape shape) {
