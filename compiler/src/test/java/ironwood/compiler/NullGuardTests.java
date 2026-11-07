@@ -87,8 +87,6 @@ final class NullGuardTests {
         }
     }
 
-/** Calls retain field facts at their original evaluation points (D290). */
-
     /** A `throw new` whose fresh object is no longer null-checked still calls the cold helper. */
     static void explicitThrowsStayOutlined() {
         IrProgram program = compile("""
