@@ -3,6 +3,7 @@
 package ironwood.compiler.backend;
 
 import ironwood.compiler.CompilerPipeline;
+import ironwood.compiler.BridgeObjectAdmission;
 import ironwood.compiler.Main;
 import ironwood.compiler.ir.*;
 import ironwood.compiler.source.SourceFile;
@@ -49,8 +50,18 @@ public final class SelectiveInliningTests {
         var library = library(original);
         require(SelectiveInlining.select(library).contains("ironwood.Main.work"), "library loop remains behind a call");
         require(!SelectiveInlining.select(library).contains("ironwood.Main.wrapper"), "export root selected");
-        require(new LlvmEmitter().emit(library).contains("i1 %v2) alwaysinline"), "library inline attribute missing");
-        require(!new LlvmEmitter().emit(library, false).contains("i1 %v2) alwaysinline"), "library override ignored");
+        String bridgeSource = "package inlining;\n" + source.replace("class Main {", "public final class Main {")
+                .replace("private static int wrapper", "public static int wrapper")
+                .replace("public static int main", "private static int exercise");
+        var artifact = new CompilerPipeline().analyzeForBridge(List.of(SourceFile.of("Main.iron", bridgeSource)));
+        require(artifact.valid(), artifact.diagnostics().toString());
+        var proof = BridgeObjectAdmission.proveManaged(artifact, List.of("inlining"));
+        require(proof.contract().isPresent(), proof.reason());
+        require(new LlvmEmitter().emit(proof.contract().orElseThrow()).contains("i1 %v2) alwaysinline"),
+                "admitted library inline attribute missing");
+        var executable = analyze(Files.readString(SOURCE));
+        require(new LlvmEmitter().emit(executable).contains("i1 %v2) alwaysinline"), "executable inline attribute missing");
+        require(!new LlvmEmitter().emit(executable, false).contains("i1 %v2) alwaysinline"), "inline override ignored");
         String recursive = source.replace("return sum;", "if (count > 100) return work(values, count - 1, fail); return sum;");
         require(!SelectiveInlining.select(library(analyze(recursive))).contains("ironwood.Main.work"), "recursive library loop selected");
         String larger = source.replace("sum += values[0];", "sum += values[0];\n".repeat(4));

@@ -196,7 +196,7 @@ final class DeferTests {
         // Deliberately invalid semantic source inside otherwise valid format-1 artifacts
         // must be rechecked both during dependency loading and final linking.
         String invalid = library.replace("defer Cleanup.<int>action(value);",
-                "Object captured = new Object(); defer action(captured); ;");
+                "defer Cleanup.count();");
         var unit = SourceParser.parse(SourceFile.of("library/Cleanup.iron", invalid)).unit().orElseThrow();
         var badClass = root.resolve("invalid/library/Cleanup.ironclass");
         IronClass.write(badClass, unit, "library.Cleanup");
@@ -205,11 +205,11 @@ final class DeferTests {
         for (var dependency : List.of(root.resolve("invalid"), badArchive)) {
             String errors = cli(1, "-cp", dependency.toString(), "--source-path", root.resolve("absent").toString(),
                     application.toString(), "-d", root.resolve("invalid-output").toString());
-            require(errors.contains("pending deferred call"), errors);
+            require(errors.contains("defer requires a void method invocation"), errors);
             errors = cli(1, "--link", "-cp", root.resolve("class-classes")
                     + java.io.File.pathSeparator + dependency, "--main-class", "Main",
                     "-o", root.resolve("invalid-program").toString());
-            require(errors.contains("pending deferred call"), errors);
+            require(errors.contains("defer requires a void method invocation"), errors);
         }
         // Format-1 pre-reservation source uses defer as an identifier. Construct the
         // old container layout directly so the current parser cannot sanitize it.

@@ -57,11 +57,13 @@ public final class NativeTargetTests {
                     "getelementptr (%part, ptr null, i32 1)",
                     "getelementptr (%part, ptr null, i32 0, i32 2)"
                 };
+                // Arithmetic-only LLVM still uses the mandatory root ABI and unwind contract.
                 StringBuilder llvm = new StringBuilder("""
+                        @iw_gc_root_abi = hidden constant i32 2
                         %mixed = type { ptr, i32, i64, float, i8, double, ptr }
                         %array = type { ptr, i64, i64, i32, i32, [0 x i8] }
                         %part = type { i32, i32, i64 }
-                        define i32 @main() {
+                        define i32 @main() uwtable gc "statepoint-example" {
                         entry:
                         """);
                 for (int index = 0; index < offsets.length; index++) {
@@ -152,8 +154,9 @@ public final class NativeTargetTests {
             // every object initialization and reset produces, kept out of line so
             // its machine code can be inspected on its own.
             String llvm = """
+                    @iw_gc_root_abi = hidden constant i32 2
                     @storage = internal global [4 x i64] [i64 1, i64 2, i64 3, i64 4], align 8
-                    define void @zero_fields(ptr noundef %object) noinline {
+                    define void @zero_fields(ptr noundef %object) noinline uwtable "gc-leaf-function" {
                     entry:
                       store i64 0, ptr %object, align 8
                       %field1 = getelementptr inbounds i8, ptr %object, i64 8
@@ -164,7 +167,7 @@ public final class NativeTargetTests {
                       store i64 0, ptr %field3, align 8
                       ret void
                     }
-                    define i32 @main() {
+                    define i32 @main() uwtable gc "statepoint-example" {
                     entry:
                       call void @zero_fields(ptr @storage)
                       %a = load i64, ptr @storage, align 8

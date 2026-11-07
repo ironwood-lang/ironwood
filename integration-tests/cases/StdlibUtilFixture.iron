@@ -402,7 +402,7 @@ public final class StdlibUtilFixture {
         copiedDecoration.add("x");
         String copiedText = copiedDecoration.toString();
         if (require(copiedText.equals("[x]"), 58) != 0) return 58;
-        return true;
+        return 0;
     }
 
     private static int bitSetReclamation() {
@@ -447,7 +447,7 @@ public final class StdlibUtilFixture {
         lowSource.set(1);
         BitSet trimmedRange = lowSource.get(0, 100);
         if (require(trimmedRange.size() == 64 && trimmedRange.get(1), 73) != 0) return 73;
-        return true;
+        return 0;
     }
 
     private static int iteratorDefault() {

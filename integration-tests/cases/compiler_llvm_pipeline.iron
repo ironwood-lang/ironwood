@@ -2,7 +2,8 @@
 
 // Links an emitted module through the port's LlvmPipeline: arguments are the
 // LLVM home, the runtime source directory, the module, the finalizer and the
-// executable to write. Prints "linked" or the failing stage's message, then
+// executable to write. Managed modules report the historical pilot's GC5
+// admission refusal. Other inputs print "linked" or the failing stage, then
 // the invocation's probe counters after closing it. Exit 42.
 import ironwood.compiler.port.LlvmPipeline;
 import ironwood.compiler.port.Probes;

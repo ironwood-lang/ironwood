@@ -91,8 +91,10 @@ final class BridgeObjectApiTests {
         check(select(compiler.analyze(List.of(source))).surface().isEmpty(), "missing bridge facts admitted");
         // This fixture scope preserves independent local names.
 {
-            var unsafe = new CompilerPipeline().analyzeForBridge(List.of(SourceFile.of("Bad.iron", "package objectapi;\npublic final class Bad {\n    public Bad() {}\n    public static int unsafe() {\n        Bad value = new Bad();\n        ;\n        return value.read();\n    }\n    public int read() { return 1; }\n}\n")));
-            check(!unsafe.valid() && select(unsafe).surface().isEmpty(), "unsafe free admitted in " + "GC");
+            var unsafe = new CompilerPipeline().analyzeForBridge(List.of(SourceFile.of("Bad.iron", "package objectapi;\npublic final class Bad {\n    public Bad() {}\n    public static int unsafe() {\n        Bad value = new Bad();\n        free value;\n        return value.read();\n    }\n    public int read() { return 1; }\n}\n")));
+            check(!unsafe.valid() && select(unsafe).surface().isEmpty()
+                    && unsafe.diagnostics().stream().anyMatch(diagnostic -> diagnostic.message().contains("removed")),
+                    "removed reclamation syntax admitted");
         }
     }
 

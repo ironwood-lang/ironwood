@@ -28,6 +28,12 @@ public final class OptimizationReportTests {
             LlvmToolchain tools = LlvmToolchain.discover(null).toolchain().orElseThrow();
             Path home = root.resolve("llvm");
             Path bin = Files.createDirectories(home.resolve("bin"));
+            // The GC statepoint plugin build also needs the selected LLVM headers and libraries.
+            try (var paths = Files.list(tools.home())) {
+                for (Path path : paths.filter(path -> !path.getFileName().toString().equals("bin")).toList()) {
+                    Files.createSymbolicLink(home.resolve(path.getFileName()), path);
+                }
+            }
             for (String tool : List.of("clang", "llvm-as", "llvm-objcopy", "llvm-config")) {
                 Files.createSymbolicLink(bin.resolve(tool), tools.home().resolve("bin").resolve(tool));
             }
@@ -103,7 +109,10 @@ public final class OptimizationReportTests {
     }
 
     private static void captureTool(Path wrapper, Path tool, Path arguments, Path output) throws Exception {
-        Files.writeString(wrapper, "#!/bin/sh\nset -eu\nprintf '%s\\n' \"$@\" > " + quote(arguments)
+        Files.writeString(wrapper, "#!/bin/sh\nset -eu\n"
+                + "case \" $* \" in *'-passes=ironwood-nonmoving-statepoints,verify'*) exec "
+                + quote(tool) + " \"$@\";; esac\n"
+                + "printf '%s\\n' \"$@\" > " + quote(arguments)
                 + "\n" + quote(tool) + " \"$@\"\n"
                 + "while [ \"$#\" -gt 0 ]; do\n"
                 + "  if [ \"$1\" = -o ]; then cp \"$2\" " + quote(output) + "; exit 0; fi\n"

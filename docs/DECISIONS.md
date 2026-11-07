@@ -12890,3 +12890,22 @@ occurrence order. If no
   peripheral migration. I3/reproducibility follow only after I2. D008 keeps Java
   authoritative; no self-hosting attempt, compiler-capacity acceptance, release,
   publication or next milestone is authorized by this decision.
+
+
+## D330 - Refuse managed modules in the historical compiler pilot linker
+
+- **Status:** Accepted.
+- **Context:** The M4.3 pilot `compiler.port.LlvmPipeline` still implements the
+  pre-GC native pipeline. It has no GC5 SDK admission, nonmoving statepoint
+  rewrite or final root-contract verification. Its old executable-equivalence
+  test cannot qualify current managed output.
+- **Decision:** Supersede D273's native-link equivalence claim for current managed
+  modules. The pilot refuses modules carrying managed address spaces, root ABI
+  metadata or the managed GC strategy before tool execution or output creation.
+  Keep the production Java bootstrap linker authoritative under D008 and D329.
+  Its verified GC5 path continues to compile ordinary applications.
+- **Validation:** Keep source/class/archive refusal coverage and the pilot's
+  malformed-module and failing-tool controls. No GC admission or final metadata
+  verification is bypassed to obtain a successful link.
+- **Scope:** This is a fail-closed boundary for a historical helper. Completing
+  its backend migration and attempting self-hosting require separate work.

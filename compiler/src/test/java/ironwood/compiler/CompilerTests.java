@@ -605,7 +605,7 @@ public final class CompilerTests {
         test("M4.3 port executable search matches the Java seed", DriverAdapterTests::executableSearch);
         test("M4.3 discovery probes match Java answers and reuse results within one invocation",
                 DriverAdapterTests::discoveryProbes);
-        test("M4.3 native LLVM pipeline links programs equal to the Java link", DriverAdapterTests::pipeline);
+        test("M4.3 native LLVM pipeline rejects managed modules without GC5 admission", DriverAdapterTests::pipeline);
         test("M4.3 native LLVM pipeline reports failing stages and leaves nothing behind",
                 DriverAdapterTests::pipelineFailures);
         test("M4.3 driver adapters unwind every allocation failure without leftovers", DriverAdapterTests::failures);
@@ -1304,7 +1304,7 @@ public final class CompilerTests {
         assertContains(artifact.llvmIr().orElseThrow(),
                 "define i32 @main(i32 %argc, ptr %argv)", "native entry point");
         assertContains(artifact.llvmIr().orElseThrow(),
-                "call ptr @ironwood_process_arguments", "process argument construction");
+                "call ptr addrspace(1) @ironwood_process_arguments", "process argument construction");
         assertContains(artifact.llvmIr().orElseThrow(), "ret i32 42", "LLVM return instruction");
     }
 
@@ -1414,8 +1414,8 @@ public final class CompilerTests {
                 "the @Test directive may only be used on methods");
         assertParserDiagnostic("interface Main { @Test void value(); }",
                 "the @Test directive may only be used on class methods");
-        assertParserDiagnostic("class Main { @Test  }",
-                "the @Test directive may only be used on methods");
+        assertParserDiagnostic("class Main { @Test destructor { } }",
+                "removed");
         assertParserDiagnostic("class Main { @Test @Test void value() { } }",
                 "duplicate '@Test' directive");
         assertParserDiagnostic("class Main { @Test() void value() { } }",
@@ -2384,7 +2384,7 @@ public final class CompilerTests {
                 .findFirst().orElseThrow();
         assertTrue(genericGet.returnType().isTypeParameter(),
                 "generic method return type was erased before typed IR");
-        assertContains(artifact.llvmIr().orElseThrow(), "%\"ironwood.class.Box\" = type { ptr, ptr }",
+        assertContains(artifact.llvmIr().orElseThrow(), "%\"ironwood.class.Box\" = type { ptr, ptr addrspace(1) }",
                 "shared generic native layout");
 
         CompilationArtifact classOverride = compile("""
@@ -3221,7 +3221,7 @@ public final class CompilerTests {
                         .anyMatch(field -> field.name().startsWith("<capture:")),
                 "local and anonymous classes did not expose deterministic hidden capture fields");
 
-        assertDiagnostic("class Item { }\nclass Main { public static int main(String[] args) {\n    Item item = new Item();\n    class Holder { Item value() { return item; } }\n    Holder holder = new Holder();\n    ;\n    return holder == null ? 1 : 0;\n} }\n", "captured variable");
+        assertManagedSource("class Item { }\nclass Main { public static int main(String[] args) {\n    Item item = new Item();\n    class Holder { Item value() { return item; } }\n    Holder holder = new Holder();\n    ironwood.lang.Memory.collect();\n    return holder == null ? 1 : 0;\n} }\n");
         assertDiagnostic("""
                 class Main { public static int main(String[] args) {
                     int value = 1;
@@ -3997,7 +3997,7 @@ public final class CompilerTests {
                     switch (input) { case 0 -> 42; default -> { } }
                 } }
                 """, "expression statement must be an assignment");
-        assertDiagnostic("class Box { }\nclass Main { static void release(int input) {\n    Box box = switch (input) {\n        case 0 -> new Box();\n        default -> new Box();\n    };\n    ;\n}\n    public static int main(String[] args) { release(0); return 0; }\n}\n", "value is not a known allocation created by new in this method");
+        assertManagedSource("class Box { }\nclass Main { static void release(int input) {\n    Box box = switch (input) {\n        case 0 -> new Box();\n        default -> new Box();\n    };\n    ironwood.lang.Memory.collect();\n}\n    public static int main(String[] args) { release(0); return 0; }\n}\n");
     }
 
     private void enumSemanticsAreChecked() throws Exception {
@@ -4189,7 +4189,7 @@ public final class CompilerTests {
                 }
                 class Main { public static int main(String[] args) { return 0; } }
                 """, "cannot override final method inherited from 'FinalMember'");
-        assertDiagnostic("enum Immortal { VALUE { int code() { return 1; } } }\nclass Main { public static int main(String[] args) {\n    Immortal value = Immortal.VALUE;\n    ;\n    return 0;\n} }\n", "value is not a known allocation created by new in this method");
+        assertManagedSource("enum Immortal { VALUE { int code() { return 1; } } }\nclass Main { public static int main(String[] args) {\n    Immortal value = Immortal.VALUE;\n    ironwood.lang.Memory.collect();\n    return 0;\n} }\n");
     }
 
     private void unknownMethodIsRejected() {
@@ -5963,8 +5963,8 @@ public final class CompilerTests {
                     public static int main(String[] args) { return 0; }
                 }
                 """, "'Outer.this' is not available in this static or lexical context");
-        assertDiagnostic("class Outer {\n    class Inner { }\n    public static int main(String[] args) {\n        Outer outer = new Outer();\n        Outer.Inner inner = outer.new Inner();\n        ;\n        return inner == null ? 0 : 1;\n    }\n}\n", "allocation is retained as an enclosing instance");
-        assertDiagnostic("class Outer {\n    class Inner { }\n    public static int main(String[] args) {\n        Outer outer = new Outer();\n        Outer.Inner inner = outer.new Inner() { };\n        ;\n        return inner == null ? 0 : 1;\n    }\n}\n", "allocation is retained as the anonymous superclass enclosing instance");
+        assertManagedSource("class Outer {\n    class Inner { }\n    public static int main(String[] args) {\n        Outer outer = new Outer();\n        Outer.Inner inner = outer.new Inner();\n        ironwood.lang.Memory.collect();\n        return inner == null ? 0 : 1;\n    }\n}\n");
+        assertManagedSource("class Outer {\n    class Inner { }\n    public static int main(String[] args) {\n        Outer outer = new Outer();\n        Outer.Inner inner = outer.new Inner() { };\n        ironwood.lang.Memory.collect();\n        return inner == null ? 0 : 1;\n    }\n}\n");
         assertDiagnostic("""
                 class Main {
                     static class Nested { }
@@ -6180,7 +6180,7 @@ public final class CompilerTests {
         assertTrue(qualifiedSuper.successful(), messages(qualifiedSuper));
 
         assertManagedSource("class Outer {\n    class Inner { int read() { return 1; } }\n    Inner make() { return new Inner(); }\n}\nclass Main {\n    public static int main(String[] args) {\n        Outer outer = new Outer();\n        Outer.Inner inner = outer.make();\n        ;\n        return inner.read();\n    }\n}\n");
-        assertDiagnostic("class Buffer {\n    private int[] values;\n    Buffer() { values = new int[1]; }\n    class View { int[] expose() { return values; } }\n    void grow() {\n        int[] previous = values;\n        values = new int[2];\n        ;\n    }\n}\nclass Main { public static int main(String[] args) { return 0; } }\n", "or a proven detached private backing array");
+        assertManagedSource("class Buffer {\n    private int[] values;\n    Buffer() { values = new int[1]; }\n    class View { int[] expose() { return values; } }\n    void grow() {\n        int[] previous = values;\n        values = new int[2];\n        ironwood.lang.Memory.collect();\n    }\n}\nclass Main { public static int main(String[] args) { return 0; } }\n");
 
         CompilationArtifact dollarMember = compile("""
                 class Main {
@@ -6360,8 +6360,8 @@ public final class CompilerTests {
         assertTrue(instructions.stream().anyMatch(IrNullCheckInstruction.class::isInstance),
                 "null check did not reach typed IR");
         String llvm = artifact.llvmIr().orElseThrow();
-        assertContains(llvm, "%\"ironwood.class.Counter\" = type { ptr, i32, ptr }", "object layout");
-        assertContains(llvm, "@\"ironwood.typeinfo.Counter\" = private constant", "object type metadata");
+        assertContains(llvm, "%\"ironwood.class.Counter\" = type { ptr, i32, ptr addrspace(1) }", "object layout");
+        assertContains(llvm, "@\"ironwood.typeinfo.Counter\" = private global", "object type metadata");
         assertContains(llvm, "call ptr addrspace(1) @ironwood_allocate", "runtime allocation call");
         assertContains(llvm, "getelementptr inbounds %\"ironwood.class.Counter\"", "field lowering");
         assertContains(llvm, "icmp ne ptr", "catchable null-check predicate");
@@ -7835,13 +7835,13 @@ public final class CompilerTests {
         assertContains(llvm, "@\"ironwood.dispatch.Plus\" = private constant", "Plus dispatch table");
         assertContains(llvm, "@\"ironwood.membership.Plus\" = private constant", "Plus membership table");
         assertContains(llvm,
-                "ptr @\"ironwood.typeinfo.Plus\", ptr @\"ironwood.immortal.implicit allocation failure\")",
+                "ptr @\"ironwood.typeinfo.Plus\", ptr addrspace(1) addrspacecast (ptr @\"ironwood.immortal.implicit allocation failure\" to ptr addrspace(1)))",
                 "allocated-object type and failure metadata");
         assertContains(llvm, "%ironwood.virtual.callee", "polymorphic virtual call lowering");
         assertContains(llvm, "%ironwood.interface.callee", "polymorphic interface call lowering");
         assertContains(llvm, "call i32 @\"ironwood.Plus.tag\"", "devirtualized singleton interface call");
         assertContains(llvm, "define internal i1 @\"ironwood.is_instance\"", "type-test helper");
-        assertContains(llvm, "call i1 @\"ironwood.is_instance\"(ptr null", "null instanceof lowering");
+        assertContains(llvm, "call i1 @\"ironwood.is_instance\"(ptr addrspace(1) null", "null instanceof lowering");
         assertContains(llvm, "call void @\"ironwood.Base.<init>\"", "superclass constructor lowering");
     }
 
@@ -7884,7 +7884,7 @@ public final class CompilerTests {
         assertContains(llvm, "invoke void @\"ironwood.Main.fail\"", "LLVM protected call");
         assertContains(llvm, "landingpad { ptr, i32 } catch ptr null", "LLVM landing pad");
         assertContains(llvm, "personality ptr @__gxx_personality_v0", "native personality");
-        assertContains(llvm, "call ptr @ironwood_exception_take", "runtime exception transfer");
+        assertContains(llvm, "call ptr addrspace(1) @ironwood_exception_take", "runtime exception transfer");
     }
 
     private void stackTracesRetainTypedSourceIdentity() {
@@ -7925,14 +7925,14 @@ public final class CompilerTests {
         assertContains(llvm, "c\"Main.iron\\00\"", "stable source filename metadata");
         assertContains(llvm, "call void @llvm.pseudoprobe", "code-free trace probe lowering");
         assertContains(llvm, "!llvm.pseudo_probe_desc", "pseudo-probe descriptors");
-        assertContains(llvm, "declare void @ironwood_trace_register(ptr, i32, ptr, i32)\n",
+        assertContains(llvm, "declare void @ironwood_trace_register(ptr, i32, ptr, i32)",
                 "function-address trace registration ABI");
         assertTrue(!llvm.contains("ironwood_trace_enter")
                         && !llvm.contains("ironwood_trace_set_line")
                         && !llvm.contains("ironwood_trace_unwind")
                         && !llvm.contains("ironwood_trace_leave"),
                 "ordinary execution retained shadow-stack bookkeeping");
-        assertContains(llvm, "declare void @ironwood_uncaught_exception(ptr, i64) noreturn",
+        assertContains(llvm, "declare void @ironwood_uncaught_exception(ptr addrspace(1), i64) noreturn",
                 "message-aware uncaught runtime ABI");
         assertContains(llvm, "%message.offset = ptrtoint", "Throwable message offset lowering");
         assertTrue(containsInstruction(artifact.program().orElseThrow(),
@@ -7950,7 +7950,7 @@ public final class CompilerTests {
         assertDiagnostic("""
                 class Main {
                     public static int main(String[] args) {
-                        long state = new RuntimeException().traceState;
+                        Object state = new Throwable().traceMetadata;
                         return 0;
                     }
                 }
@@ -8192,9 +8192,9 @@ public final class CompilerTests {
                 "System array-copy ABI call");
         assertTrue(!llvm.contains("call i32 @\"ironwood.Box.hashCode"),
                 "System.identityHashCode dispatched to an override");
-        assertContains(llvm, "@\"ironwood.typeinfo.Box\" = private constant %\"ironwood.typeinfo\" {",
+        assertContains(llvm, "@\"ironwood.typeinfo.Box\" = private global %\"ironwood.typeinfo\" {",
                 "class descriptor");
-        assertContains(llvm, "@\"ironwood.typeinfo.int[]\" = private constant %\"ironwood.typeinfo\" {",
+        assertContains(llvm, "@\"ironwood.typeinfo.int[]\" = private global %\"ironwood.typeinfo\" {",
                 "array descriptor");
     }
 
@@ -8270,13 +8270,14 @@ public final class CompilerTests {
                         + "%\"ironwood.class.ironwood.io.PrintStream\"",
                 "immortal PrintStream object");
         assertContains(llvm,
-                "@\"ironwood.static.ironwood.lang.System.out\" = internal constant ptr "
-                        + "@\"ironwood.immortal.ironwood.lang.System.out\"",
+                "@\"ironwood.static.ironwood.lang.System.out\" = internal constant ptr addrspace(1) addrspacecast (ptr "
+                        + "@\"ironwood.immortal.ironwood.lang.System.out\" to ptr addrspace(1))",
                 "initialized System.out static field");
         assertContains(llvm, "call void @ironwood_print_stream_write", "stdout runtime boundary");
         int textId = matchingText.getFirst().id();
-        assertContains(llvm, "icmp ne ptr @\"ironwood.string." + textId
-                        + "\", @\"ironwood.string." + textId + "\"",
+        assertContains(llvm, "icmp ne ptr addrspace(1) addrspacecast (ptr @\"ironwood.string." + textId
+                        + "\" to ptr addrspace(1)), addrspacecast (ptr @\"ironwood.string." + textId
+                        + "\" to ptr addrspace(1))",
                 "pooled string identity comparison");
 
         CompilationArtifact unsafeFree = compile("class Main {\n    public static int main(String[] args) {\n        Object evaluated0 = System.out;\n        return 0;\n    }\n}\n");
@@ -8518,7 +8519,7 @@ public final class CompilerTests {
         String llvm = artifact.llvmIr().orElseThrow();
         assertContains(llvm, "[3 x i16] [i16 65, i16 55357, i16 56832]",
                 "supplementary literal UTF-16 tail");
-        assertContains(llvm, "= load i16, ptr %ironwood.string.unit.ptr", "String charAt inline unit load");
+        assertContains(llvm, "= load i16, ptr addrspace(1) %ironwood.string.unit.ptr", "String charAt inline unit load");
         assertContains(llvm, "call i1 @ironwood_string_equals", "String equals ABI");
         assertContains(llvm, "call i32 @ironwood_string_hash_code", "String hash ABI");
         assertContains(llvm, "call ptr addrspace(1) @ironwood_string_from_chars", "String snapshot ABI");
@@ -8790,9 +8791,9 @@ public final class CompilerTests {
                     "unused PrintStream standard-library class was not removed");
             assertTrue(!plainIr.contains("@\"ironwood.ironwood.lang.Object.toString\"("),
                     "unused allocating Object.toString method was not removed");
-            assertTrue(!plainIr.contains("ironwood.lang.OutOfMemoryError")
-                            && !plainIr.contains("ironwood.lang.Throwable"),
-                    "plain program retained unreachable exception classes");
+            // Managed process arguments and GC startup retain the emergency allocation failure graph.
+            assertContains(plainIr, "ironwood.lang.OutOfMemoryError", "mandatory allocation failure metadata");
+            assertContains(plainIr, "ironwood.lang.Throwable", "mandatory failure superclass metadata");
             assertTrue(!plainIr.contains("ironwood.lang.ClassCastException"),
                     "unused ClassCastException standard-library class was not removed");
             assertTrue(!plainIr.contains("ironwood.lang.Iterable"),
@@ -9280,9 +9281,9 @@ public final class CompilerTests {
         String llvm = artifact.llvmIr().orElseThrow();
         assertContains(llvm, "@\"ironwood.enum.State.READY\" = private global",
                 "LLVM enum singleton storage");
-        assertContains(llvm, "@\"ironwood.static.State.READY\" = internal global ptr null",
+        assertContains(llvm, "@\"ironwood.static.State.READY\" = internal global ptr addrspace(1) null",
                 "LLVM enum field pre-initialization");
-        assertContains(llvm, "store ptr @\"ironwood.enum.State.READY\"",
+        assertContains(llvm, "store ptr addrspace(1) addrspacecast (ptr @\"ironwood.enum.State.READY\" to ptr addrspace(1))",
                 "LLVM enum initialization store");
         assertContains(llvm, "switch i32", "LLVM enum ordinal switch");
     }
@@ -9740,7 +9741,7 @@ public final class CompilerTests {
                 "raw negative-zero float global");
         assertContains(llvm, "@\"ironwood.static.State.counter\" = internal global i32 0",
                 "mutable zero-initialized global");
-        assertContains(llvm, "@\"ironwood.static.State.object\" = internal global ptr null",
+        assertContains(llvm, "@\"ironwood.static.State.object\" = internal global ptr addrspace(1) null",
                 "null reference global");
         CompilationArtifact plain = compile(validProgram(0));
         assertTrue(plain.successful(), messages(plain));
@@ -15079,7 +15080,7 @@ public final class CompilerTests {
         try {
             for (String primitive : List.of("float", "double")) {
                 // Limits 2 and 3 fail conversion and subsequent builder growth respectively.
-                Path source = writeSource(root.resolve(primitive), "Main.iron", "class Main {\n\n    public static int main(String[] args) {\n\n        long initial = System.liveAllocationCount();\n        StringBuilder builder = new StringBuilder(0);\n        %s value = %s;\n        long live = System.liveAllocationCount();\n        try {\n            builder.append(value);\n            return 1;\n        } catch (OutOfMemoryError expected) {\n            if (builder.length() != 0 || builder.capacity() != 0)cted = String.valueOf(value);\n            ;\n            return 3;\n        } catch (OutOfMemoryError expected) {\n            \n        }\n        ;\n        return 42;\n    }\n}\n".formatted(primitive, primitive.equals("float") ? "0.1f" : "0.1"));
+                Path source = writeSource(root.resolve(primitive), "Main.iron", "class Main {\n    public static int main(String[] args) {\n        StringBuilder builder = new StringBuilder(0);\n        %s value = %s;\n        try {\n            builder.append(value);\n            return 1;\n        } catch (OutOfMemoryError expected) {\n            if (builder.length() != 0 || builder.capacity() != 0) return 2;\n        }\n        try {\n            String unexpected = String.valueOf(value);\n            return 3;\n        } catch (OutOfMemoryError expected) {\n            // Failed conversion and growth leave the builder usable.\n            if (builder.length() != 0 || builder.capacity() != 0) return 4;\n        }\n        ironwood.lang.Memory.collect();\n        return builder.length() == 0 && builder.capacity() == 0 ? 42 : 5;\n    }\n}\n".formatted(primitive, primitive.equals("float") ? "0.1f" : "0.1"));
                 Path classes = root.resolve(primitive + "-classes");
                 assertMainRun(new String[]{source.toString(), "-d", classes.toString()}, 0,
                         primitive + " failure compile");
@@ -15559,11 +15560,11 @@ public final class CompilerTests {
                 ok - Bench behavior: 18 passed, 0 skipped, 18 total
                 ok - NanoBench behavior: 6 passed, 0 skipped, 6 total
                 ok - Networking Milestone 1: 9 passed, 0 skipped, 9 total
-                ok - Networking Milestone 2: 11 passed, 0 skipped, 11 total
+                ok - Networking Milestone 2: 10 passed, 0 skipped, 10 total
                 ok - Networking Milestone 3: 8 passed, 0 skipped, 8 total
-                ok - Networking Milestone 4: 11 passed, 0 skipped, 11 total
+                ok - Networking Milestone 4: 10 passed, 0 skipped, 10 total
                 ok - Networking Milestone 5: 4 passed, 0 skipped, 4 total
-                TOTAL: 176 passed, 1 skipped, 177 total across 12 test suites
+                TOTAL: 174 passed, 1 skipped, 175 total across 12 test suites
                 PASS: all 13 standard-library suite checks passed
                 """.stripIndent().strip(), output.strip(),
                 "standard-library testing verification output");
@@ -16657,7 +16658,7 @@ public final class CompilerTests {
             assertTrue(!absent.successful(), "deferred method must fail during compilation: " + call);
         }
         for (String call : List.of("\"aa\".replace(value, \"b\")", "String.join(\",\", values)")) {
-            assertManagedSource("class Text implements CharSequence {\n    static Object retained;\n    public int length() { return 1; }\n    public char charAt(int index) { return \'a\'; }\n    public CharSequence subSequence(int a, int b) { return this; }\n    public String toString() { retained = this; return \"a\"; }\n}\nclass Main {\n    public static int main(String[] args) {\n        Text value = new Text();\n        Text[] values = {value};\n        String result = %s;\n        ; ; ;\n        return 0;\n    }\n}\n".formatted(call));
+            assertManagedSource("class Text implements CharSequence {\n    static Object retained;\n    @Override public int length() { return 1; }\n    @Override public char charAt(int index) { return \'a\'; }\n    @Override public CharSequence subSequence(int a, int b) { return this; }\n    @Override public String toString() { retained = this; return \"a\"; }\n}\nclass Main {\n    public static int main(String[] args) {\n        Text value = new Text();\n        Text[] values = {value};\n        String result = %s;\n        ; ; ;\n        return 0;\n    }\n}\n".formatted(call));
         }
     }
 

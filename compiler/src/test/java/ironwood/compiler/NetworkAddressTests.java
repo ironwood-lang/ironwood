@@ -34,7 +34,7 @@ final class NetworkAddressTests {
             throw new AssertionError("Resolver handle/count lost native widths");
         }
         String llvm = result.llvmIr().orElseThrow();
-        if (!llvm.contains("@ironwood_tcp_resolve_start(ptr, ptr, ptr)")
+        if (!llvm.contains("@ironwood_tcp_resolve_start(ptr addrspace(1), ptr, ptr)")
                 || !llvm.contains("@ironwood_tcp_resolve_release(i64)")) {
             throw new AssertionError("Resolver native ABI lost output pointers or handle width");
         }
@@ -46,7 +46,7 @@ final class NetworkAddressTests {
         check(source.replace("values[index] = null;", ""), true, "attached resolver results remain legal");
         for (String getter : java.util.List.of("getHostName", "getCanonicalHostName")) {
             check("import ironwood.net.*; class Main { static String use(InetAddress address) throws Exception { String name = address."
-                    + getter + "(); ironwood.lang.Memory.collect(); return name; } }", true, "rooted resolver name");
+                    + getter + "(); ironwood.lang.Memory.collect(); return name; } public static int main(String[] args) { return 0; } }", true, "rooted resolver name");
         }
     }
 

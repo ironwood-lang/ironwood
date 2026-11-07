@@ -2,8 +2,8 @@
 import ironwood.io.InputStream;
 import ironwood.io.IOException;
 
-// Cached facade and delegate views borrow their owners. The observing delegate
-// must allow complete reclamation; the program exits zero after both paths.
+// Cached facade and delegate views form shared managed graphs. Explicit close
+// delegates resource closure through both paths; the program exits zero.
 
 abstract class Impl {
 

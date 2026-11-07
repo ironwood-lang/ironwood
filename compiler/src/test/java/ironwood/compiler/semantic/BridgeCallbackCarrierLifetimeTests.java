@@ -111,7 +111,7 @@ public final class BridgeCallbackCarrierLifetimeTests {
             check(!BridgeCallbackCarrierLifetime.analyze(unknown, roots(unknown, "discard")).invocationOwned(),
                     "unknown helper granted temporary carrier ownership");
             var invalidFree = pipeline.analyzeForBridge(List.of(SourceFile.of("Listener.iron", SOURCE.replace(
-                    "catch (RuntimeException failure) {}", "catch (RuntimeException failure) { ; }"))));
+                    "catch (RuntimeException failure) {}", "catch (RuntimeException failure) { free failure; }"))));
             check(!invalidFree.valid() && invalidFree.diagnostics().stream().anyMatch(diagnostic -> diagnostic.message().contains("removed")),
                     "transport cleanup reintroduced source reclamation: " + invalidFree.diagnostics());
         }

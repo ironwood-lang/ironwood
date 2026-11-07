@@ -1,0 +1,122 @@
+{
+  "format": 1,
+  "license": "SPDX-License-Identifier: MIT OR Apache-2.0",
+  "date": "2026-11-07",
+  "base_revision": "9fe7ddd88e41783b36746dcc830a4559a532b476",
+  "branch": "codex/bdwgc-integration-plan",
+  "scope": "Focused regression repair; no complete-suite rerun, self-hosting, push or new GC9 hardware qualification.",
+  "original_macos_run": {
+    "tests": 676,
+    "passed": 315,
+    "failed": 361,
+    "failures_reporting_missing_gc_sdk": 320
+  },
+  "resolved_original_failures": 361,
+  "unresolved_original_failures": 0,
+  "platform_workflow_unit_tests_passed": 23,
+  "platform_smoke_results": {
+    "macos-arm64": {
+      "tests": [
+        "data structures retain pool reuse and preserve caller items across collection"
+      ],
+      "passed": 1,
+      "failed": 0,
+      "seconds": 29.7,
+      "execution": "matching architecture"
+    },
+    "linux-arm64": {
+      "tests": [
+        "native target layout agrees with configured Clang before optimization",
+        "portable x86-64 tuning merges adjacent stores with baseline SSE2",
+        "inlining link controls validate budgets and preserve enum specialization",
+        "optimization reports preserve code generation and diagnose output errors"
+      ],
+      "passed": 4,
+      "failed": 0,
+      "seconds": 96.34,
+      "execution": "matching architecture"
+    },
+    "linux-x86_64": {
+      "tests": [
+        "native target layout agrees with configured Clang before optimization",
+        "portable x86-64 tuning merges adjacent stores with baseline SSE2",
+        "inlining link controls validate budgets and preserve enum specialization",
+        "optimization reports preserve code generation and diagnose output errors"
+      ],
+      "passed": 4,
+      "failed": 0,
+      "seconds": 418.78,
+      "execution": "Rosetta"
+    }
+  },
+  "gc_configuration_profiles": {
+    "macos-arm64": "f6cdb6e12017ba8d203b7ab46c4f870585e4860c7f5de6ea88bad1c0d60b78ab",
+    "linux-arm64": "d8434872c7bd54595bc73e03ec9b245dc4c58748f328d2854b7e6ee030120912",
+    "linux-x86_64": "b147ad665f5c5639127bf333342034717793c4e9f53d52680597a39069e0b827"
+  },
+  "largest_sampled_combined_macos_retry_tree_rss_kib": 4087776,
+  "macos_retry_tree_guard_gib": 16,
+  "test_java_compilation": "JDK 25.0.4.1; --release 21 -encoding UTF-8 -Xlint:all -Werror",
+  "renamed_selection": {
+    "previous": "M4.3 native LLVM pipeline links programs equal to the Java link",
+    "current": "M4.3 native LLVM pipeline rejects managed modules without GC5 admission",
+    "decision": "D330"
+  },
+  "evidence": [
+    {
+      "path": "workspace/platform-tests/macos-arm64-20261107-144038.log",
+      "bytes": 51495863,
+      "sha256": "468d8353d5cc2d627f9ad4f9e92414217cd6752d365aa61216639a1a1cd75392"
+    },
+    {
+      "path": "workspace/platform-tests/gc-regression-failures.json",
+      "bytes": 52503396,
+      "sha256": "4fe3c9980cc0ecc29a2c0d795d35483fbaa62ce9dc02fdbc8f6b5297b285b5a2"
+    },
+    {
+      "path": "workspace/platform-tests/gc-sdk-retry.log",
+      "bytes": 64340,
+      "sha256": "33a1393ed9bb4c320f68a6b1a23726515b16f9bad88d8fd357dcc48c6140c3c0"
+    },
+    {
+      "path": "workspace/platform-tests/independent-retry-first.log",
+      "bytes": 18699544,
+      "sha256": "9e1eb7eef507aa32b0ef4657f7220de0981662aaec53f9b2ead6817f99ec558e"
+    },
+    {
+      "path": "workspace/platform-tests/independent-retry-second.log",
+      "bytes": 4636388,
+      "sha256": "53870489104c5b69c3c493f496e5ee85637de6dcffcab4a2b7f65de7cf2ebc4c"
+    },
+    {
+      "path": "workspace/platform-tests/independent-retry-third.log",
+      "bytes": 1862,
+      "sha256": "f25f8d7166ebf7c73092f9856d57b3e3d0d8db26d8bbb8ed8068e45a62ad0183"
+    },
+    {
+      "path": "workspace/platform-tests/independent-retry.log",
+      "bytes": 616,
+      "sha256": "e740ac4dac854f010b03771c15db80a5e30f14cf5141fca5e60cfb209b62c268"
+    },
+    {
+      "path": "workspace/platform-tests/diagnostic-final-retry.log",
+      "bytes": 204,
+      "sha256": "68ab9dc6297e640f4aa693a79b7a765141a449e9ad8dd6b7cbc161dcc5690a54"
+    },
+    {
+      "path": "workspace/platform-tests/repair-macos-runner.log",
+      "bytes": 30204,
+      "sha256": "c19da40be7afe4f858405a21407631e5a45cbe1e33727a949e671f7b3ac969da"
+    },
+    {
+      "path": "workspace/platform-tests/repair-linux-backend.log",
+      "bytes": 61645,
+      "sha256": "a38391db3576c4349289ffab69e9fa024b50d5cbad64e5a8d4843f6d4d448198"
+    },
+    {
+      "path": "workspace/platform-tests/repair-aggregate.json",
+      "bytes": 56172,
+      "sha256": "75414a4b475711c7aac1cc115d8c602f6a4ce6b948819fa887f5087349b8a4aa"
+    }
+  ]
+}

@@ -37,13 +37,20 @@ public final class InliningOptionsTests {
             LlvmToolchain tools = LlvmToolchain.discover(null).toolchain().orElseThrow();
             Path home = root.resolve("llvm");
             Path bin = Files.createDirectories(home.resolve("bin"));
+            // The GC statepoint plugin build also needs the selected LLVM headers and libraries.
+            try (var paths = Files.list(tools.home())) {
+                for (Path path : paths.filter(path -> !path.getFileName().toString().equals("bin")).toList()) {
+                    Files.createSymbolicLink(home.resolve(path.getFileName()), path);
+                }
+            }
             for (String tool : List.of("clang", "llvm-as", "llc", "llvm-objcopy", "llvm-config")) {
                 Files.createSymbolicLink(bin.resolve(tool), tools.home().resolve("bin").resolve(tool));
             }
             Path capture = root.resolve("opt-args");
             Path wrapper = bin.resolve("opt");
-            Files.writeString(wrapper, "#!/bin/sh\nprintf '%s\\n' \"$@\" > " + quote(capture)
-                    + "\nexec " + quote(tools.opt()) + " \"$@\"\n");
+            Files.writeString(wrapper, "#!/bin/sh\ncase \" $* \" in *'-passes=default<'*)\n"
+                    + "printf '%s\\n' \"$@\" > " + quote(capture) + ";;\nesac\nexec "
+                    + quote(tools.opt()) + " \"$@\"\n");
             require(wrapper.toFile().setExecutable(true), "cannot make opt wrapper executable");
             for (LinkCase configuration : List.of(
                     new LinkCase(3, "default", "default"),

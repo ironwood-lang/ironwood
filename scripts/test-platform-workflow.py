@@ -19,6 +19,7 @@ sys.dont_write_bytecode = True
 SPEC = importlib.util.spec_from_file_location("platform_tests", Path(__file__).with_name("test-platforms.py"))
 workflow = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(workflow)
+MAC_ENVIRONMENT = workflow.mac_environment
 TLS_SPEC = importlib.util.spec_from_file_location("tls_build_tests", Path(__file__).with_name("test-networking-m5-build.py"))
 tls_build = importlib.util.module_from_spec(TLS_SPEC)
 TLS_SPEC.loader.exec_module(tls_build)
@@ -34,6 +35,7 @@ class PlatformWorkflowTests(unittest.TestCase):
         self.write("scripts/prepare-tls.py", "# fixture recipe\n")
         self.write("packaging/tls-dependencies.properties", "openssl.version=fixture\n")
         self.write("packaging/bdwgc-qualified.properties",
+                   f"macos-arm64.configuration.sha256={'d' * 64}\n"
                    f"linux-arm64.configuration.sha256={'a' * 64}\n"
                    f"linux-x86_64.configuration.sha256={'b' * 64}\n"
                    f"linux-x86_64.native-host.configuration.sha256={'c' * 64}\n")
@@ -43,6 +45,11 @@ class PlatformWorkflowTests(unittest.TestCase):
         self.enterContext(contextlib.redirect_stderr(self.output))
         self.enterContext(patch.object(workflow.platform, "system", return_value="Darwin"))
         self.enterContext(patch.object(workflow.platform, "machine", return_value="arm64"))
+        self.enterContext(patch.dict(workflow.os.environ))
+        workflow.os.environ.pop("IRONWOOD_GC_HOME", None)
+        self.enterContext(patch.object(workflow, "mac_environment", side_effect=lambda root, dry_run=False: {
+            "IRONWOOD_GC_HOME": str(workflow.gc_sdk(root, "macos-arm64")),
+            "IRONWOOD_LLVM_HOME": "/fixture/llvm", "SDKROOT": "/fixture/apple-sdk"}))
 
     def write(self, name, content):
         path = self.root / name
@@ -59,7 +66,7 @@ class PlatformWorkflowTests(unittest.TestCase):
 
     def prepare_gc_sdk(self, *targets, identity=None):
         for target in targets:
-            value = identity or ("a" if target == "linux-arm64" else "b") * 64
+            value = identity or {"macos-arm64": "d", "linux-arm64": "a", "linux-x86_64": "b"}[target] * 64
             self.write(f"workspace/platform-tests/gc/{target}/build.json",
                        json.dumps({"gc.config.sha256": value}))
 
@@ -105,6 +112,7 @@ class PlatformWorkflowTests(unittest.TestCase):
         self.assertNotIn("FINAL PLATFORM SUMMARY", self.output.getvalue())
 
     def test_full_run_ends_with_all_platform_results(self):
+        self.prepare_gc_sdk("macos-arm64")
         processes = []
         for lines, code in ((["ok - First", "PASS: 1 compiler tests"], 0),
                             (["ok - First", "not ok - Second", "FAIL: 1 test(s), 1 passed"], 1),
@@ -282,6 +290,78 @@ class PlatformWorkflowTests(unittest.TestCase):
                 workflow.prepare_gc_sdk(self.root, target, False, verify=True)
             self.assertIn("--verify", run.call_args.args[0])
 
+    def test_mac_setup_prepares_sdk_and_selects_it_for_tests(self):
+        def prepare(command, root, *args):
+            if "scripts/prepare-gc.py" in command:
+                self.prepare_gc_sdk("macos-arm64")
+        with patch.object(workflow, "run", side_effect=prepare) as run:
+            self.execute("--setup", "--platform", "macos-arm64")
+        command = run.call_args.args[0]
+        self.assertEqual("env", command[0])
+        self.assertNotIn("docker", command)
+        self.assertIn("--target", command)
+        self.assertNotIn("--verify", command)
+        with patch.object(workflow, "run") as run:
+            self.execute("--setup", "--platform", "macos-arm64")
+        self.assertIn("--verify", run.call_args.args[0])
+        command = workflow.test_command(self.root, "macos-arm64", ["Example"])
+        self.assertIn("IRONWOOD_GC_HOME=" + str(workflow.gc_sdk(self.root, "macos-arm64")), command)
+        self.assertIn("SDKROOT=/fixture/apple-sdk", command)
+        self.assertIn("IRONWOOD_LLVM_HOME=/fixture/llvm", command)
+        self.assertEqual(["--test", "Example"], command[-2:])
+
+    def test_missing_mac_sdk_stops_before_tests(self):
+        with patch.object(workflow.subprocess, "Popen") as start:
+            with self.assertRaisesRegex(ValueError, "macos-arm64: GC SDK is missing.*--setup first"):
+                self.execute("--platform", "macos-arm64", "--test", "Example")
+            start.assert_not_called()
+
+    def test_mac_sdk_override_and_unqualified_profile_fail_closed(self):
+        prefix = self.root / "custom-sdk"
+        with patch.dict(workflow.os.environ, {"IRONWOOD_GC_HOME": str(prefix)}):
+            self.assertEqual(prefix, workflow.gc_sdk(self.root, "macos-arm64"))
+            self.assertNotEqual(prefix, workflow.gc_sdk(self.root, "linux-arm64"))
+            self.write("custom-sdk/build.json", json.dumps({"gc.config.sha256": "a" * 64}))
+            with patch.object(workflow, "run"), patch.object(workflow.subprocess, "Popen") as start:
+                with self.assertRaisesRegex(ValueError, "macos-arm64: GC SDK profile is not qualified"):
+                    self.execute("--platform", "macos-arm64", "--test", "Example")
+                start.assert_not_called()
+
+    def test_mac_apple_sdk_selection_honors_explicit_inputs(self):
+        import hashlib
+        sdk = self.write("apple-sdk/SDKSettings.json", '{"Version":"fixture"}').parent
+        settings = hashlib.sha256((sdk / "SDKSettings.json").read_bytes()).hexdigest()
+        self.write("packaging/bdwgc-qualified.properties", "macos-arm64.sdk.settings.sha256=" + settings + "\n")
+        with patch.dict(workflow.os.environ, {"SDKROOT": str(sdk), "IRONWOOD_LLVM_HOME": "/explicit/llvm"}), \
+                patch.object(workflow.subprocess, "check_output") as discover:
+            environment = MAC_ENVIRONMENT(self.root)
+            self.assertEqual(str(sdk), environment["SDKROOT"])
+            self.assertEqual("/explicit/llvm", environment["IRONWOOD_LLVM_HOME"])
+            discover.assert_not_called()
+            (sdk / "SDKSettings.json").write_text("changed")
+            with self.assertRaisesRegex(ValueError, "no qualified Apple SDK"):
+                MAC_ENVIRONMENT(self.root)
+        with patch.dict(workflow.os.environ, {"DEVELOPER_DIR": "/explicit/developer"}):
+            workflow.os.environ.pop("SDKROOT", None)
+            with patch.object(workflow.subprocess, "check_output", return_value=str(sdk)):
+                with self.assertRaisesRegex(ValueError, "no qualified Apple SDK"):
+                    MAC_ENVIRONMENT(self.root)
+
+    def test_mac_discovers_installed_qualified_sdk_without_changing_host_settings(self):
+        import hashlib
+        clt = self.write("clt/SDKSettings.json", "unqualified").parent
+        xcode = self.write("xcode/SDKSettings.json", "qualified").parent
+        settings = hashlib.sha256((xcode / "SDKSettings.json").read_bytes()).hexdigest()
+        self.write("packaging/bdwgc-qualified.properties", "macos-arm64.sdk.settings.sha256=" + settings + "\n")
+        with patch.dict(workflow.os.environ), \
+                patch.object(workflow.subprocess, "check_output", return_value=str(clt)), \
+                patch.object(workflow.Path, "glob", return_value=[xcode]):
+            workflow.os.environ.pop("SDKROOT", None)
+            workflow.os.environ.pop("DEVELOPER_DIR", None)
+            self.assertEqual(str(xcode), MAC_ENVIRONMENT(self.root)["SDKROOT"])
+            self.assertNotIn("SDKROOT", workflow.os.environ)
+            self.assertNotIn("DEVELOPER_DIR", workflow.os.environ)
+
     def test_rosetta_check_rejects_missing_or_competing_handlers(self):
         handler = "enabled\ninterpreter /mnt/lima-rosetta/rosetta\nflags: OCF\n"
         for output in ("", handler.replace("enabled", "disabled"),
@@ -298,6 +378,8 @@ class PlatformWorkflowTests(unittest.TestCase):
         self.assertIn("Rosetta active", self.output.getvalue())
 
     def test_failure_retry_selects_only_failed_tests(self):
+        self.prepare_gc_sdk("macos-arm64")
+        self.enterContext(patch.object(workflow, "run"))
         script = self.write("scripts/test.sh", "#!/bin/sh\nprintf '12:23:23.003 - 1/1 - not ok - Example\\nFAIL: 1 test(s), 0 passed\\n'\nexit 1\n")
         script.chmod(0o755)
         self.assertEqual(1, self.execute("--platform", "macos-arm64", "--test", "Example"))
@@ -318,6 +400,8 @@ class PlatformWorkflowTests(unittest.TestCase):
         self.assertNotIn("linux-", summary)
 
     def test_setup_failure_does_not_fall_back_to_full_suite(self):
+        self.prepare_gc_sdk("macos-arm64")
+        self.enterContext(patch.object(workflow, "run"))
         script = self.write("scripts/test.sh", "#!/bin/sh\nexit 3\n")
         script.chmod(0o755)
         self.assertEqual(1, self.execute("--platform", "macos-arm64", "--test", "Example"))
@@ -326,6 +410,7 @@ class PlatformWorkflowTests(unittest.TestCase):
             self.execute("--platform", "macos-arm64", "--failed")
 
     def test_interrupt_saves_failures_and_removes_only_its_container(self):
+        self.prepare_gc_sdk("macos-arm64")
         self.prepare_bridge_support("linux-arm64")
         self.prepare_gc_sdk("linux-arm64")
         report = self.write("workspace/platform-tests/linux-arm64.json",
@@ -368,6 +453,8 @@ class PlatformWorkflowTests(unittest.TestCase):
         self.assertRegex(summary, r"macos-arm64\s+NOT RUN\s+-\s+-\s+-")
 
     def test_legacy_failure_lines_are_still_recognized(self):
+        self.prepare_gc_sdk("macos-arm64")
+        self.enterContext(patch.object(workflow, "run"))
         script = self.write("scripts/test.sh", "#!/bin/sh\nprintf 'not ok - Example\\nFAIL: 1 test(s), 0 passed\\n'\nexit 1\n")
         script.chmod(0o755)
         self.assertEqual(1, self.execute("--platform", "macos-arm64", "--test", "Example"))

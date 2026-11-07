@@ -47,7 +47,7 @@ final class EnumArgumentTests {
                 "two distinct identities were not selected");
 
         var shared = new CompilerPipeline().compile(SourceFile.of("Shared.iron",
-                "class Shared { Object value = new Object(); Object alias() { Object result = value; ironwood.lang.Memory.collect(); return result; } }"));
+                "class Shared { Object value = new Object(); Object alias() { Object result = value; ironwood.lang.Memory.collect(); return result; } public static int main(String[] args) { return 0; } }"));
         require(shared.successful(), shared.diagnostics().toString());
     }
 

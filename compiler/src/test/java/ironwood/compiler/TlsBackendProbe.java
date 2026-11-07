@@ -49,7 +49,9 @@ public final class TlsBackendProbe {
     }
 
     private static int compilations(Path trace) throws Exception {
-        return (int) Files.readAllLines(trace).stream().filter(line -> line.contains("\"-c\"")).count();
+        // Each link compiles its generated root contract separately from cached runtime sources.
+        return (int) Files.readAllLines(trace).stream().filter(line -> line.contains("\"-c\"")
+                && line.contains("/runtime/src/")).count();
     }
     private static void link(LlvmToolchain tools, Path llvm, Path output, NativeLinkRequirements requirements) {
         var linked = new NativeBackend().link(tools, llvm, output, OptimizationLevel.O3, requirements);

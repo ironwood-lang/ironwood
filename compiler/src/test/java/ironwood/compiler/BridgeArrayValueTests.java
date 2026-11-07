@@ -31,9 +31,14 @@ final class BridgeArrayValueTests {
                 check(BridgeArrayInputs.readOnly(artifact, id).status() != BridgeProof.Status.PROVED, "read-only stage admitted results");
             }
             for (String body : List.of("saved = values; return values;", "return saved;",
-                    "int[] result = new int[3]; saved = result; return result;", "; return null;",
+                    "int[] result = new int[3]; saved = result; return result;", "free values; return null;",
                     "return choose ? values : new int[3];")) {
                 var artifact = analyze(body);
+                if (body.startsWith("free ")) {
+                    check(!artifact.valid() && artifact.diagnostics().stream().anyMatch(d -> d.message().contains("removed")),
+                            "removed reclamation syntax admitted");
+                    continue;
+                }
                 if (!artifact.valid()) continue;
                 var proof = BridgeArrayInputs.values(artifact, target(artifact));
                 check(proof.status() != BridgeProof.Status.PROVED, "unproved array value admitted: " + body);

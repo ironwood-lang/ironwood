@@ -57,14 +57,14 @@ public final class RuntimeObjectTests {
             }
             Set<Path> sources = new HashSet<>();
             for (Object key : entries.keySet()) sources.add((Path) component(key, "runtimeSource"));
-            if (entries.size() != 4 || sources.size() != 4) {
+            if (entries.size() != 5 || sources.size() != 5) {
                 throw new AssertionError("one link prepared " + entries.size() + " objects from " + sources);
             }
             Path second = root.resolve("second");
             compiler(List.of("--link", "-cp", classes.toString(), "--main-class", "Main", "-O3", "-o", second.toString()));
             synchronized (NativeBackend.class) {
-                if (cache.size() != 4 || !cache.keySet().equals(entries.keySet())) {
-                    throw new AssertionError("a second link did not reuse the four objects");
+                if (cache.size() != 5 || !cache.keySet().equals(entries.keySet())) {
+                    throw new AssertionError("a second link did not reuse the five objects");
                 }
             }
             for (Path program : List.of(first, second)) {

@@ -37,7 +37,7 @@ final class ProxyNetworkingTests {
         if (peeks.isEmpty() || !IrTcpInstruction.Operation.PEEK_BYTES.parameterTypes().equals(
                 List.of(IrType.I32, IrType.array(IrType.I8), IrType.I32, IrType.I32)))
             throw new AssertionError("peek must preserve descriptor, byte-array and range types");
-        if (!result.llvmIr().orElseThrow().contains("@ironwood_tcp_peek_bytes(i32, ptr, i32, i32)"))
+        if (!result.llvmIr().orElseThrow().contains("@ironwood_tcp_peek_bytes(i32, ptr addrspace(1), i32, i32)"))
             throw new AssertionError("peek native ABI");
     }
 

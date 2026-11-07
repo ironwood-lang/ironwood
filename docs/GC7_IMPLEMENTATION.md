@@ -219,3 +219,13 @@ Its original verification does not itself accept GC8 capacity/performance.
 The subsequent [GC8 report](GC8_IMPLEMENTATION.md) and linked Linux follow-up
 record that separate qualification. GC9/GC10, self-hosting and I1/I2 remain
 outside these completed stages.
+
+## Historical compiler pilot boundary
+
+The M4.3 `compiler.port.LlvmPipeline` predates GC5 and has no managed admission,
+nonmoving statepoint pass or final root contract. It refuses managed LLVM modules
+before launching tools or creating output. Its source/class/archive regression
+checks that refusal; the production Java bootstrap backend remains the supported
+native linker. Migrating the pilot backend is separate self-hosting work, not
+part of GC7 consumer qualification. Ordinary compiler, library and example links
+continue through the verified GC5 backend.

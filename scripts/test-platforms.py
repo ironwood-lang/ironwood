@@ -102,7 +102,43 @@ def prepare_bridge_support(root, target, dry_run):
 
 
 def gc_sdk(root, target):
+    if target == "macos-arm64" and os.environ.get("IRONWOOD_GC_HOME"):
+        return Path(os.environ["IRONWOOD_GC_HOME"]).resolve()
     return root / "workspace/platform-tests/gc" / target
+
+
+def mac_environment(root, dry_run=False):
+    llvm = os.environ.get("IRONWOOD_LLVM_HOME") or "/opt/homebrew/opt/llvm@23"
+    explicit_sdk = os.environ.get("SDKROOT")
+    if dry_run:
+        sdk = explicit_sdk or "<qualified macOS SDK>"
+    else:
+        properties = dict(line.strip().split("=", 1) for line in
+                          (root / "packaging/bdwgc-qualified.properties").read_text().splitlines()
+                          if line.strip() and not line.lstrip().startswith("#") and "=" in line)
+        expected = properties["macos-arm64.sdk.settings.sha256"]
+        if explicit_sdk:
+            candidates = [Path(explicit_sdk)]
+        else:
+            selected = subprocess.check_output(["xcrun", "--show-sdk-path"], text=True).strip()
+            candidates = [Path(selected)]
+            # An explicit developer selection is authoritative. Otherwise a full
+            # Xcode installation may provide the qualified SDK missing from CLT.
+            if not os.environ.get("DEVELOPER_DIR"):
+                candidates.extend(sorted(Path("/Applications").glob(
+                    "Xcode*.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX*.sdk")))
+        sdk = next((str(candidate.resolve()) for candidate in candidates
+                    if (candidate / "SDKSettings.json").is_file()
+                    and hashlib.sha256((candidate / "SDKSettings.json").read_bytes()).hexdigest() == expected), None)
+        if sdk is None:
+            raise ValueError("macos-arm64: no qualified Apple SDK found; set SDKROOT to the SDK matching "
+                             "macos-arm64.sdk.settings.sha256 in packaging/bdwgc-qualified.properties")
+    return {"IRONWOOD_GC_HOME": str(gc_sdk(root, "macos-arm64")),
+            "IRONWOOD_LLVM_HOME": llvm, "SDKROOT": sdk}
+
+
+def mac_command(root, command, dry_run=False):
+    return ["env", *(key + "=" + value for key, value in mac_environment(root, dry_run).items()), *command]
 
 
 def prepare_gc_sdk(root, target, dry_run, verify=False):
@@ -110,12 +146,18 @@ def prepare_gc_sdk(root, target, dry_run, verify=False):
     if verify and not (prefix / "build.json").is_file():
         raise ValueError(f"{target}: GC SDK is missing at {prefix}; "
                          "run scripts/test-platforms.sh --setup first")
-    arch = "arm64" if target == "linux-arm64" else "amd64"
-    command = [*DOCKER, "run", "--rm", "--platform", "linux/" + arch,
-               "--user", f"{os.getuid()}:{os.getgid()}", "--env", "HOME=/tmp",
-               "--mount", f"type=bind,source={root},target={root}", "--workdir", str(root),
-               image(root, target), "python", "-B", "scripts/prepare-gc.py",
-               "--prefix", str(prefix), "--llvm-home", "/opt/ironwood-toolchain", "--target", target]
+    if target == "macos-arm64":
+        environment = mac_environment(root, dry_run)
+        command = ["env", *(key + "=" + value for key, value in environment.items()),
+                   sys.executable, "-B", "scripts/prepare-gc.py", "--prefix", str(prefix),
+                   "--llvm-home", environment["IRONWOOD_LLVM_HOME"], "--target", target]
+    else:
+        arch = "arm64" if target == "linux-arm64" else "amd64"
+        command = [*DOCKER, "run", "--rm", "--platform", "linux/" + arch,
+                   "--user", f"{os.getuid()}:{os.getgid()}", "--env", "HOME=/tmp",
+                   "--mount", f"type=bind,source={root},target={root}", "--workdir", str(root),
+                   image(root, target), "python", "-B", "scripts/prepare-gc.py",
+                   "--prefix", str(prefix), "--llvm-home", "/opt/ironwood-toolchain", "--target", target]
     if verify or prefix.exists():
         command.append("--verify")
     try:
@@ -143,6 +185,8 @@ def prepare_gc_sdk(root, target, dry_run, verify=False):
 
 def setup(root, targets, dry_run):
     linux = [target for target in targets if target.startswith("linux-")]
+    if "macos-arm64" in targets:
+        prepare_gc_sdk(root, "macos-arm64", dry_run)
     if not linux:
         print("macOS uses the checkout's existing Java and LLVM installation; no VM is needed.")
         return
@@ -173,10 +217,10 @@ def setup(root, targets, dry_run):
         prepare_gc_sdk(root, target, dry_run)
 
 
-def test_command(root, target, names, container=None):
+def test_command(root, target, names, container=None, dry_run=False):
     arguments = [item for name in names for item in ("--test", name)]
     if target == "macos-arm64":
-        return [str(root / "scripts/test.sh"), *arguments]
+        return mac_command(root, [str(root / "scripts/test.sh"), *arguments], dry_run)
     storage = root / "workspace/platform-tests"
     build = storage / "build" / target
     arch = "arm64" if target == "linux-arm64" else "amd64"
@@ -289,7 +333,7 @@ def execute(root, args):
         else:
             plans.append((target, names))
     if not args.dry_run:
-        # Check every Linux image before spending time on even the first platform.
+        # Check all selected toolchains and GC SDKs before starting any compiler tests.
         if any(target == "linux-x86_64" for target, _ in plans):
             verify_rosetta(root)
         for target, _ in plans:
@@ -308,13 +352,15 @@ def execute(root, args):
                     raise ValueError(f"{target}: Java Bridge support SDK is missing at {bridge_support(root, target)}; "
                                      "run scripts/test-platforms.sh --setup first")
                 prepare_gc_sdk(root, target, False, verify=True)
+        if any(target == "macos-arm64" for target, _ in plans):
+            prepare_gc_sdk(root, "macos-arm64", False, verify=True)
     if not args.dry_run:
         storage.mkdir(parents=True, exist_ok=True)
     results = []
     for target, names in plans:
         report = storage / (target + ".json")
         container = "ironwood-test-" + uuid.uuid4().hex if target.startswith("linux-") and not args.dry_run else None
-        command = test_command(root, target, names, container)
+        command = test_command(root, target, names, container, args.dry_run)
         if args.dry_run:
             run(command, root, True)
             continue

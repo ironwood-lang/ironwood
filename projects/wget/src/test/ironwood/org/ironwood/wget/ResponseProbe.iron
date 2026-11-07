@@ -11,34 +11,47 @@ public final class ResponseProbe {
 
     public static int main(String[] args) throws Exception {
 
+        long baseline = 0;
         for (int round = 0; round < 4; round++) {
-            System.out.println("@tls:setup");
-            FileInputStream input = new FileInputStream(args[0]);
-            long elapsed = 0L;
-            long count = 0L;
-            {
-                Response response = new Response(input, null);
-                {
-                    Sink sink = new Sink("/dev/null");
-                    long allocations = System.allocationCount();
-                    System.out.println("@tls:steady");
-                    long start = System.nanoTime();
-                    if (response.head(0) != 200) return 1;
-                    count = response.body(sink, 0);
-                    elapsed = System.nanoTime() - start;
-                    System.out.println("@tls:close");
-                    if (System.allocationCount() != allocations) return 2;
-                    sink.close();
-                }
-                input.close();
-            }
-            System.out.println("@tls:end");
-            if (round > 0) return 3;
-            System.out.print("BODY ");
-            System.out.println(count);
-            System.out.print("NANOS ");
-            System.out.println(elapsed);
+            int result = cycle(args[0]);
+            if (result != 0) return result;
+            // Collection is outside the measured transfer and after local roots die.
+            ironwood.lang.Memory.collect();
+            if (round == 0) baseline = System.liveAllocationCount();
+            else if (System.liveAllocationCount() != baseline) return 3;
         }
+        return 0;
+    }
+
+    private static int cycle(String file) throws Exception {
+
+        System.out.println("@tls:setup");
+        FileInputStream input = new FileInputStream(file);
+        long elapsed = 0L;
+        long count = 0L;
+        try {
+            Response response = new Response(input, null);
+            Sink sink = new Sink("/dev/null");
+            try {
+                long allocations = System.allocationCount();
+                System.out.println("@tls:steady");
+                long start = System.nanoTime();
+                if (response.head(0) != 200) return 1;
+                count = response.body(sink, 0);
+                elapsed = System.nanoTime() - start;
+                System.out.println("@tls:close");
+                if (System.allocationCount() != allocations) return 2;
+            } finally {
+                sink.close();
+            }
+        } finally {
+            input.close();
+        }
+        System.out.println("@tls:end");
+        System.out.print("BODY ");
+        System.out.println(count);
+        System.out.print("NANOS ");
+        System.out.println(elapsed);
         return 0;
     }
 }

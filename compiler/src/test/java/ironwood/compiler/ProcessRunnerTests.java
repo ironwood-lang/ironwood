@@ -42,8 +42,8 @@ final class ProcessRunnerTests {
                 .filter(IrProcessInstruction.class::isInstance).count();
         require(launches == 1, "expected one process instruction, found " + launches);
         String llvm = artifact.llvmIr().orElseThrow();
-        require(llvm.contains("declare i64 @ironwood_process_run(ptr, ptr, ptr, ptr)")
-                && llvm.contains("@ironwood_process_run(ptr "), "missing process runtime boundary");
+        require(llvm.contains("declare i64 @ironwood_process_run(ptr addrspace(1), ptr addrspace(1), ptr addrspace(1), ptr addrspace(1))")
+                && llvm.contains("@ironwood_process_run(ptr addrspace(1) "), "missing process runtime boundary");
         CompilationArtifact destructor = new CompilerPipeline().compile(SourceFile.of("test/Main.iron", "import ironwood.nio.file.Path;\nimport ironwood.process.ProcessRunner;\nclass Cleanup {\n    private Path output;\n    Cleanup(Path output) { this.output = output; }\n    \n}\nclass Main { public static int main(String[] args) { return 0; } }\n"));
         require(destructor.successful(), messages(destructor));
     }

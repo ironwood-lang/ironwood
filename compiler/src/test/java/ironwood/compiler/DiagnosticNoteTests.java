@@ -23,7 +23,7 @@ final class DiagnosticNoteTests {
 
     static void runAll() throws Exception {
         SourceFile primarySource = SourceFile.of("demo/Main.iron",
-                "\n".repeat(13) + "    ;\n");
+                "\n".repeat(13) + "    read(item);\n");
         SourceFile relatedSource = SourceFile.of("lib/Owner.iron",
                 "\n".repeat(6) + "    hold(item);\n    next();\n");
         SourceSpan primarySpan = span(14, 10, 14, 14);
@@ -33,7 +33,7 @@ final class DiagnosticNoteTests {
         String noNote = "error: uninitialized final field 'item'" + System.lineSeparator()
                 + "  --> demo/Main.iron:14:10" + System.lineSeparator()
                 + "   |" + System.lineSeparator()
-                + "14 |     ;" + System.lineSeparator()
+                + "14 |     read(item);" + System.lineSeparator()
                 + "   |          ^^^^";
         require(formatter.format(primary).equals(noNote), "legacy no-note primary changed");
         require(!formatter.format(primary).endsWith(System.lineSeparator()),

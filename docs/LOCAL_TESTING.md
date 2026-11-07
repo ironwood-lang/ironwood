@@ -172,8 +172,8 @@ Setup also runs `scripts/prepare-gc.py` in each target's image to build its GC S
 at `workspace/platform-tests/gc/<platform>/`, or verifies an existing SDK offline.
 Linux tests explicitly select that directory through `IRONWOOD_GC_HOME`; a host
 override is not forwarded. Before any selected platform starts testing, the
-runner verifies every selected Linux GC SDK against current sources, payload
-checksums, the image's toolchain and the exact admitted configuration profile.
+runner verifies every selected GC SDK against current sources, payload
+checksums, the target's toolchain and the exact admitted configuration profile.
 Missing, stale or unqualified inputs stop the run without replacing the SDK.
 After inspecting a stale SDK, remove only its generated target directory and
 rerun `--setup`. GC source/recipe changes require this preparation again;
@@ -185,10 +185,20 @@ The images are cached locally and their names change when the Dockerfile or
 toolchain specification, TLS recipe, pins or license inputs change. There is no
 image upload or GitHub workflow.
 
-macOS uses the checkout's existing Java and LLVM installation. For comparison
-with the release environment, select the pinned release toolchain through
-`JAVA_HOME`, `PATH`, `IRONWOOD_LLVM_HOME`, and a verified host `IRONWOOD_GC_HOME`
-before invoking the script. The selected Apple SDK must match that GC profile.
+macOS uses the checkout's existing Java installation and LLVM 23 selected by
+`IRONWOOD_LLVM_HOME` (default `/opt/homebrew/opt/llvm@23`). `--setup` also prepares
+its GC SDK at `workspace/platform-tests/gc/macos-arm64/`; an explicit
+`IRONWOOD_GC_HOME` selects an existing SDK instead. Setup verifies existing SDKs
+without replacing them. Every macOS test process receives the selected GC and
+LLVM paths and a matching `SDKROOT`.
+
+The runner honors explicit `SDKROOT` or `DEVELOPER_DIR` selections and refuses
+unqualified Apple SDKs. With neither set, it checks the default SDK and installed
+`/Applications/Xcode*.app` SDKs for the exact settings hash admitted in
+`packaging/bdwgc-qualified.properties`. This selection only affects the test
+process; it does not change `xcode-select` or shell settings. A missing or stale
+GC SDK stops the run before compiler tests, with setup instructions. For release
+comparisons, also select the pinned Java through `JAVA_HOME` and `PATH`.
 These local checks do not reproduce every detail of GitHub's macOS runner image.
 
 The canonical checkout is mounted into the VM. Linux compiler build output is

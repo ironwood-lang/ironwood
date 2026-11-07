@@ -20,6 +20,10 @@ import ironwood.process.ProcessResult;
  * Apple SDK and linker selection go through the invocation's Probes, so they
  * are discovered once.
  *
+ * <p>This historical pilot has no GC5 admission or final root verification.
+ * Managed modules are refused before launching tools or creating output.
+ * The production Java bootstrap backend is the supported native linker.
+ *
  * <p>Trace finalization between `opt` and the second `llvm-as` is S4's native
  * mode; until then the caller supplies it as an executable that reads the
  * optimized module and writes the finalized one.
@@ -59,6 +63,11 @@ public final class LlvmPipeline {
     private static String linkChecked(Probes probes, Path llvmHome, Path runtimeSources, Path llvmIr,
                                       Path finalizer, Path output) throws IOException {
 
+        String module = Files.readString(llvmIr);
+        if (module.contains("@iw_gc_root_abi") || module.contains("addrspace(1)")
+                || module.contains("gc \"statepoint-example\"")) {
+            return "native compiler pilot lacks GC5 admission and final root verification; use ironwoodc";
+        }
         Path absolute = output.toAbsolutePath();
         Path parent = absolute.getParent();
         Files.createDirectories(parent);

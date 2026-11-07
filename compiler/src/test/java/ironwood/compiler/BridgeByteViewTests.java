@@ -57,7 +57,7 @@ final class BridgeByteViewTests {
                     .flatMap(f -> f.blocks().stream()).flatMap(b -> b.instructions().stream())
                     .filter(IrByteViewInstruction.class::isInstance).count();
             check(operations == 4, "missing typed byte-view descriptor operations: " + operations);
-            for (String body : List.of("saved = view; return 0;", "retain(view); return 0;", "; return 0;",
+            for (String body : List.of("saved = view; return 0;", "retain(view); return 0;", "free view; return 0;",
                     "Object object = view; return object.hashCode();", "return view.hashCode();",
                     "return view instanceof ByteView ? 1 : 0;")) {
                 var bad = new CompilerPipeline().analyzeForBridge(List.of(SourceFile.of("Values.iron",
@@ -65,7 +65,12 @@ final class BridgeByteViewTests {
                                 + (body.contains("saved") || body.contains("retain")
                                 ? "static ByteView saved; static void retain(ByteView v) { saved = v; }" : "")
                                 + "static int bad(ByteView view) { " + body + " } }")));
-                if (bad.valid()) check(proof(bad, "bad").status() != BridgeProof.Status.PROVED, "unsafe view admitted: " + body);
+                if (body.startsWith("free ")) {
+                    check(!bad.valid() && bad.diagnostics().stream().anyMatch(d -> d.message().contains("removed")),
+                            "removed reclamation syntax admitted");
+                } else if (bad.valid()) {
+                    check(proof(bad, "bad").status() != BridgeProof.Status.PROVED, "unsafe view admitted: " + body);
+                }
             }
             var returned = new CompilerPipeline().analyzeForBridge(List.of(SourceFile.of("Values.iron",
                     "package viewfixture; import ironwood.bridge.ByteView; final class Values {"

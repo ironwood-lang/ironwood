@@ -53,8 +53,8 @@ final class IrModelInventoryTests {
                 source.replace(walkedArm, ""),
                 source.replace(rootArm, ""),
                 source.replace(constantsArm, ""),
-                source.replace("        IR_ADD_SECONDARY_EXCEPTION_INSTRUCTION,",
-                        "        IR_PHANTOM_INSTRUCTION, IR_ADD_SECONDARY_EXCEPTION_INSTRUCTION,"),
+                source.replace("GC_EFFECTS__EFFECT, IR_ADD_SECONDARY_EXCEPTION_INSTRUCTION,",
+                        "GC_EFFECTS__EFFECT, IR_PHANTOM_INSTRUCTION, IR_ADD_SECONDARY_EXCEPTION_INSTRUCTION,"),
                 source.replace("    public enum Enumeration {\n", "    public enum Enumeration {\n        IR_PHANTOM_KIND,\n"));
         for (String mutation : mutations) {
             if (mutation.equals(source)) throw new AssertionError("inventory mutation did not apply");

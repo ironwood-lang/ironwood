@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 import ironwood.ds.*;
+import ironwood.lang.Memory;
+
+// Exit 42 checks allocation-free pool reuse and live containers across collection.
+// After each helper returns, collection reclaims its graph without touching items.
 
 class Item {
     int id;
@@ -18,7 +22,6 @@ class Main {
 
     static int checkMap(Item[] items, int state) {
 
-        long baseline = System.liveAllocationCount();
         HashMap<Item, Item> container = new HashMap<Item, Item>(2);
         if (state > 0) {
             for (int i = 0; i < items.length; i++) { container.put(items[i], items[i]); }
@@ -30,12 +33,12 @@ class Main {
             if (System.allocationCount() != allocations) return 1;
         }
         if (state > 2) container.clear();
-        if (state >= 0) return 2;
+        Memory.collect();
+        if (container.size() != (state == 1 || state == 2 ? items.length : 0)) return 2;
         return 0;
     }
     static int checkIdentityMap(Item[] items, int state) {
 
-        long baseline = System.liveAllocationCount();
         IdentityHashMap<Item, Item> container = new IdentityHashMap<Item, Item>(2);
         if (state > 0) {
             for (int i = 0; i < items.length; i++) { container.put(items[i], items[i]); }
@@ -47,12 +50,12 @@ class Main {
             if (System.allocationCount() != allocations) return 1;
         }
         if (state > 2) container.clear();
-        if (state >= 0) return 2;
+        Memory.collect();
+        if (container.size() != (state == 1 || state == 2 ? items.length : 0)) return 2;
         return 0;
     }
     static int checkLinkedMap(Item[] items, int state) {
 
-        long baseline = System.liveAllocationCount();
         LinkedHashMap<Item, Item> container = new LinkedHashMap<Item, Item>(2);
         if (state > 0) {
             for (int i = 0; i < items.length; i++) { container.put(items[i], items[i]); }
@@ -64,12 +67,12 @@ class Main {
             if (System.allocationCount() != allocations) return 1;
         }
         if (state > 2) container.clear();
-        if (state >= 0) return 2;
+        Memory.collect();
+        if (container.size() != (state == 1 || state == 2 ? items.length : 0)) return 2;
         return 0;
     }
     static int checkIntMap(Item[] items, int state) {
 
-        long baseline = System.liveAllocationCount();
         IntMap<Item> container = new IntMap<Item>(2);
         if (state > 0) {
             for (int i = 0; i < items.length; i++) { container.put(i, items[i]); }
@@ -81,12 +84,12 @@ class Main {
             if (System.allocationCount() != allocations) return 1;
         }
         if (state > 2) container.clear();
-        if (state >= 0) return 2;
+        Memory.collect();
+        if (container.size() != (state == 1 || state == 2 ? items.length : 0)) return 2;
         return 0;
     }
     static int checkLongMap(Item[] items, int state) {
 
-        long baseline = System.liveAllocationCount();
         LongMap<Item> container = new LongMap<Item>(2);
         if (state > 0) {
             for (int i = 0; i < items.length; i++) { container.put(i, items[i]); }
@@ -98,12 +101,12 @@ class Main {
             if (System.allocationCount() != allocations) return 1;
         }
         if (state > 2) container.clear();
-        if (state >= 0) return 2;
+        Memory.collect();
+        if (container.size() != (state == 1 || state == 2 ? items.length : 0)) return 2;
         return 0;
     }
     static int checkLinkedList(Item[] items, int state) {
 
-        long baseline = System.liveAllocationCount();
         LinkedList<Item> container = new LinkedList<Item>(2);
         if (state > 0) {
             for (int i = 0; i < items.length; i++) { container.add(items[i]); }
@@ -115,12 +118,12 @@ class Main {
             if (System.allocationCount() != allocations) return 1;
         }
         if (state > 2) container.clear();
-        if (state >= 0) return 2;
+        Memory.collect();
+        if (container.size() != (state == 1 || state == 2 ? items.length : 0)) return 2;
         return 0;
     }
     static int checkIntLinkedList(Item[] items, int state) {
 
-        long baseline = System.liveAllocationCount();
         IntLinkedList container = new IntLinkedList(2);
         if (state > 0) {
             for (int i = 0; i < items.length; i++) { container.add(i); }
@@ -132,12 +135,12 @@ class Main {
             if (System.allocationCount() != allocations) return 1;
         }
         if (state > 2) container.clear();
-        if (state >= 0) return 2;
+        Memory.collect();
+        if (container.size() != (state == 1 || state == 2 ? items.length : 0)) return 2;
         return 0;
     }
     static int checkLongLinkedList(Item[] items, int state) {
 
-        long baseline = System.liveAllocationCount();
         LongLinkedList container = new LongLinkedList(2);
         if (state > 0) {
             for (int i = 0; i < items.length; i++) { container.add(i); }
@@ -149,12 +152,12 @@ class Main {
             if (System.allocationCount() != allocations) return 1;
         }
         if (state > 2) container.clear();
-        if (state >= 0) return 2;
+        Memory.collect();
+        if (container.size() != (state == 1 || state == 2 ? items.length : 0)) return 2;
         return 0;
     }
     static int checkArrayLinkedList(Item[] items, int state) {
 
-        long baseline = System.liveAllocationCount();
         ArrayLinkedList<Item> container = new ArrayLinkedList<Item>(2);
         if (state > 0) {
             for (int i = 0; i < items.length; i++) { container.addLast(items[i]); }
@@ -166,12 +169,12 @@ class Main {
             if (System.allocationCount() != allocations) return 1;
         }
         if (state > 2) container.clear(true);
-        if (state >= 0) return 2;
+        Memory.collect();
+        if (container.size() != (state == 1 || state == 2 ? items.length : 0)) return 2;
         return 0;
     }
     static int checkSet(Item[] items, int state) {
 
-        long baseline = System.liveAllocationCount();
         HashSet<Item> container = new HashSet<Item>(2);
         if (state > 0) {
             for (int i = 0; i < items.length; i++) { container.add(items[i]); }
@@ -183,12 +186,12 @@ class Main {
             if (System.allocationCount() != allocations) return 1;
         }
         if (state > 2) container.clear();
-        if (state >= 0) return 2;
+        Memory.collect();
+        if (container.size() != (state == 1 || state == 2 ? items.length : 0)) return 2;
         return 0;
     }
     static int checkIdentitySet(Item[] items, int state) {
 
-        long baseline = System.liveAllocationCount();
         IdentityHashSet<Item> container = new IdentityHashSet<Item>(2);
         if (state > 0) {
             for (int i = 0; i < items.length; i++) { container.add(items[i]); }
@@ -200,12 +203,12 @@ class Main {
             if (System.allocationCount() != allocations) return 1;
         }
         if (state > 2) container.clear();
-        if (state >= 0) return 2;
+        Memory.collect();
+        if (container.size() != (state == 1 || state == 2 ? items.length : 0)) return 2;
         return 0;
     }
     static int checkLinkedSet(Item[] items, int state) {
 
-        long baseline = System.liveAllocationCount();
         LinkedHashSet<Item> container = new LinkedHashSet<Item>(2);
         if (state > 0) {
             for (int i = 0; i < items.length; i++) { container.add(items[i]); }
@@ -217,12 +220,12 @@ class Main {
             if (System.allocationCount() != allocations) return 1;
         }
         if (state > 2) container.clear();
-        if (state >= 0) return 2;
+        Memory.collect();
+        if (container.size() != (state == 1 || state == 2 ? items.length : 0)) return 2;
         return 0;
     }
     static int checkIntSet(Item[] items, int state) {
 
-        long baseline = System.liveAllocationCount();
         IntSet container = new IntSet(2);
         if (state > 0) {
             for (int i = 0; i < items.length; i++) { container.add(i); }
@@ -234,12 +237,12 @@ class Main {
             if (System.allocationCount() != allocations) return 1;
         }
         if (state > 2) container.clear();
-        if (state >= 0) return 2;
+        Memory.collect();
+        if (container.size() != (state == 1 || state == 2 ? items.length : 0)) return 2;
         return 0;
     }
     static int checkLongSet(Item[] items, int state) {
 
-        long baseline = System.liveAllocationCount();
         LongSet container = new LongSet(2);
         if (state > 0) {
             for (int i = 0; i < items.length; i++) { container.add(i); }
@@ -251,33 +254,33 @@ class Main {
             if (System.allocationCount() != allocations) return 1;
         }
         if (state > 2) container.clear();
-        if (state >= 0) return 2;
+        Memory.collect();
+        if (container.size() != (state == 1 || state == 2 ? items.length : 0)) return 2;
         return 0;
     }
     static int checkCopiedKeys(Item item) {
 
-        // Entries own their copied keys and backing arrays. Both active and
-        // returned entries must be fully reclaimed without touching input keys.
-        long baseline = System.liveAllocationCount();
+        // Copied keys survive collection independently from caller storage.
         CharSequenceMap<Item> text = new CharSequenceMap<Item>(2, (short) 8);
         text.put("key", item);
         text.clear();
         text.put("key", item);
 
         byte[] key = new byte[] {1};
-        baseline = System.liveAllocationCount();
         ByteBufferMap<Item> bytes = new ByteBufferMap<Item>(2, (short) 8);
         bytes.put(key, item);
         bytes.clear();
         bytes.put(key, item);
-        if (key[0] != 1) return 2;
+        Memory.collect();
+        if (key[0] != 1 || bytes.get(key) != item || text.get("key") != item) return 2;
         return 0;
     }
     public static int main(String[] args) {
 
         Item[] items = new Item[16];
         for (int i = 0; i < items.length; i++) { items[i] = new Item(i); }
-        // Warm static set sentinels before checking per-container balance.
+        // The first pass warms static sentinels; later passes retain only caller items.
+        long retained = 0;
         for (int state = -1; state < 4; state++) {
             if (checkMap(items, state) != 0) return 1;
             if (checkIdentityMap(items, state) != 0) return 2;
@@ -293,8 +296,13 @@ class Main {
             if (checkLinkedSet(items, state) != 0) return 12;
             if (checkIntSet(items, state) != 0) return 13;
             if (checkLongSet(items, state) != 0) return 14;
+            Memory.collect();
+            if (state == -1) retained = System.liveAllocationCount();
+            else if (System.liveAllocationCount() != retained) return 16;
         }
         if (checkCopiedKeys(items[0]) != 0) return 15;
+        Memory.collect();
+        if (System.liveAllocationCount() != retained) return 16;
 
         for (int i = 0; i < items.length; i++) {
             if (items[i].id != i) return 17;

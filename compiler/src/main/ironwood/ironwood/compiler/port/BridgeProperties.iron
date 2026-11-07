@@ -9,7 +9,7 @@ package ironwood.compiler.port;
  * manifest.
  *
  * <p>{@link #serialize} writes
- * {@code # Ironwood Java Bridge paired artifact; schema 1} and then one
+ * {@code # Ironwood Java Bridge paired artifact; schema 2} and then one
  * {@code key=value} line per entry in String order, every unit at or below
  * space, above {@code ~} or among {@code \:=#!} written as {@code \u} and four
  * lowercase hex digits, all in US-ASCII.
@@ -29,7 +29,7 @@ package ironwood.compiler.port;
 public final class BridgeProperties {
 
     /** BridgePackageManifest's first line, without its line feed. */
-    public static final String HEADER = "# Ironwood Java Bridge paired artifact; schema 1";
+    public static final String HEADER = "# Ironwood Java Bridge paired artifact; schema 2";
 
     private BridgeProperties() {
 

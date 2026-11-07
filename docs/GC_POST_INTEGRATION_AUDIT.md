@@ -92,10 +92,12 @@ the static root is cleared and helper frames return.
    runner expected old output including automatic reclamation; the reproduced
    mismatch is fixed and the native example passes. Empty per-scenario manual-mode
    branches are removed. The stdlib summary and compiler expectation now use
-   retention names and the current individual expected counts, totaling
-   176 passed / one skipped / 177 total. This total is a consistency correction,
-   not a fresh all-suites result. The two selected retention suites pass 11 and
-   25 cases separately. Misleading pool test names are corrected.
+   retention names. The audit originally set the total to 176 passed / one
+   skipped / 177 total without a fresh all-suites result. The 2026-11-07 failed-test
+   retry found two remaining stale networking counts: AddressSocketTests and
+   ProxyTests each have 10 tests, not 11. Their expectations and the total are
+   corrected to 174 passed / one skipped / 175 total. The two selected retention
+   suites pass 11 and 25 cases separately. Misleading pool test names are corrected.
 4. **Fixed: obsolete generators and dead test code survived retirement.**
    Java differential generators no longer silently strip legacy statements from
    current fixtures; the existing inputs need no such translation. The unused

@@ -103,7 +103,7 @@ public final class BridgeCallbackContextTests {
     }
 
     private static void implicitPaths() {
-        var artifact = new CompilerPipeline().analyzeForBridge(List.of(SourceFile.of("Hooks.iron", "class Hooks { static int fire() { return 1; } }\nclass Cold { static int value = Hooks.fire(); static int read() { return 42; } }\nclass Cleanup {  }\nclass Caller { static void run() { Cleanup value = new Cleanup(); ; } }\n")));
+        var artifact = new CompilerPipeline().analyzeForBridge(List.of(SourceFile.of("Hooks.iron", "class Hooks { static int fire() { return 1; } }\nclass Cold { static int value = Hooks.fire(); static int read() { return 42; } }\nclass Cleanup { static void perform() { Hooks.fire(); } }\nclass Caller { static void run() { defer Cleanup.perform(); } }\n")));
         check(artifact.valid(), artifact.diagnostics().toString());
         var original = artifact.program().orElseThrow();
         var hook = function(original, "fire");
@@ -119,8 +119,17 @@ public final class BridgeCallbackContextTests {
                     original.arrayTypes(), original.stringConstants(), original.dispatchSlots(), original.functions().stream()
                     .map(candidate -> candidate.equals(hook) ? function : candidate).toList(), original.entryPoint(), original.allocationFailure());
             for (String root : List.of("read", "run")) {
-                reject(() -> BridgeCallbackContextLowering.lower(program, roots(program, root), BridgeCallbackReachability.analyze(program)),
-                        unknown ? "incomplete" : "unsupported through");
+                if (unknown || root.equals("read")) {
+                    reject(() -> BridgeCallbackContextLowering.lower(program, roots(program, root), BridgeCallbackReachability.analyze(program)),
+                            unknown ? "incomplete" : "unsupported through");
+                } else {
+                    // General defer participates in invocation context, unlike cached class initialization.
+                    var lowered = BridgeCallbackContextLowering.lower(program, roots(program, root),
+                            BridgeCallbackReachability.analyze(program));
+                    check(lowered.entries().containsKey(BridgeCallableId.of(function(program, root)))
+                                    && lowered.specializations().containsKey(function(program, "fire").linkageName()),
+                            "deferred callback lost invocation context");
+                }
             }
         }
     }

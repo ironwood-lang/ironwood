@@ -137,11 +137,7 @@ final class DriverAdapterTests {
         }
     }
 
-    /**
-     * The port's pipeline links the module the Java compiler emits into an
-     * executable whose output, status and stack trace equal the Java link's,
-     * from class and archive links of the adapter, and leaves nothing behind.
-     */
+    /** The pre-GC pilot must refuse managed modules before launching tools or writing output. */
     static void pipeline() throws Exception {
         LlvmToolchain toolchain = LlvmToolchain.discover(null).toolchain().orElseThrow();
         Path root = Files.createTempDirectory("ironwood-llvm-pipeline-").toRealPath();
@@ -164,9 +160,9 @@ final class DriverAdapterTests {
                 String report = runCapture(List.of(adapter.toString(), toolchain.home().toString(),
                         Path.of("runtime/src").toAbsolutePath().toString(), module.toString(), finalizer.toString(),
                         program.toString()), null, Map.of("TMPDIR", temporary.toString()));
-                int probes = System.getProperty("os.name").startsWith("Mac") ? 2 : 0;
-                require(report.equals("linked\nprobes " + probes + " logs " + probes + "/" + probes + "\n"), report);
-                require(runAll(program).equals(expected), "native pipeline output differs:\n" + runAll(program));
+                require(report.equals("native compiler pilot lacks GC5 admission and final root verification; use ironwoodc\n"
+                        + "probes 0 logs 0/0\n"), report);
+                require(!Files.exists(program), "unqualified pilot emitted a managed executable");
                 require(entries(temporary).isEmpty() && noStaging(sample), "pipeline leftovers");
             }
         } finally {

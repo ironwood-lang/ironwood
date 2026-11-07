@@ -95,7 +95,12 @@ class Forge { static long value() { return TlsClient.TlsNative.readByte(1L); } }
         run(kind + '-tls', [cli, '--link', '-cp', path, '--main-class', 'Client', '-o', OUT / ('tls-' + kind), '-O3'], environment=good)
     commands = [json.loads(line) for line in trace.read_text().splitlines()]
     assert any(any(arg.endswith('ironwood_tls.c') for arg in row) for row in commands)
-    links = [row for row in commands if '--driver-mode=g++' in row]
+    # GC preparation can also build a C++ statepoint plugin. Only the two
+    # requested executable links carry the TLS archive-order contract.
+    outputs = {str(OUT / ('tls-' + kind)) for kind in ('classes', 'archive')}
+    links = [row for row in commands if '--driver-mode=g++' in row
+             and '-o' in row and row[row.index('-o') + 1] in outputs]
+    assert len(links) == len(outputs), 'missing TLS executable link command'
     for row in links:
         assert row.index(str(sdk / 'lib/libssl.a')) < row.index(str(sdk / 'lib/libcrypto.a'))
         assert not any('force_load' in arg or 'whole-archive' in arg or arg == '-lssl' for arg in row)
