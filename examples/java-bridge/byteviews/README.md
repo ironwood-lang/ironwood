@@ -6,8 +6,10 @@
 Java allocates `ironwood.bridge.ByteView`, then calls generated methods with it.
 The producer supplies the JNI transport. Views and overlapping slices share
 immediate writes; the JVM owns their backing memory. Reuse storage across calls.
-There is no source close and managed lifetime operation and no exposed address. Native source cannot
-retain, return, construct or free a view, or invoke callbacks while borrowing it.
+There is no close/free API or exposed address. Native source cannot retain,
+return or construct a view. Supported collecting reentry requires exact owners
+and suspended segments; unknown retaining effects refuse. See the current
+[foreign-view contract](../../../docs/JAVA_BRIDGE_USAGE.md#values-generics-and-foreign-views).
 
 With a supported JDK 21 to 25 in `JAVA_HOME`, LLVM 23 on `PATH`, and the Linux support SDK
 configured as in the [producer guide](../../../docs/JAVA_BRIDGE_USAGE.md):

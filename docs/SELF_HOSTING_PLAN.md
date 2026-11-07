@@ -20,14 +20,86 @@ gates remain unfulfilled. D008's Java bootstrap policy remains in effect;
 accepting a production cutover requires an explicit decision superseding the
 relevant part of D008. This document does not authorize restarting the migration.
 
-## 1. Recommendation and readiness
+## Current GC handoff (2026-11-07)
+
+[GC10 acceptance](GC10_ACCEPTANCE.md) closes GC integration at source baseline
+`76335baa`, following `e5cabbed`. GC10 changes documentation/comments and generated
+references, not compiler/runtime behavior. Java remains authoritative under
+D008. No new port, I1/I2/I3 build or bootstrap replacement is accepted here.
+The stopped attempt's 711 inputs, 1,270 declarations, eighteen comparisons,
+13.2 GB / 208.6 million-object census and approximately 112-second I2 guard stop
+remain historical observations. GC does not establish that the failed I2 now fits.
+
+| Former prerequisite | Current interpretation |
+| --- | --- |
+| Prove managed scratch ownership/free and compose owning containers | Superseded by GC5-GC7 exact reachability and explicit collection. Shared/cyclic graphs and published partial construction are supported. The ownership-composition plan is the prior alternative, not parallel work. |
+| Scale the managed-free summary refinement/evidence machinery | GC7 deletes that fixed point, its heap-only passes and rejected-free evidence. Do not port deleted algorithms, missing-free modes or suppressions. Actual escape/return/dispatch/GC effects and pool/native/foreign protocols still need scalable conservative analysis. |
+| Retire temporary graphs and immutable snapshots | Still required through last-consumer boundaries, clearing obsolete roots/physical slots, bounded caches and reuse. GC cannot reclaim reachable snapshots or reduce unnecessary allocation/algorithmic work. |
+| Preserve copies, ordering, values and resource behavior | Still required. Independent membership, intentional sharing, reusable iterator invalidation, explicit file/process/native closure and failure ordering are separate contracts. |
+| Prove a bounded end-to-end self-build | Still open. GC8 resident kernels and GC9 distribution do not measure the full compiler or establish capacity, I2, I3 or reproducibility. |
+
+### Proposed separately authorized Java-to-I1-to-I2 checkpoint
+
+1. Freeze the current Java 21 bootstrap at `76335baa` plus this documentation
+   checkpoint. The baseline has 430 production Java files and 185 checked-in
+   Ironwood files; those Ironwood files are not a complete accepted compiler port.
+   Use Git tree identities in [GC10](GC10_ACCEPTANCE.md#self-hosting-handoff)
+   to fix compiler/runtime/library/packaging inputs. Use LLVM/Clang/lld 23.1.0,
+   BDWGC 8.2.12 and a freshly verified source-bound SDK with one qualified
+   configuration and matching OS/SDK/sysroot receipt. Record actual JDK vendor,
+   version, binary hashes, host and compiler jar. Choose one GC9-qualified native
+   host initially; no portability claim follows for other hosts.
+2. Re-audit current production dependencies, then freeze a complete source-only
+   port closure `S` with exact paths, SHA-256, resources, entry point, options,
+   source order and output paths before the timed checkpoint. Include required
+   standard-library/testing sources and generated models; hash the generation
+   recipes. Do not silently add inputs, use discarded port binaries, or treat
+   the historical 711-input manifest as current. Any closure change starts a new
+   labeled comparison. Keep a shell tool driver and the independent Java harness;
+   defer broad IDE, packaging, Bridge producer and default-tool migration.
+3. Name explicit source collection sites after parse/resolve, typed analysis,
+   specialization/pruning and completed emission, only after each phase's last
+   consumer. Classify published AST/IR/symbol/result graphs separately from
+   temporary worklists, snapshots and failure state. Clear obsolete locals,
+   statics, caches and physical reference slots, close native resources, then
+   call canonical Memory.collect() on success and defined failure paths. Verify
+   compiler-live roots rather than assuming a null assignment proves death.
+   Do not collect per node/operation or add library/automatic collection.
+4. Retain the protective **16 GiB** guard. Propose a fixed 600-second total
+   deadline per complete Java-to-I1 or I1-to-I2 build, with tool subprocesses
+   bounded at 60 seconds and a 30-minute cumulative execution budget before
+   reassessment. The new complete-build bound is a proposal for the separate
+   task, not a rerun or extension of GC8/GC9 children. Record process-group RSS
+   sampling and platform charged/high-water observations separately; account
+   for descendants and detached tools or use an enclosing OS limit. Preserve
+   diagnostics, phase timestamps, source/artifact hashes, allocation event/live
+   counts, collector/OS byte observations, RSS/charged footprint, collection
+   counts and native resource balances. Observe at phase boundaries without
+   per-call ledgers or new steady-state maintenance. Counters are not bytes or an immediate reachability census.
+   Keep large evidence ignored and commit compact manifests only.
+5. Require real `Java(S) -> I1` then `I1(S) -> I2` under identical frozen inputs
+   and limits before broad peripheral work. I1 must perform frontend/typed-IR
+   compilation itself; external LLVM/Clang remain the native backend. Compare
+   independent Java and native acceptance/rejection, diagnostics, typed/layout/
+   effect artifacts and representative native program behavior, including exact
+   collection, exceptions/defer, native-resource and pool/foreign negatives.
+   Record any canonicalization; never normalize away semantic differences.
+6. Stop on guard/deadline, nonconvergence, missing phase evidence, unaccounted
+   retention/resource growth, corrupt metadata, changed input closure or an
+   unexplained behavior/artifact difference. Preserve a safe checkpoint; do not
+   raise the guard, add unsafe exemptions or continue a chain of local fixes
+   without reassessing the architecture. Only after I2 succeeds propose
+   `I2(S) -> I3`, S5 artifact/reproducibility comparisons and later portability
+   work. Even successful I2 does not replace D008 or authorize publication.
+
+## 1. Historical recommendation and readiness
 
 ### Conclusions from the stopped attempt (2026-11-03)
 
-**Ironwood is not ready to replace its Java bootstrap. Its current language,
-library and compiler implementation have not demonstrated practical, scalable
-memory management for a large, graph-heavy application.** Keep Java as the
-authoritative compiler while addressing these prerequisites separately.
+**At the stopped checkpoint, Ironwood had not demonstrated practical, scalable
+memory management for the complete compiler.** Java remains authoritative;
+current GC prerequisites are interpreted in the handoff above, not by reviving
+the discarded implementation.
 
 The attempted port demonstrated substantial expressiveness: the Java bootstrap
 built the complete ported compiler source closure into a working native compiler,
@@ -49,7 +121,7 @@ Some local changes had measured benefits, but those benefits did not establish
 whole-build feasibility or justify an open-ended series of further fixes.
 
 Java-shaped syntax does not make Java allocation lifetimes affordable without
-GC. Ironwood's ordinary allocations persist until a compiler-proven `free` or
+GC. At that checkpoint Ironwood's ordinary allocations persisted until a compiler-proven `free` or
 process termination. Temporary collections, iterators, strings, worklist facts
 and immutable snapshots therefore need deliberate ownership, reuse and
 retirement. The effort needed to prove reclamation of private compiler scratch,
@@ -65,7 +137,14 @@ budget, not a language limit; crossing it did not determine the memory needed
 to finish. Expressiveness, safety correctness and resource scalability remain
 separate claims, each needing its own evidence.
 
-### Prerequisites before another migration attempt
+<a id="prerequisites-before-another-migration-attempt"></a>
+
+### Historical prerequisites before another migration attempt
+
+The original recommendations below are preserved for the rollback record. The
+[current GC handoff](#current-gc-handoff-2026-11-07) supersedes their manual-free,
+no-GC and deleted-analysis requirements. Sections 2-7 retain the original
+assessment, source inventory and S0-S8 design, not a current implementation order.
 
 1. **Practical ownership boundaries for temporary graphs.** Demonstrate reusable
    patterns for phase and callable scratch, CFG/worklist facts, snapshots and
@@ -606,13 +685,13 @@ reduce warning counts. Revisit strict-mode readiness using the S1 measurements
 and later self-build evidence; a resident compiler needs S7's separate lifetime
 gate rather than inheriting the one-shot retention strategy.
 
-[`@SuppressUnfreed`](MEMORY.md#per-allocation-suppression) exempts the initializer's
+[`@SuppressUnfreed`](MEMORY.md) exempts the initializer's
 tracked allocation at one reference local declaration, including aliases and
 fresh factory results. It does not exempt unrelated allocations in factories,
 fields, nested graphs, or container contents. Use it only for individually
 justified sites, recording them with the diagnostic baseline; it is not the
 mechanism for making the whole port pass `--unfreed=error`. As
-[MEMORY_MANAGEMENT.md](MEMORY_MANAGEMENT.md#allocations-that-are-not-freed)
+[MEMORY_MANAGEMENT.md](MEMORY_MANAGEMENT.md)
 explains, returned/stored objects and uncertain control flow can fall outside
 the check. The practical warning volume is unknown until S1; even zero warnings
 would not prove that the shared graphs are reclaimed or fit the memory budget.
@@ -627,7 +706,7 @@ Indices are ordinary compiler data, not exposed native pointers. A new general
 region facility would be a separate language decision, outside this plan's
 recommended initial scope.
 
-[`RejectedFreeEvidence`](../compiler/src/main/java/ironwood/compiler/semantic/RejectedFreeEvidence.java)
+``RejectedFreeEvidence`` (historical path `compiler/src/main/java/ironwood/compiler/semantic/RejectedFreeEvidence.java`)
 contains a concrete GC dependency: weak snapshot keys and a `ReferenceQueue`
 retire optional explanation associations. Replace that mechanism with explicit
 snapshot ownership/retirement and the existing bounded-budget/fallback model.

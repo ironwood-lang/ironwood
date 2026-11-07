@@ -5,7 +5,7 @@
  * Ironwood's default project license.
  *
  * Modified for Ironwood: neutral package, identity hashing, pooled helpers,
- * generic native arrays, and deterministic reclamation of superseded buckets.
+ * generic native arrays, and managed lifetime of superseded buckets.
  */
 package ironwood.ds;
 

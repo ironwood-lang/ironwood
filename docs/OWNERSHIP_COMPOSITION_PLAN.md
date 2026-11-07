@@ -2,14 +2,32 @@
 
 # Ownership composition across APIs and collections
 
+Current disposition, 2026-11-07: **prior alternative for managed-heap
+reclamation, superseded by GC5-GC7**, accepted in [GC10](GC10_ACCEPTANCE.md).
+The original 2026-11-04 audit, proposed syntax and implementation milestones
+below are historical and unimplemented. Do not implement owning collections,
+consume/adopt syntax or managed-free proofs in parallel with GC.
+
+Shared/cyclic managed graphs now use exact reachability and explicit synchronous
+Memory.collect(). GC7 deletes the cited owned-field/element, FunctionOwnership,
+OwnershipPaths and OwnershipSnapshot machinery; those historical paths are not
+current compiler dependencies. Resource-contract lessons remain: distinguish
+retention from explicit closure, preserve acquisition rollback and exception
+ordering, expose actual conservative effects, and keep pool/foreign lifetime
+protocols and D132/D133 performance requirements. Reuse, stale-slot clearing,
+allocation volume and retained snapshot/cache bounds remain relevant to capacity.
+See the [current self-hosting handoff](SELF_HOSTING_PLAN.md#current-gc-handoff-2026-11-07).
+Java remains authoritative; no new self-hosting attempt is started.
+
 Date: 2026-11-04. Source audit baseline:
 `b9cda8871479c7ac515defd6c794b50554fe29e3`.
 
-Status: proposed implementation plan for recommendation 1 in
+Original status: proposed implementation plan for recommendation 1 in
 [SELF_HOSTING_PLAN.md](SELF_HOSTING_PLAN.md#prerequisites-before-another-migration-attempt).
 This document authorizes no language change or renewed compiler migration.
-The implementation below is absent today. Names for proposed directives and APIs
-are design notation pending a language decision. Java remains the bootstrap.
+The proposed ownership-composition implementation below was not added. Names
+for proposed directives and APIs remain historical design notation, not accepted
+syntax. Java remains the bootstrap.
 
 ## 1. Goal and recommended scope
 
@@ -35,7 +53,7 @@ it safely. It is not an assertion that this feature alone makes I2 fit 16 GiB.
 The stopped migration measured allocated-but-not-freed storage, not GC
 reachability or the fraction attributable to missing ownership transfer.
 
-## 2. What the current implementation actually provides
+## 2. What the audited pre-GC implementation provided
 
 These findings come from reading retained source and specifications. No new
 compiler, native benchmark or reproduction was run for this planning document.
@@ -43,11 +61,11 @@ M0 must qualify its executable baseline before implementation.
 
 | Existing mechanism | Evidence and consequence |
 | --- | --- |
-| Fixed responsibility for existing allocations | [MEMORY.md](MEMORY.md#ownership-and-borrowing): assigning or passing an existing allocation generally borrows it. Fresh unaliased results can establish caller ownership. These are different operations. |
-| Destructor-owned private storage | [OwnedArrayFieldAnalyzer](../compiler/src/main/java/ironwood/compiler/semantic/OwnedArrayFieldAnalyzer.java) admits encapsulated storage installed from proved fresh origins. It is not a general proof that an incoming parameter becomes owned. |
+| Fixed responsibility for existing allocations | [MEMORY.md](MEMORY.md): assigning or passing an existing allocation generally borrows it. Fresh unaliased results can establish caller ownership. These are different operations. |
+| Destructor-owned private storage | `OwnedArrayFieldAnalyzer` (historical path `compiler/src/main/java/ironwood/compiler/semantic/OwnedArrayFieldAnalyzer.java`) admits encapsulated storage installed from proved fresh origins. It is not a general proof that an incoming parameter becomes owned. |
 | Borrowing containers | [DataStructureSemantics](../compiler/src/main/java/ironwood/compiler/semantic/DataStructureSemantics.java) identifies retained insertion arguments. Ordinary `ArrayList.add`, map insertion and set insertion do not transfer payload ownership. |
 | Caller-item loans | [CONTAINER_REMOVAL_LOANS.md](CONTAINER_REMOVAL_LOANS.md) explains whole-container release, surviving aliases, duplicate occurrences, map roles and callback hazards. Clearing a container releases eligible loans, not its items. |
-| Fresh owning creation arrays | [OwnedArrayElementAnalyzer](../compiler/src/main/java/ironwood/compiler/semantic/OwnedArrayElementAnalyzer.java) supports once-recorded fresh children, direct borrowed getters, shallow storage growth and destructor loops. It deliberately excludes arbitrary adopted elements. |
+| Fresh owning creation arrays | `OwnedArrayElementAnalyzer` (historical path `compiler/src/main/java/ironwood/compiler/semantic/OwnedArrayElementAnalyzer.java`) supports once-recorded fresh children, direct borrowed getters, shallow storage growth and destructor loops. It deliberately excludes arbitrary adopted elements. |
 | Helper composition already implemented | [D170 investigation](OWNERSHIP_HELPER_INVESTIGATION.md#authorized-implementation-follow-up) supplies confined temporary borrower and single-root list proofs. Do not reimplement these or describe them as ownership transfer. |
 | Pools have a different contract | D104 supersedes D102's external-object transfer and runtime registry. [PoolSemantics](../compiler/src/main/java/ironwood/compiler/semantic/PoolSemantics.java) preserves originating-pool ownership on return. An old test or helper named "transfer" does not establish a general transfer API. |
 | Existing caller state | [FunctionAnalyzer](../compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java) tracks allocation identity, state, retained borrows, pool ownership, dependent views, deferred actions and control-flow snapshots. Its `FREED` state cannot also mean "still alive under another owner." |
@@ -55,9 +73,9 @@ M0 must qualify its executable baseline before implementation.
 
 ### A concrete compiler boundary
 
-[FunctionOwnership.snapshotOwnership](../compiler/src/main/ironwood/ironwood/compiler/semantic/FunctionOwnership.iron)
+`FunctionOwnership.snapshotOwnership` (historical path `compiler/src/main/ironwood/ironwood/compiler/semantic/FunctionOwnership.iron`)
 returns a caller-owned snapshot. The retained
-[OwnershipPaths](../compiler/src/main/ironwood/ironwood/compiler/semantic/OwnershipPaths.iron)
+`OwnershipPaths` (historical path `compiler/src/main/ironwood/ironwood/compiler/semantic/OwnershipPaths.iron`)
 instead creates snapshots inside `capture`, records them in its own creation
 array, lends them and destroys them. Its capture method receives the builders,
 maps, evidence and observer needed to construct the snapshot. This is a useful
@@ -67,7 +85,7 @@ The motivating proposed operation is to create a snapshot through a helper and
 then adopt it into a batch owner. The snapshot must preserve its identity and
 independent membership. Its destructor must free its copies, never the borrowed
 allocation identities, IR or shared child versions described in
-[OwnershipSnapshot](../compiler/src/main/ironwood/ironwood/compiler/semantic/OwnershipSnapshot.iron).
+`OwnershipSnapshot` (historical path `compiler/src/main/ironwood/ironwood/compiler/semantic/OwnershipSnapshot.iron`).
 Explanation-enabled snapshots also require release of saved evidence before
 destruction. A generic container must not silently omit that protocol.
 

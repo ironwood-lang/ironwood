@@ -141,7 +141,7 @@ Browse packages below, then open a type for its declaration, examples, and membe
 | [`Inet6Address`](ironwood/net/Inet6Address.md) | `ironwood.net` | Immutable 128-bit IPv6 value with an optional numeric or interface scope. |
 | [`InetAddress`](ironwood/net/InetAddress.md) | `ironwood.net` | Immutable IPv4 or IPv6 address bits with lazily cached host metadata. |
 | [`InetSocketAddress`](ironwood/net/InetSocketAddress.md) | `ironwood.net` | Immutable IP endpoint with a port and either a copied address or an unresolved host label. |
-| [`InterfaceAddress`](ironwood/net/InterfaceAddress.md) | `ironwood.net` | Immutable address, broadcast and prefix metadata borrowed from an interface snapshot. |
+| [`InterfaceAddress`](ironwood/net/InterfaceAddress.md) | `ironwood.net` | Immutable address, broadcast and prefix metadata from an interface snapshot. |
 | [`NativeSocketImpl`](ironwood/net/NativeSocketImpl.md) | `ironwood.net` | Publicly callable native TCP delegate for custom SocketImpl implementations. |
 | [`NetworkInterface`](ironwood/net/NetworkInterface.md) | `ironwood.net` | Captured interface structure with live status queries. |
 | [`NoRouteToHostException`](ironwood/net/NoRouteToHostException.md) | `ironwood.net` | Reports that the destination has no available network route. |
@@ -154,7 +154,7 @@ Browse packages below, then open a type for its declaration, examples, and membe
 | [`SocketDescriptor`](ironwood/net/SocketDescriptor.md) | `ironwood.net` | Opaque state borrowed from a [`native socket implementation`](ironwood/net/NativeSocketImpl.md). |
 | [`SocketException`](ironwood/net/SocketException.md) | `ironwood.net` | Reports a socket state or native networking failure. |
 | [`SocketImpl`](ironwood/net/SocketImpl.md) | `ironwood.net` | TCP implementation protocol for custom socket facades and delegation. |
-| [`SocketImplFactory`](ironwood/net/SocketImplFactory.md) | `ironwood.net` | Creates implementations that a socket facade adopts and reclaims. |
+| [`SocketImplFactory`](ironwood/net/SocketImplFactory.md) | `ironwood.net` | Creates implementations that a socket facade retains and closes explicitly. |
 | [`SocketImplOptions`](ironwood/net/SocketImplOptions.md) | `ironwood.net` | Provides process-lifetime tokens for the implementation protocol. |
 | [`SocketOption`](ironwood/net/SocketOption.md) | `ironwood.net` | Identifies a socket option with a statically checked value type. |
 | [`SocketOptionDescriptor`](ironwood/net/SocketOptionDescriptor.md) | `ironwood.net` | Describes an option independently of its specialized value type. |

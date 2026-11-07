@@ -7,7 +7,7 @@ cd "${HOME}/workspace-mba-m2/Ironwood"
 ```
 
 Use Java 21, LLVM 23, and the native build tools described in the
-[build instructions](../README.md#building-ironwood-from-source). The orchestration
+[native build-input instructions](IDK.md#gc-native-inputs). The orchestration
 scripts also require Python 3. GitHub publishing requires Git credentials with
 push access to `origin`.
 
@@ -25,7 +25,7 @@ consistency checks, not compiler tests. See [AGENTS.md](../AGENTS.md).
 # Select several tests by repeating --test.
 ./scripts/test.sh \
   --test 'IronDocs pool example runs natively' \
-  --test 'pool ownership rejects dangling and conflicting aliases'
+  --test 'GC7 removed forms retain migration errors and ordinary identifiers'
 ```
 
 All arguments to `./scripts/test.sh`:
@@ -50,12 +50,9 @@ Test output includes the time, selected-test counter, status, and name:
 
 ## Native standard-library testing suites
 
-Run the testing-module self-tests, migrated standard-library suites, and
-Ironwood-native destruction suites with:
-
-```sh
-./scripts/test-stdlib.sh
-```
+Use focused generated suite mains or the compiler-harness entry below for the
+testing module. Current suites preserve managed graph retention, explicit
+resource cleanup and pool reuse; source destruction is removed.
 
 The focused compiler-harness entry is:
 
@@ -63,10 +60,9 @@ The focused compiler-harness entry is:
 ./scripts/test.sh --test 'standard-library testing module reports deterministic native results'
 ```
 
-The first command rebuilds the compiler. The harness uses `--skip-build` only
-after `scripts/test.sh` has already produced the current compiler JAR. See
+The focused entry rebuilds the compiler before running the selected harness. See
 [Testing Ironwood code](TESTING.md) for the compiler-owned `@Test` design,
-manual client workflow, migration inventory, and destruction coverage.
+manual client workflow, migration inventory and current lifecycle coverage.
 The runner prints one compact progress line per suite, retains the individual
 test output for failure diagnostics, and reports every suite plus aggregate
 case totals together at the end.
@@ -215,7 +211,7 @@ above do not forward test-selection arguments. To execute the documented pool
 example, use the named compiler test shown earlier.
 
 `test-platforms.sh --full` does not include these separate packaging checks.
-See [Platform packages](../README.md#platform-packages) and [IDK](IDK.md) for
+See [GC native inputs](IDK.md#gc-native-inputs) and [IDK](IDK.md) for
 building the archives. For every repository change, run `git diff --check`.
 
 ## Generate and publish IronDocs

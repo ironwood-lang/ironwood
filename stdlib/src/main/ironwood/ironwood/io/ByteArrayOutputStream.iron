@@ -62,7 +62,7 @@ public class ByteArrayOutputStream extends OutputStream {
         return result;
     }
     /**
-     * Returns a caller-owned UTF-8 snapshot of the written bytes. Malformed
+     * Returns a managed UTF-8 snapshot of the written bytes. Malformed
      * sequences become replacement characters. Reset, writes, and close do not
      * change an existing snapshot.
      */

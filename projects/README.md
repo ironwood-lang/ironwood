@@ -19,7 +19,7 @@ resolve file names from the caller's directory.
 
 | Project | Purpose | Successful status |
 | --- | --- | ---: |
-| [`HelloEclipse`](HelloEclipse/README.md) | Hello World with explicit reclamation and a native `@Test` suite, used to exercise the Eclipse plugin | 0 |
+| [`HelloEclipse`](HelloEclipse/README.md) | Hello World with managed storage and a native `@Test` suite, used to exercise the Eclipse plugin | 0 |
 | [`SimpleTcpEcho`](SimpleTcpEcho/README.md) | Persistent TCP server and one-message client, with a networking quick-start guide | 0 for the client |
 | [`OrderBook`](OrderBook/README.md) | Paired Ironwood/Java throughput and batch-latency benchmarks | 0 |
 | [`streaming`](streaming/README.md) | Binary cat/cp, incremental byte/UTF-16/word/line wc, and interactive prompt | 0 |

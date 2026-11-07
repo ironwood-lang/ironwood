@@ -3,9 +3,9 @@
 package ironwood.net;
 
 /**
- * Immutable address, broadcast and prefix metadata borrowed from an interface snapshot. Do not
- * treat entries and address values as shared managed references; their query graph
- * lives. Address.copy() creates an independent value when needed.
+ * Immutable address, broadcast and prefix metadata from an interface snapshot. Entries and
+ * address values are shared managed references; retaining them keeps their referenced query
+ * graph alive. Address.copy() creates an independent value when needed.
  */
 public class InterfaceAddress {
 

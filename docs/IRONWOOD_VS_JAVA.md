@@ -163,7 +163,7 @@ explanation.
 | [52](#feature-52). Automatic boxing and unboxing                                   | ❌ Ironwood performs no automatic boxing or unboxing; explicit wrapper code is not autoboxing support.                                                        |
 | [53](#feature-53). One-dimensional invariant arrays                                | ✅ Primitive/reference arrays, checked indexing, `.length`, widening to `Object`, and exact managed references work now.                                     |
 | [54](#feature-54). Java array covariance                                           | ❌ Arrays are invariant; Ironwood does not support Java's covariant array conversions.                                                                         |
-| [55](#feature-55). Multidimensional arrays and exact array casts/tests             | 💡 Recursive array types and exact casts/tests retain Java-shaped syntax, while explicit separately owned children replace Java's rectangular allocator.     |
+| [55](#feature-55). Multidimensional arrays and exact array casts/tests             | 💡 Recursive array types and exact casts/tests retain Java-shaped syntax, while explicit separately allocated children replace Java's rectangular allocator.     |
 | [56](#feature-56). Varargs                                                         | ❌ Varargs declarations and expanded calls are unsupported; passing an ordinary explicit array is not varargs.                                                |
 | [57](#feature-57). Exceptions as `Throwable` objects                               | ✅ Java-shaped objects, causes, public source traces, root categories, `throw`, typed `catch`, and native unwinding.                                         |
 | [58](#feature-58). Checked exceptions and `throws` declarations                    | ✅ Methods, constructors, interfaces, generic throws, overrides, call sites, and checked catches are compiler-enforced.                                       |
@@ -1994,7 +1994,7 @@ Ironwood implements multidimensional arrays as recursive invariant arrays:
 `Animal[][]` is exactly an array of `Animal[]` references. An array creation may
 size only its outer dimension. `new Animal[2][]` therefore allocates one named
 outer container with null child slots; `new Animal[2][2]` is rejected because
-it would hide two separately owned child allocations.
+it would hide two separately allocated child allocations.
 
 Array `instanceof` and checked casts compare the object's exact compiler-emitted
 array descriptor at every dimension. They accept reifiable targets such as
@@ -2013,7 +2013,7 @@ exact tests/casts and separate visible child allocations.
 Feature 55 is 💡 rather than ✅ because the complete feature includes
 construction: its recursive array types and exact casts/tests use familiar Java
 syntax, but Ironwood deliberately rejects Java's multi-allocation
-`new T[outer][inner]` form and implements explicit, separately owned child
+`new T[outer][inner]` form and implements explicit, separately allocated child
 allocation as the supported Ironwood way.
 
 <a id="feature-56"></a>
@@ -2082,7 +2082,7 @@ message, including through printing, concatenation, and builder append. Its
 default `getLocalizedMessage()` delegates to the virtual `getMessage()`.
 See the [T3 compatibility review](STDLIB_THROWABLE_REVIEW.md) for the contract,
 native ownership, and [D121 review](STDLIB_STACK_TRACE_REVIEW.md) for public trace printing.
-D122 adds single-assignment `initCause` and fresh caller-owned
+D122 adds single-assignment `initCause` and fresh managed
 `getStackTrace()` arrays whose immutable elements live in compiler storage.
 
 <a id="feature-58"></a>
@@ -2249,7 +2249,7 @@ ordinary allocation or change to `System.allocationCount()`.
 Every enum provides `name()`, `ordinal()`, default `toString()`,
 `valueCount()`, `valueAt(int)`, `valueOf(String)`, and `values()`. Invalid
 index/name and null name lookup throw `IllegalArgumentException`. Each
-`values()` call returns a fresh mutable caller-owned array in declaration order;
+`values()` call returns a fresh mutable managed array in declaration order;
 the caller may reclaim that shallow array without reclaiming its immortal enum
 elements. Ordered traversal may instead use allocation-free `valueCount()` and
 `valueAt(int)`. Source cannot use `new` on an enum, subclass one, assign its
@@ -2873,9 +2873,10 @@ report from `-O0` through `-O3`, including when LLVM inlines native code, and
 after source-path, `.ironclass`, or `.ironjar` reconstruction. Only the stable `.iron`
 basename is retained, not an absolute build path. Runtime trace allocations do
 not count as Ironwood allocations, and metadata failure degrades to `<trace
-unavailable>` without changing propagation. Private trace storage is released
-with compiler-approved Throwable reclamation or failed construction.
-`getStackTrace()` returns a fresh caller-owned array of immutable
+unavailable>` without changing propagation. Private trace storage follows exact
+managed metadata and is eligible for explicit collection when its Throwable graph
+becomes unreachable. Failed construction does not run managed rollback.
+`getStackTrace()` returns a fresh managed array of immutable
 compiler-emitted StackTraceElement values. Mutable replacement remains absent;
 failures outside compiler-defined source boundaries remain separate from
 language exception delivery.
@@ -3095,12 +3096,11 @@ Ironwood (`String.intern()` deliberately unsupported):
 
 Java's `String.intern()` adds an arbitrary runtime String to a privately held
 canonical pool when no equal entry exists. Ironwood does not expose that API.
-Adding an ordinary reclaimable String to a process-global pool would create a
-permanent hidden alias, invalidate local reclamation, and allow input-dependent
-unbounded retention. It would also require runtime pool state unrelated to the
-compiler's finite literal set. Java relies on garbage collection to manage the
-resulting pool and String lifetimes; Ironwood deliberately has no collector to
-remove unreachable pool entries. Feature 75 already provides canonical identity
+Adding arbitrary Strings to a strongly rooted process-global pool would allow
+input-dependent unbounded retention, even with explicit collection. Ironwood
+has no weak-reference/intern-pool cleanup API; its collector does not remove
+entries from reachable containers. Runtime pool state would also be separate
+from the compiler's finite literal set. Feature 75 already provides canonical identity
 where the compiler can prove and emit it, and Feature 76 adds folded String
 constant expressions to the same finite pool.
 
@@ -4363,7 +4363,7 @@ The remaining icons make current support and design choices explicit:
    marker into a bidirectional compiler contract; native primitive-generic value
    specialization avoids hidden boxes; explicit synchronous collection preserves
    shared graphs, captures and partially constructed objects;
-   multidimensional arrays use explicit separately owned children; and ordinary
+   multidimensional arrays use explicit separately allocated children; and ordinary
    try/finally supports explicit resource cleanup, including on
    `break`/`continue`/`yield` exits, preserves the first failure, and retains later
    cleanup failures without Java's
@@ -4395,7 +4395,7 @@ The remaining icons make current support and design choices explicit:
 
 Ironwood should continue to copy Java's names, source shape, and behavior where
 those choices remain honest. When a Java feature would conceal allocation,
-require JVM dynamism, or impose GC semantics, the difference should be explicit
+require JVM dynamism, or impose automatic GC semantics, the difference should be explicit
 and documented rather than approximated under a deceptively compatible API.
 
 ## Verifying the implemented features

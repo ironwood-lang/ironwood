@@ -21,8 +21,11 @@ callbacks within their proved contracts. Unknown retaining/collection/native
 lifetime effects remain conservative. Unsupported asynchronous lifetimes refuse.
 The single-caller/external-serialization contract remains mandatory.
 
-Current qualification covers macOS arm64 and Linux x86-64, with Java 21 JNI and
-the recorded Java 23 critical/JNI controls. Linux arm64 and arm64e remain gated.
+[GC9 qualification](GC9_LINUX_X86_64_DISTRIBUTION.md) covers macOS arm64,
+Linux arm64 and physical Linux x86-64 native/managed distribution, including
+a common three-target jar. Java 21 JNI and recorded Java 23 controls are the
+qualified GC JVM scope; the launcher's Java 21-25 range does not expand it.
+arm64e remains unqualified. [GC10](GC10_ACCEPTANCE.md) records final acceptance.
 Earlier P0-P7 reports preserve their original claims and hashes as historical
 pre-GC evidence; they do not broaden the current platform/lifetime gates.
 

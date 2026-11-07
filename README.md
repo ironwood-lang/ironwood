@@ -11,7 +11,8 @@
 Ironwood is an ahead-of-time compiled, object-oriented language for
 high-performance native applications. It preserves the familiar Java syntax,
 object model, and everyday APIs that Java developers already know, while
-producing optimized native executables with no JVM, JIT, or garbage collector.
+producing optimized native executables with explicit synchronous collection
+and no JVM or JIT.
 Ironwood is designed as a simpler, safer alternative to C++ without raw
 pointers, borrow syntax, or an unfamiliar ownership-driven programming model.
 
@@ -43,7 +44,7 @@ pointers, borrow syntax, or an unfamiliar ownership-driven programming model.
 
 ## Ironwood vs GraalVM Native Image
 
-Both Ironwood and GraalVM Native Image produce closed-world, ahead-of-time compiled native executables, but they start from different places. GraalVM Native Image compiles existing Java bytecode and carries the JVM machinery needed to preserve Java semantics into the executable. Ironwood is a separate language designed for native compilation from the ground up, with Java-familiar syntax, objects, and APIs, but no JVM, JIT, Java bytecode, or garbage collector in the generated application.
+Both Ironwood and GraalVM Native Image produce closed-world, ahead-of-time compiled native executables, but they start from different places. GraalVM Native Image compiles existing Java bytecode and carries the JVM machinery needed to preserve Java semantics into the executable. Ironwood is a separate language designed for native compilation from the ground up, with Java-familiar syntax, objects, and APIs, with explicit synchronous collection and no JVM, JIT or Java bytecode in the generated application.
 
 > GraalVM makes Java applications native. Ironwood makes native development feel like Java.
 
@@ -160,7 +161,9 @@ matching-hardware Linux arm64 and physical Linux x86-64. arm64e remains unsuppor
 [GC7](docs/GC7_IMPLEMENTATION.md)
 completes maintained consumer migration and obsolete managed-free proof retirement.
 Intentional migration-negative fixtures and frozen historical evidence remain
-classified in its ledger. Self-hosting has not restarted.
+classified in its ledger. [GC10 acceptance](docs/GC10_ACCEPTANCE.md) reconciles
+the completed integration and its exact qualification limits. Self-hosting has
+not restarted; Java remains the authoritative bootstrap.
 
 ## Deterministic Cleanup with `defer`
 

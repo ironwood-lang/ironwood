@@ -12851,3 +12851,42 @@ occurrence order. If no
   roots 2 / owners 1 and managed schema 2 / objects-gc-v1, roots 3 / owners 2,
   BDWGC 8.2.12 and USE_MARK_BYTES=1 remain unchanged. GC10, self-hosting and I1/I2
   require separate work and were not started.
+
+## D329 - Accept GC integration and a separate self-hosting feasibility handoff
+
+- **Status:** GC10 complete, 2026-11-07. The [acceptance report](GC10_ACCEPTANCE.md)
+  reconciles GC0-GC9 contracts, source/configuration identities, focused positive/
+  negative evidence, machine code, resident/native resources and distribution.
+  Current documentation and generated development API references match the one
+  implemented model. Historical decisions/reports and frozen hashes remain intact.
+- **Supersession:** Completes D315's staged integration and the GC10 gate retained
+  by D328. D320/D322/D324 remain the implemented memory/foreign contracts;
+  D325/D326/D328 retain their exact workload/target/toolchain limits. This
+  supersedes the old self-hosting plans' no-GC, manual-free/owning-container and
+  deleted-analysis prerequisites. The ownership-composition proposal is the
+  prior managed-reclamation alternative, not pending parallel implementation.
+  Earlier manual-free premises in D019/D029 and D094/D107 and adjacent helper/
+  proof refinements are historical to that extent. D004 automatic collection is
+  not restored. Actual initialization, pool/native/foreign resource safety,
+  conservative effects, D051, D132/D133 and D188 remain mandatory.
+- **Contract:** Only canonical Memory.collect() runs full synchronous caller-thread
+  marking/sweeping; allocation, including failure, never collects. No source
+  free/destructor, temporary destruction or managed rollback remains. General
+  defer retains immediate capture, LIFO, every-exit and exception order. Resources,
+  pool reuse, handles and registrations have explicit independent lifetimes.
+  Unsupported/corrupt metadata fails before reclamation. Exact ordinary roots 2 /
+  owners 1 and bridge schema 2 / objects-gc-v1, roots 3 / owners 2 remain distinct.
+- **Compatibility:** Removed source/options diagnose migration; format-1 source
+  containers undergo full current revalidation and promise no native ABI
+  compatibility. Native/bridge generations and exact SDK/pass/payload identities
+  reject incompatible inputs. No conservative fallback, finalizer, automatic GC,
+  ownership syntax, private rendering-release helper or steady-state maintenance
+  is introduced. arm64e and unsupported foreign lifetimes remain unqualified.
+- **Handoff:** The stopped I2 guard failure, discarded port and original baselines
+  remain historical evidence, not a solved capacity problem. A separately
+  authorized task must freeze current source/toolchain/input closure, identify
+  phase collection sites and published/temporary roots, retain the 16 GiB guard
+  and bounded diagnostics, and require real Java-to-I1-to-I2 before broad
+  peripheral migration. I3/reproducibility follow only after I2. D008 keeps Java
+  authoritative; no self-hosting attempt, compiler-capacity acceptance, release,
+  publication or next milestone is authorized by this decision.

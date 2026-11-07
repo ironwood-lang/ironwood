@@ -18,7 +18,7 @@ public final class Inet6Address extends InetAddress
 
 Immutable 128-bit IPv6 value with an optional numeric or interface scope. Its factories always
 produce Inet6Address, including for IPv4-mapped bits. Equality inherited from InetAddress
-ignores the scope. A retained interface snapshot is owned by this value and reclaimed with it.
+ignores the scope. A referenced interface snapshot remains alive through managed reachability.
 
 
 ## Member summary

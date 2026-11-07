@@ -292,7 +292,7 @@ links, as Java's call without options does.
 
 **Returns**
 
-a fresh caller-owned path
+a fresh managed path
 
 
 [Back to member summary](#member-summary)

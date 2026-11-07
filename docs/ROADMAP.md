@@ -1,14 +1,14 @@
 # Roadmap
 
 
-GC5 migration-branch checkpoint: the normal compiler and complete required
-library now use [explicit synchronous collection](GC5_IMPLEMENTATION.md), with
-one managed model and preserved general defer. Earlier free/destructor milestones
-below are historical. [GC6 managed bridge qualification](GC6_IMPLEMENTATION.md)
-is complete on macOS arm64 and Linux x86-64;
-[GC7](GC7_IMPLEMENTATION.md) completes maintained consumer/test migration and
-obsolete managed-free proof retirement. GC8-GC10 and self-hosting have not started
-through this work.
+[GC0-GC10 integration is complete](GC10_ACCEPTANCE.md) within its documented
+qualification bounds. The compiler and required library use one exact managed
+model, explicit synchronous collection and preserved general defer. GC7 retires
+managed-free proofs; GC8 records bounded macOS arm64 and physical Linux x86-64
+performance/resident evidence; GC9 qualifies native/managed distribution on
+macOS arm64, Linux arm64 and Linux x86-64. arm64e remains unqualified. Earlier
+free/destructor milestones below are historical; their native/resource and
+performance obligations remain where applicable. No new feature is selected.
 
 For the consolidated current support matrix, deferred language/library work,
 and permanent non-goals, see [`LANGUAGE_SPECS.md`](LANGUAGE_SPECS.md). This file
@@ -20,8 +20,11 @@ The proposed [self-hosting assessment and migration plan](SELF_HOSTING_PLAN.md)
 defines stages S0-S8; its [preparation plan](BEFORE_SELF_HOSTING_PLAN.md) details
 the required library and compiler work. Preparation milestones M0-M6 are
 complete ([final handoff](self-hosting/m6/HANDOFF_M6.md)), with S0 and S1 passed
-at the M0 checkpoint and G1; S2-S8 have not started and remain proposals. The
-Java bootstrap policy in D008 remains in effect.
+at the M0 checkpoint and G1. The later migration attempt built I1 but failed
+to complete I2 under the 16 GiB guard, then was stopped and rolled back. Its
+observations and preparation evidence are historical. The updated plan proposes
+a separately authorized bounded Java-to-I1-to-I2 checkpoint; no new attempt has
+started. The Java bootstrap policy in D008 remains in effect.
 
 The [block-scoped defer plan](DEFER_PLAN.md) was reviewed on 2026-09-19.
 Milestone 1's [call checkpoint](DEFER_CALLS_VERIFICATION.md) was accepted, and

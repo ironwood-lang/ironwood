@@ -5,7 +5,7 @@ package ironwood.net;
 /**
  * Immutable 128-bit IPv6 value with an optional numeric or interface scope. Its factories always
  * produce Inet6Address, including for IPv4-mapped bits. Equality inherited from InetAddress
- * ignores the scope. A retained interface snapshot is owned by this value and reclaimed with it.
+ * ignores the scope. A referenced interface snapshot remains alive through managed reachability.
  */
 public final class Inet6Address extends InetAddress {
 
@@ -37,7 +37,7 @@ public final class Inet6Address extends InetAddress {
     }
 
     // Address entries lend interface views within the same flat snapshot. The
-    // hidden storage owner is never returned and there is no ownership cycle.
+    // Hidden snapshot storage stays reachable through the copied scope metadata.
     Inet6Address(int first, int second, int third, int fourth, int scope,
             InterfaceAddress binding, String name) {
 

@@ -115,25 +115,24 @@ Ironwood's language rules.
 
 ## Reclamation and failure audit
 
-OpenJDK code normally assumes a tracing collector. Before translating a class,
-classify every reference field and allocation as owned, borrowed, transferred,
-shared, immortal, or intentionally retained. Do not infer ownership merely from
-privacy. Record whether a factory returns a fresh-or-null value, whether a
-container retains an argument, and whether a pool checkout transfers a retained
-element to the caller.
+Ironwood uses exact managed reachability with explicit synchronous collection.
+Allocation, including failure, never collects. Audit every allocation and actual
+reference field/physical slot for required result storage, temporary work,
+intentional retention, pool reuse or native-resource ownership. Record fresh
+results versus aliases and copied membership versus shared elements. Privacy or
+final fields do not imply exclusive ownership or nonretention.
 
-Add an Ironwood destructor only for compiler-proven-owned terminal storage.
-Destructor code must remain allocation-free, must not let an exception escape,
-must not publish or resurrect `this`, and must clear an owned field before
-destroying the child allocation. Never translate Java finalization or cleaner
-behavior into a destructor: external resources continue to use an explicit
-close protocol.
+Source destructors, managed rollback and implicit temporary destruction are
+removed. Do not translate Java finalization/Cleaner behavior into collection-time
+cleanup. External resources require explicit close and native acquisitions need
+matched rollback on every failure path, independently of managed reachability.
+Published partially constructed objects remain valid managed graphs; preserve
+definite initialization, source exception ordering and native/resource safety.
 
-Audit constructor failure separately. Compiler-generated rollback reclaims the
-receiver and proven-owned fields in reverse layout order without invoking source
-destructors, but it can do so only while in-progress `this` has not been
-published. A port that exposes `this` during construction must be redesigned or
-rejected rather than weakening rollback safety.
+Test allocation counts, retained versus cleared slots, explicit phase collection
+and stable native resources. No library operation may insert an implicit
+collection or add steady-state GC administration. See [MEMORY.md](MEMORY.md),
+[GC10 acceptance](GC10_ACCEPTANCE.md) and D132/D133.
 
 ## Source structure
 
@@ -172,9 +171,9 @@ Before considering a port complete:
 - release and archive packaging carry the applicable license texts;
 - corresponding Ironwood source is included with compiled library artifacts;
 - `./scripts/check-licenses.sh` passes;
-- relevant compiler and native behavior tests pass; and
-- destructor, ownership-transfer, and failed-construction rollback behavior is
-  covered when the port allocates owned storage; and
+- relevant compiler and native behavior tests pass;
+- allocation/retention, explicit collection and native acquisition/closure failure
+  behavior are covered when applicable; and
 - unsupported JVM behavior is documented rather than silently approximated.
 
 The authoritative upstream license text is the

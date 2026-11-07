@@ -74,7 +74,9 @@ implementation or transpiler:
   restore managed-free proofs, private rendering-release helpers or heap-only
   callback-retention restrictions. Final-field/slot origins do not grant exclusive
   ownership or nonretaining effects. See [GC8 qualification](docs/GC8_IMPLEMENTATION.md);
-  GC10 and self-hosting require separate work.
+  [GC10 acceptance](docs/GC10_ACCEPTANCE.md) closes integration within those
+  evidence bounds. Self-hosting needs a separate bounded Java-to-I1-to-I2 task;
+  Java remains the authoritative bootstrap under D008.
 - Keep the mandatory runtime small; unreachable standard-library code is removed
   from the closed-world program, allowing a broad library.
 - Use UTF-8 `.iron` source, a Java 21 bootstrap compiler, and the pinned LLVM 23

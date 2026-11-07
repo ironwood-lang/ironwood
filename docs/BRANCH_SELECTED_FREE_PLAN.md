@@ -2,6 +2,10 @@
 
 # Branch-selected allocation reclamation plan
 
+Historical alternative, superseded by GC5-GC7 managed reachability. Source
+free and missing-free analysis no longer exist. This plan is not pending
+implementation; see [GC10 acceptance](GC10_ACCEPTANCE.md).
+
 Status: Proposed on 2026-09-25. Not accepted, not implemented. This document
 records the pre-change review required by
 [AGENTS.md](../AGENTS.md#verification) and the

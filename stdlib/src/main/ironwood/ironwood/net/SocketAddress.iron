@@ -4,8 +4,8 @@ package ironwood.net;
 
 /**
  * Base type for socket endpoint values. Built-in TCP sockets accept {@link InetSocketAddress}; custom
- * subclasses do not add a native address family automatically. Concrete producers define value
- * ownership.
+ * subclasses do not add a native address family automatically. Endpoint values follow ordinary
+ * managed reachability.
  */
 public abstract class SocketAddress {
 

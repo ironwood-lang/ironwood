@@ -59,7 +59,7 @@ Creates an exception with a copy of the supplied detail message.
 
 | Name | Description |
 | --- | --- |
-| `message` | the caller-owned message to copy, or null |
+| `message` | the managed message to copy, or null |
 
 
 [Back to member summary](#member-summary)

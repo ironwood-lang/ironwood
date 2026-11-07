@@ -4,8 +4,8 @@
  * Contributed to Ironwood by the original author and relicensed under
  * Ironwood's default project license.
  *
- * Modified for Ironwood: neutral package, reusable helpers, and deterministic
- * reclamation of superseded backing arrays.
+ * Modified for Ironwood: neutral package, reusable helpers, and managed
+ * lifetime of superseded backing arrays.
  */
 package ironwood.ds;
 

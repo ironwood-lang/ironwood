@@ -8,7 +8,11 @@ free, destructor, implicit temporary destruction or managed constructor rollback
 General defer, initialization, native resource and pool protocols remain.
 Historical proof discussions and examples mentioning those removed forms are
 superseded by the completed GC7 consumer migration, not alternate supported semantics.
-Native bridge/shared-library output remains refused until GC6 qualification.
+[GC6 managed admission](GC6_IMPLEMENTATION.md) uses schema 2 / objects-gc-v1,
+root ABI 3 / owner ABI 2 and independent handles/registrations.
+[GC9](GC9_LINUX_X86_64_DISTRIBUTION.md) qualifies macOS arm64, Linux arm64 and
+Linux x86-64 within its exact toolchain/OS bounds; arm64e remains unqualified.
+[GC10 acceptance](GC10_ACCEPTANCE.md) reconciles the completed integration.
 
 This document explains Ironwood's native compiler optimizations: the LLVM
 lowering constraints they address, why they preserve semantics, how they

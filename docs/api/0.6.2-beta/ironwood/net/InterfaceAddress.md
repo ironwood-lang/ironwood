@@ -14,9 +14,9 @@
 public class InterfaceAddress
 ```
 
-Immutable address, broadcast and prefix metadata borrowed from an interface snapshot. Do not
-free an entry or its address values separately; they remain valid only while the query owner
-lives. Address.copy() creates an independent value when needed.
+Immutable address, broadcast and prefix metadata from an interface snapshot. Entries and
+address values are shared managed references; retaining them keeps their referenced query
+graph alive. Address.copy() creates an independent value when needed.
 
 
 ## Member summary

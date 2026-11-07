@@ -72,7 +72,7 @@ public interface Path extends Comparable<Path> {
      * path resolves the current directory. This fixed overload always follows
      * links, as Java's call without options does.
      *
-     * @return a fresh caller-owned path
+     * @return a fresh managed path
      * @throws NoSuchFileException if the entry or a component does not exist
      * @throws IOException if the path cannot be resolved
      */

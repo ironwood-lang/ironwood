@@ -322,7 +322,7 @@ public class NativeSocketImpl extends SocketImpl {
     /**
      * Returns cached local address metadata tied to the implementation. Native delegates provide a
      * wildcard before binding and retain bound metadata after close. Earlier borrowed native
-     * values remain alive until delegate reclamation.
+     * values follow managed reachability independently of delegate closure.
      *
      * @return a borrowed local address
      */

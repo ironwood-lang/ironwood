@@ -38,10 +38,13 @@ General defer, initialization, native resource and pool protocols remain.
 Historical proof discussions and examples mentioning those removed forms are
 superseded by the completed GC7 consumer migration, not alternate supported semantics.
 Managed bridge output requires [GC6 admission and isolated images](GC6_IMPLEMENTATION.md),
-root ABI 3 / owner ABI 2 and schema 2. macOS arm64 and Linux x86-64 are qualified.
-Ordinary executables retain root ABI 2 / owner ABI 1. Linux arm64 and arm64e remain
-unqualified. Historical manual bridge ownership descriptions are superseded by
-the GC6 handle/registration projection.
+root ABI 3 / owner ABI 2 and schema 2 / objects-gc-v1.
+[GC9](GC9_LINUX_X86_64_DISTRIBUTION.md) qualifies macOS arm64, Linux arm64 and
+Linux x86-64 within its recorded OS/toolchain bounds; arm64e remains unqualified.
+Ordinary executables retain root ABI 2 / owner ABI 1. Historical manual bridge
+ownership descriptions are superseded by the GC6 handle/registration projection.
+[GC10](GC10_ACCEPTANCE.md) records final integration acceptance and the separate
+self-hosting handoff.
 
 ## Current language model
 
@@ -146,7 +149,7 @@ Supported today:
   constant-specific compiler-owned final subtypes with per-constant concrete
   obligations, fields, instance initialization, methods, and member types,
   `name()`/`ordinal()`/default `toString()`, allocation-free
-  `valueCount()`/`valueAt(int)`/`valueOf(String)`, a fresh caller-owned array
+  `valueCount()`/`valueAt(int)`/`valueOf(String)`, a fresh managed array
   from `values()`, the shared `Enum<E>` base, and ordinary identity, arrays,
   casts, `instanceof`, and reference-generic participation.
 - Direct, virtual, and interface calls. Closed-world analysis devirtualizes a
@@ -298,11 +301,11 @@ Supported today:
 - Java-compatible UTF-16 `length()`, `charAt(int)`, content `equals`, and
   `hashCode`; reference identity remains the meaning of `==`.
 - Java-compatible UTF-16 `substring(int)`/`substring(int, int)` and
-  `toCharArray()`, each returning a fresh caller-owned allocation with
+  `toCharArray()`, each returning a fresh managed allocation with
   compiler-visible identity and catchable range/allocation failures.
 - Final `String` with copy and checked `char[]` constructors, common UTF-16
   search/prefix/suffix/subsequence/copy operations, `Comparable<String>`, and
-  caller-owned concat and primitive text results.
+  managed concat and primitive text results.
 - Everyday String whitespace operations, literal replacements, offset searches,
   repeat, byte/char snapshots and explicit joins. Unicode case conversion uses
   fixed `en_US` semantics; `equalsIgnoreCase` is locale-independent. D117
@@ -401,7 +404,7 @@ Supported today:
 - A standard `Throwable`/`Error`/`Exception`/`RuntimeException` hierarchy and
   common unchecked exception classes.
 - Java-shaped `Throwable.toString()` descriptions through virtual
-  `getLocalizedMessage()`/`getMessage()`, with fresh caller-owned results (D114).
+  `getLocalizedMessage()`/`getMessage()`, with fresh managed results (D114).
 - Catchable exceptions produced by supported language/library operations such as
   integer division by zero, checked casts, and bounds-checked String operations.
 - Exception identity preservation through runtime-owned native unwind wrappers.
@@ -439,7 +442,7 @@ callers use call-expression lines. Other constructors are named `<init>`, and
 existing `$`-qualified nested/anonymous type identities are retained. Trace
 storage belongs to the Throwable but does not count as Ironwood allocations.
 `printStackTrace()` and its PrintStream overload render virtual descriptions,
-causes and secondary failures. `getStackTrace()` returns a fresh caller-owned
+causes and secondary failures. `getStackTrace()` returns a fresh managed
 array whose immutable elements are compiler-emitted process-lifetime objects.
 Constructor-supplied and single-assignment mutable causes are supported;
 mutable trace replacement and Java-compatible suppression remain absent. A catch may name disjoint

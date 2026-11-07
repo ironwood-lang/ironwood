@@ -248,10 +248,10 @@ through `toString()` and `getLocalizedMessage()` (D114), compiler/runtime-privat
 source traces captured at construction, public `printStackTrace` and
 `fillInStackTrace` (D121), and allocation-free indexed access to Ironwood's
 ordered secondary failures. D122 adds single-assignment mutable causes and
-fresh caller-owned public stack-trace arrays backed by immutable compiler-owned
+fresh managed public stack-trace arrays backed by immutable compiler-owned
 elements. Java suppression APIs, mutable stack-trace replacement, PrintWriter
 destinations, serialization, and finalization remain absent; any future surface
-must preserve explicit ownership and avoid hidden unowned allocations. D121
+must preserve explicit resource closure and avoid unnecessary managed allocations. D121
 supersedes D054's first-throw rule and D122 extends the
 [public trace contract](STDLIB_STACK_TRACE_REVIEW.md). Add concrete exception subclasses with the library operations that
 need them and document any deliberate divergence.
@@ -337,13 +337,13 @@ The main usability gaps are:
   traversal/mutation, encoders, readers, writers, and streams remain absent;
 - explicit deterministic cleanup through ordinary `finally`, deferred void
   calls and captured deferred void calls is available. `AutoCloseable` remains an
-  ordinary interface, while `free` deliberately does not close operating-system
+  ordinary interface, while `Memory.collect()` never closes operating-system
   resources;
 - `ironwood.ds` is the selected collection surface and may need focused
   additions as real programs exercise it;
-- S0/U1/U2 establish compiler-visible fresh-result ownership for representative
-  text, conversion, and native-service calls; every future allocating API still
-  must opt into and verify that contract under the explicit reclamation gate;
+- S0/U1/U2 established independent text, conversion and native-service results;
+  current managed results follow reachability. Future allocating APIs must
+  document allocation, reference retention and explicit native-resource closure;
 - checked exceptions, `throws` declarations, and first-exception-preserving
   `finally` and deferred actions are available; Java try-with-resources is
   deliberately rejected, closed-world enums are available, and lambdas and
@@ -381,7 +381,7 @@ subset most command-line tools need:
   `valueOf(long)`; and
 - `compareTo(String)` through `Comparable<String>`.
 
-D116 adds `valueOf(float)` and `valueOf(double)` with fresh caller-owned results,
+D116 adds `valueOf(float)` and `valueOf(double)` with fresh managed results,
 plus the previously missing `StringBuilder.append(float)`. Both floating append
 overloads preserve the argument type and reclaim their temporary conversion.
 See the [T5 review](STDLIB_FLOATING_TEXT_REVIEW.md); general formatting and
@@ -846,9 +846,9 @@ A class is not complete merely because its source compiles. Each slice must:
    receive their own licensing review;
 4. cover success, boundary, malformed-input, exception, resource, alias, and
    managed lifetime behavior;
-5. prove a reclamation path for every ordinary allocation, including returned
-   results, owned children, temporary storage, and partial construction on
-   exceptional paths;
+5. account for managed allocation and retention of returned/shared graphs,
+   temporary storage and partial construction; qualify explicit phase collection
+   and separate native acquisition/closure failure paths where applicable;
 6. expose semantic operations in compiler-owned typed IR before LLVM lowering
    whenever compiler/runtime integration is required;
 7. execute natively at `-O0` through `-O3` on the supported host;
@@ -856,7 +856,8 @@ A class is not complete merely because its source compiles. Each slice must:
    separate compile/link behavior;
 9. ship corresponding source, licenses, and provenance in host packages and
    IDKs;
-10. pass `./scripts/check-licenses.sh` and the full compiler suite; and
+10. pass `./scripts/check-licenses.sh` and the relevant focused behavior checks;
+    reserve the full suite for an explicit release/full-suite request; and
 11. add or extend an end-to-end example that would be useful outside a unit
     test.
 

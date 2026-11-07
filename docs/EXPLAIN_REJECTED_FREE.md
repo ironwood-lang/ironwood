@@ -2,6 +2,11 @@
 
 # Explain rejected free: implementation plan
 
+Historical plan and implementation record. GC5-GC7 remove the option, evidence
+store and managed-free proof machinery described below. Current use receives a
+migration diagnostic. See [GC7 dispositions](GC7_DISPOSITION.md) and
+[GC10 acceptance](GC10_ACCEPTANCE.md); the old checkpoints are not current CLI guidance.
+
 Status: M0a, M0b, M1a through M1e, M2a through M2d, M3a through M3e,
 M4a through M4e, M5a, and M5b are complete. The
 `--explain-rejected-free` option is available with M1 local evidence and
@@ -303,8 +308,8 @@ anchors, not a requirement to keep all new logic in the same large class.
 | [Diagnostic.java](../compiler/src/main/java/ironwood/compiler/diagnostic/Diagnostic.java) and [DiagnosticFormatter.java](../compiler/src/main/java/ironwood/compiler/diagnostic/DiagnosticFormatter.java) | One primary message, source, span, and severity; source/caret formatting | Add immutable related notes without turning notes into independent diagnostics. |
 | [FunctionAnalyzer.java](../compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java), `lowerFreeOperand` | Rejection checks for identity, borrows, pending cleanup, freed/escaped states, fields, array slots, and locals | Attach evidence to the check that actually rejected the free, preserving check order. |
 | `prepareDeferredFree`, `lowerDestructorFieldFree` | Registration-time eligibility/duplicate checks; separate field ownership and pending-call checks | Classify the actual failing condition, not the shared primary text. |
-| [OwnedArrayFieldAnalyzer.java](../compiler/src/main/java/ironwood/compiler/semantic/OwnedArrayFieldAnalyzer.java) | Field ownership membership; only the sibling-field publication rejection supplies text, without a source witness | Use a field-proof boundary until M4. Existing reason presence also affects field-load identity; do not populate that map for diagnostics. |
-| [OwnedArrayElementAnalyzer.java](../compiler/src/main/java/ironwood/compiler/semantic/OwnedArrayElementAnalyzer.java), `validate`, `Checker.check`, `Checker.add`, `Checker.reject` | Later typed-IR validation of creation-array cleanup; diagnostics at the field declaration | Pass mode/readiness beyond function lowering; retain the offending operation's own source identity for related notes. |
+| `OwnedArrayFieldAnalyzer.java` (historical path `compiler/src/main/java/ironwood/compiler/semantic/OwnedArrayFieldAnalyzer.java`) | Field ownership membership; only the sibling-field publication rejection supplies text, without a source witness | Use a field-proof boundary until M4. Existing reason presence also affects field-load identity; do not populate that map for diagnostics. |
+| `OwnedArrayElementAnalyzer.java` (historical path `compiler/src/main/java/ironwood/compiler/semantic/OwnedArrayElementAnalyzer.java`), `validate`, `Checker.check`, `Checker.add`, `Checker.reject` | Later typed-IR validation of creation-array cleanup; diagnostics at the field declaration | Pass mode/readiness beyond function lowering; retain the offending operation's own source identity for related notes. |
 | `AllocationInfo`, `AllocationStateSnapshot` | Allocation identity, ownership state, and a single `blockingReason` string | Preserve the current reason; optional evidence needs separate storage. |
 | `lowerLocalVariable`, `lowerAssignment`, `lowerAssignmentExpression`, `readLocal` | Declarations and statement assignments write `environment` directly; assignment expressions use the writer from `resolveLValue`. Reads can reuse an operand created elsewhere. | Record the initializer/right-hand expression at the binding write. Instrumenting `resolveLValue` alone misses ordinary `alias = data;` statements; its other caller, `lowerUpdate`, handles numeric `++`/`--`. |
 | `mergeValue`, `mergeExceptionalEnvironment` and their environment-installing callers | Normal and exceptional incoming bindings can reuse a common operand or create a phi | Transfer optional binding evidence for both paths, including equal operands with distinct source histories; a merge span is not an alias assignment. Section 6.3 governs alternative-path evidence. |
@@ -1068,7 +1073,7 @@ invented statement. Its incoming state is `ACTIVE`, while the true path is
 false path satisfies every other reclamation requirement.
 
 Two further fixtures in
-[FreeReasonSelectionTests](../compiler/src/test/java/ironwood/compiler/FreeReasonSelectionTests.java)
+`FreeReasonSelectionTests` (historical path `compiler/src/test/java/ironwood/compiler/FreeReasonSelectionTests.java`)
 complete the comparison:
 
 | Fixture | Primary retained unchanged | Required explanation |
@@ -1153,7 +1158,7 @@ Both errors above reject an ordinary free while cleanup is pending, so they
 do not receive an executed-cleanup exit label from section 6.3.
 
 The complementary fixtures are preserved in
-[CleanupDiagnosticTests](../compiler/src/test/java/ironwood/compiler/CleanupDiagnosticTests.java):
+`CleanupDiagnosticTests` (historical path `compiler/src/test/java/ironwood/compiler/CleanupDiagnosticTests.java`):
 
 - `CallCapture` defers inspection of the original 16-byte array, assigns a new
   32-byte array to `data`, and successfully frees that replacement. Use
@@ -1168,7 +1173,7 @@ The complementary fixtures are preserved in
 ### 5.10 Earlier-free alternatives and field-proof boundaries
 
 The four fixtures in
-[FreeEvidenceBaselineTests](../compiler/src/test/java/ironwood/compiler/FreeEvidenceBaselineTests.java)
+`FreeEvidenceBaselineTests` (historical path `compiler/src/test/java/ironwood/compiler/FreeEvidenceBaselineTests.java`)
 preserve the current errors and distinguish facts that still need collection.
 
 | Fixture | Existing rejection | Required explanation |
@@ -1210,7 +1215,7 @@ or free the proven field in its destructor.
 
 ### 5.11 Summary chains, recursion, and discarded early facts
 
-[FreeSummaryEvidenceTests](../compiler/src/test/java/ironwood/compiler/FreeSummaryEvidenceTests.java)
+`FreeSummaryEvidenceTests` (historical path `compiler/src/test/java/ironwood/compiler/FreeSummaryEvidenceTests.java`)
 preserves the supplied `Chain`, `Cycle`, and temporary-borrow `Case` fixtures.
 These are proposed M4 notes after completed refinement; primary diagnostics
 remain unchanged and source excerpts are omitted.
@@ -1363,7 +1368,7 @@ this recipe, without forged artifacts or any disabled safety check.
 
 ### 5.13 Owner contracts and compilation-specific dispatch
 
-[FreeOwnershipContractTests](../compiler/src/test/java/ironwood/compiler/FreeOwnershipContractTests.java)
+`FreeOwnershipContractTests` (historical path `compiler/src/test/java/ironwood/compiler/FreeOwnershipContractTests.java`)
 preserves the iterator, pool, setter, and three dispatch variants from this
 review. M2c/M2d now identify proved owners and acquisition or retaining sites
 for the first three fixtures; the blocks below illustrate their contracts rather
@@ -1437,7 +1442,7 @@ summaries, as demonstrated in section 5.11.
 
 ### 5.14 A user override blocks a bundled-library free
 
-[FreeBundledSourceTests](../compiler/src/test/java/ironwood/compiler/FreeBundledSourceTests.java)
+`FreeBundledSourceTests` (historical path `compiler/src/test/java/ironwood/compiler/FreeBundledSourceTests.java`)
 uses `KeepingWriter extends ironwood.io.Writer`. Its `write(char[], int, int)`
 stores `buffer` into a static field; its `flush` and `close` overrides are empty.
 The pipeline adds the bundled `Writer` source itself. `Writer.write(int)` passes
@@ -2249,7 +2254,7 @@ implements another or authorizes starting implementation from this planning revi
 | Primary-only regression fixtures and consumer baselines | Committed during this review series, including loop primaries in `fec4047`, bundled Writer in `6acd1ae`, parser fixtures in `4853eab`, and predecessor-free catch checks in `a1061a0`. Section 8.2 and the [verification record](EXPLAIN_REJECTED_FREE_VERIFICATION.md) identify exact tests and results. | These tests do not validate the unimplemented option or note collector. |
 | Emitter/producer maps, contracts, output rules, and expected notes | Specified in sections 1 through 6 and 8; reconciled against current code in the [M0a record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m0a-reconciliation-and-completion-2026-09-23). | Re-audit affected paths as implementation changes them. |
 | Workload measurements, provisional numeric budgets, and evidence schema | M0b recorded measured workload shape, an uninstrumented cost baseline, provisional units/caps, and a bounded evidence schema in `d7129e3` and `b5b1941`; see the [verification record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m0b-workload-measurement-and-provisional-storage-design-2026-09-23). M1d measured the first collector's cost and live accounting in the [M1d record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m1d-initial-collector-cost-and-completion). The M0b sampled reachable-snapshot peaks are lower bounds. | Later gates revisit join and summary storage. |
-| Per-change off/off comparison harness | M1a implemented [the local script](../scripts/compare-explain-rejected-free.py) in `8a24cd1` with independent builds, actual bundled-type discovery, outcome/artifact comparison, and controlled failures; see the [M1a record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m1a-comparison-harness-verification-2026-09-23). | Use it on each implementation change against its explicit base; enabled/disabled comparisons begin with M1c. |
+| Per-change off/off comparison harness | M1a implemented `the local script` (historical path `scripts/compare-explain-rejected-free.py`) in `8a24cd1` with independent builds, actual bundled-type discovery, outcome/artifact comparison, and controlled failures; see the [M1a record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m1a-comparison-harness-verification-2026-09-23). | Use it on each implementation change against its explicit base; enabled/disabled comparisons begin with M1c. |
 | Shared diagnostic notes and renderer | M1b added immutable notes, compatible constructors, full-block rendering, parser checks, and D184 in `3b1ff6c`; see the [M1b record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m1b-diagnostic-api-and-renderer-verification-2026-09-23). | M1c uses the shared note API for eligible internal boundaries; M1d starts local evidence. |
 | Internal eligibility and phase observation | M1c wired every section 3.4 eligible emitter, reduced-readiness boundary, dependency/bundled source scope, and nullable observer in `3c05be3`, `c7d1dfa`, `a848fc2`, `e95fdba`, `541e514`, and `9f70fcb`; see the [M1c record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m1c-pre-change-selection-2026-09-23). | Preserve those boundaries as later detail is added. |
 | Public option, collectors, and witnesses | M1d completed the nullable bounded collector, source origins, local-binding sites, accepted selected-reason event identities, current earlier-free sites, forced limits, and the initial cost gate in `551caa7`. M1e exposed the public compile/link option, help, and M1 guides in `c46f691`; see the [M1e record](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m1e-cli-delivery-and-completion). | Paths and whole-program witnesses are assigned to M3 and M4. |
@@ -2643,7 +2648,7 @@ specialization guard at the appropriate lower-level boundary if ordinary source
 cannot reach it; do not weaken earlier checks to build a CLI fixture.
 
 For selected stored reasons, extend
-[FreeReasonSelectionTests](../compiler/src/test/java/ironwood/compiler/FreeReasonSelectionTests.java)
+`FreeReasonSelectionTests` (historical path `compiler/src/test/java/ironwood/compiler/FreeReasonSelectionTests.java`)
 with these first-causal-note assertions as M2/M3 evidence becomes available.
 The source fixtures are preserved in that test; the note locations below are
 requirements for the unimplemented option, not currently emitted output.
@@ -2720,7 +2725,7 @@ these with accepted live owned locals and correct cleanup ordering. Assert each
 ownership note identifies the condition actually selected by the check.
 
 For the section 5.9 deferred-target fixtures, extend `deferredTargets` in
-[CleanupDiagnosticTests](../compiler/src/test/java/ironwood/compiler/CleanupDiagnosticTests.java)
+`CleanupDiagnosticTests` (historical path `compiler/src/test/java/ironwood/compiler/CleanupDiagnosticTests.java`)
 with option-off/on comparisons in M3:
 
 - `CallCapture` remains accepted with `--unfreed=off`, without notes and with
@@ -2754,7 +2759,7 @@ selection policy in the evidence collector. Do not infer definite duplication
 from a failure to prove freshness or non-repetition.
 
 For section 5.10, extend
-[FreeEvidenceBaselineTests](../compiler/src/test/java/ironwood/compiler/FreeEvidenceBaselineTests.java)
+`FreeEvidenceBaselineTests` (historical path `compiler/src/test/java/ironwood/compiler/FreeEvidenceBaselineTests.java`)
 with option-off/on checks as evidence becomes available:
 
 - M1 must not leak freed-state witnesses from a restored or non-reaching path;
@@ -2776,7 +2781,7 @@ with option-off/on checks as evidence becomes available:
   continue to expose no program or class output.
 
 For section 5.11, extend
-[FreeSummaryEvidenceTests](../compiler/src/test/java/ironwood/compiler/FreeSummaryEvidenceTests.java)
+`FreeSummaryEvidenceTests` (historical path `compiler/src/test/java/ironwood/compiler/FreeSummaryEvidenceTests.java`)
 in M4 with the exact call/argument/store notes shown there. The existing test
 checks current primaries and safe controls only; it does not inspect witness
 graphs or implement the option. Required implementation checks include:
@@ -2824,7 +2829,7 @@ semantic pass counts, and results across explanation modes. Section 6.7 supplies
 test observations; no changed semantic container representation is required.
 
 For duplicated cleanup, extend the baseline fixtures in
-[CleanupDiagnosticTests](../compiler/src/test/java/ironwood/compiler/CleanupDiagnosticTests.java)
+`CleanupDiagnosticTests` (historical path `compiler/src/test/java/ironwood/compiler/CleanupDiagnosticTests.java`)
 with explanation assertions in M3:
 
 - `DupCleanup` and `FinallyDup` retain three identical primary errors, in their
@@ -2902,7 +2907,7 @@ source can first be compiled into a class with safety disabled; no such mode
 exists. Test reconstructed source identity and archive paths explicitly.
 
 Use section 5.12 and
-[FreeDependencyDiagnosticTests](../compiler/src/test/java/ironwood/compiler/FreeDependencyDiagnosticTests.java)
+`FreeDependencyDiagnosticTests` (historical path `compiler/src/test/java/ironwood/compiler/FreeDependencyDiagnosticTests.java`)
 as the concrete composition fixture. Its current regression checks primary
 messages, paths/excerpts, retained source identities, output suppression, and
 successful native controls. M4/M5 must add these explanation assertions:
@@ -3126,7 +3131,7 @@ platform builds for this feature without an explicit human request.
 
 ### 8.3 Per-change comparison procedure
 
-M1a supplies [the script](../scripts/compare-explain-rejected-free.py) for this
+M1a supplies `the script` (historical path `scripts/compare-explain-rejected-free.py`) for this
 procedure. The [local testing guide](LOCAL_TESTING.md) gives its invocation.
 Run it before committing each change to feature implementation, proof/evidence
 plumbing, diagnostic formatting, or the comparison harness itself, selecting
@@ -3429,7 +3434,7 @@ and 36 fact-chain units across the selected workloads. No normal local cap or
 invocation stop was reached. The [M5b verification record](EXPLAIN_REJECTED_FREE_VERIFICATION.md)
 contains the final base/off/on cost and dependency-reconstruction results,
 their variation, and the bounded coverage audit. The
-[memory guide](MEMORY.md#rejected-free-explanations) states user-facing limits.
+[memory guide](MEMORY.md) states user-facing limits.
 
 ### 9.1 Separate existing issue: reproducible native probe data
 

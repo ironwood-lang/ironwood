@@ -83,7 +83,7 @@ The containing class must extend `TestSuite` and have a no-argument constructor.
 
 ## 4. Compile the tests
 
-Install Ironwood as described in [Quick start](docs/QUICK_START.md), set
+Install Ironwood as described in [Quick start](QUICK_START.md), set
 `IRONWOOD_HOME`, and run this command from the `calculator` directory:
 
 ```sh
@@ -129,5 +129,5 @@ PASS: 2 passed, 0 skipped, 2 total
 
 Tests run in source declaration order. The executable returns status `0` when
 all tests pass and status `1` when any test fails. See
-[Testing Ironwood code](docs/TESTING.md) for assertions, assumptions, lifecycle
+[Testing Ironwood code](TESTING.md) for assertions, assumptions, lifecycle
 hooks, failure testing, and the complete runner contract.

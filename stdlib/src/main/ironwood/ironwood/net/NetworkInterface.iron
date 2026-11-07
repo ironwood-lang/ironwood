@@ -7,11 +7,11 @@ import ironwood.util.Arrays;
 import ironwood.util.Enumeration;
 
 /**
- * Captured interface structure with live status queries. Individual lookup results own their
- * snapshot; enumeration elements borrow the enumeration's snapshot. Names, addresses, parents and
- * subinterfaces remain tied to that owner. Free caller-owned cursors and lists before the snapshot
- * owner through ordinary references. Status, MTU and hardware queries consult the
- * current host by the captured interface name and can fail if it disappears.
+ * Captured interface structure with live status queries. Individual lookup results retain an
+ * independent snapshot; enumeration elements share their snapshot. Names, addresses, parents,
+ * subinterfaces, cursors and lists follow ordinary managed reachability, including cycles.
+ * Status, MTU and hardware queries consult the current host by the captured interface name
+ * and can fail if it disappears.
  */
 public final class NetworkInterface {
 
@@ -101,7 +101,7 @@ public final class NetworkInterface {
      * snapshot independently of the input.
      *
      * @param name the interface name, borrowed only for this call
-     * @return a fresh caller-owned interface query, or null when no interface matches
+     * @return a fresh managed interface query, or null when no interface matches
      * @throws NullPointerException if name is null
      * @throws SocketException if capturing the host interface snapshot fails
      */
@@ -116,7 +116,7 @@ public final class NetworkInterface {
      * snapshot independently of the input.
      *
      * @param index a nonnegative interface index; zero never matches
-     * @return a fresh caller-owned interface query, or null when no interface matches
+     * @return a fresh managed interface query, or null when no interface matches
      * @throws IllegalArgumentException if index is negative
      * @throws SocketException if capturing the host interface snapshot fails
      */
@@ -132,7 +132,7 @@ public final class NetworkInterface {
      * snapshot independently of the input.
      *
      * @param address an address to match, borrowed only for this call
-     * @return a fresh caller-owned interface query, or null when no interface matches
+     * @return a fresh managed interface query, or null when no interface matches
      * @throws NullPointerException if address is null
      * @throws SocketException if capturing the host interface snapshot fails
      */
@@ -146,7 +146,7 @@ public final class NetworkInterface {
      * Captures the current interfaces in a fresh owning enumeration. Returned interfaces and
      * metadata retain their captured snapshot. Each remains valid while reachable.
      *
-     * @return a fresh caller-owned enumeration, possibly empty
+     * @return a fresh managed enumeration, possibly empty
      * @throws SocketException if capturing the host interface snapshot fails
      */
     public static Enumeration<NetworkInterface> getNetworkInterfaces() throws SocketException {
@@ -387,7 +387,7 @@ public final class NetworkInterface {
     /**
      * Queries the current hardware address and copies it independently of the snapshot.
      *
-     * @return fresh caller-owned hardware bytes, or null when no address is reported
+     * @return fresh managed hardware bytes, or null when no address is reported
      * @throws SocketException if the live host query fails
      */
     public byte[] getHardwareAddress() throws SocketException {

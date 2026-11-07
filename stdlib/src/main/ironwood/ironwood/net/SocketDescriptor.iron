@@ -407,7 +407,7 @@ public final class SocketDescriptor {
     InetAddress localAddress() {
 
         // Binding and connection can select different local values. Earlier
-        // borrowed immutable values remain alive until descriptor reclamation.
+        // Cached immutable values follow ordinary managed reachability.
         if (this.localPort == 0) {
             if (this.unboundAddress == null) this.unboundAddress = InetAddress.wildcard();
             return this.unboundAddress;

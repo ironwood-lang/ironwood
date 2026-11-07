@@ -112,7 +112,7 @@ for (int i = 0; i < 1000; i++) {
 | [`getAverage()`](#member-getAverage-28--29-) | Returns the truncated mean in nanoseconds, or zero if empty. |
 | [`getMinTime()`](#member-getMinTime-28--29-) | Returns minimum nanoseconds, or `Long.MAX_VALUE` if empty. |
 | [`getMaxTime()`](#member-getMaxTime-28--29-) | Returns maximum nanoseconds, or `Long.MIN_VALUE` if empty. |
-| [`results()`](#member-results-28--29-) | Returns a fresh caller-owned report String, including a trailing blank line. |
+| [`results()`](#member-results-28--29-) | Returns a fresh managed report String, including a trailing blank line. |
 | [`printResults()`](#member-printResults-28--29-) | Prints statistics and a blank line directly from the reusable buffer. |
 
 ## Constructors
@@ -256,7 +256,7 @@ Returns maximum nanoseconds, or `Long.MIN_VALUE` if empty.
 public final String results()
 ```
 
-Returns a fresh caller-owned report String, including a trailing blank line.
+Returns a fresh managed report String, including a trailing blank line.
 
 
 [Back to member summary](#member-summary)

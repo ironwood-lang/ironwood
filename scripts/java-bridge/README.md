@@ -22,7 +22,10 @@ source hashes and replacement mappings in the [ledger](../../docs/GC7_DISPOSITIO
 Earlier reports and measured archives remain frozen historical evidence. Do not
 run discarded self-hosting or old ownership projection tools against this model.
 
-macOS arm64 and Linux x86-64 retain their current gates. Linux arm64 and arm64e
-remain unqualified; translated local Linux execution is functional evidence, not
-new physical-hardware performance qualification. All images retain the
-single-caller/external-serialization and unsupported foreign-lifetime refusals.
+[GC9](../../docs/GC9_LINUX_X86_64_DISTRIBUTION.md) qualifies native/managed
+distribution on macOS arm64, Linux arm64 and physical Linux x86-64 within exact
+OS/SDK/toolchain bounds. arm64e remains unqualified. Translated execution does
+not establish physical-hardware performance qualification.
+[GC10 acceptance](../../docs/GC10_ACCEPTANCE.md) reconciles the final evidence.
+All images retain the single-caller/external-serialization and unsupported
+foreign-lifetime refusals.

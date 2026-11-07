@@ -571,7 +571,7 @@ interface, generic-reference, type-parameter, and array element types.
 promotion, zero-initializes every element, and returns a nullable array
 reference. `new T[length][]` allocates only that named outer array and initializes
 every child slot to `null`; a later sized dimension such as `new T[2][3]` is
-rejected so source syntax never hides separately owned child allocations.
+rejected so source syntax never hides separately allocated child arrays.
 `array[index]` accepts the same promoted index types, reads or writes an element,
 and `array.length` is a read-only `int`. A negative allocation length raises
 `NegativeArraySizeException`; a load or store outside
@@ -615,26 +615,26 @@ as U+FFFD by native text output. String.getBytes() instead uses Java's UTF-8
 encoder replacement byte `?` (D117).
 
 `substring(int)` and `substring(int, int)` validate Java-shaped UTF-16 ranges
-and return a fresh caller-owned ordinary String, including for an empty or
+and return a fresh managed ordinary String, including for an empty or
 whole-value range. The compiler/runtime range operation copies directly into
 one exact-size String allocation and never borrows the source's storage.
-`toCharArray()` likewise returns a fresh caller-owned array containing the
+`toCharArray()` likewise returns a fresh managed array containing the
 exact UTF-16 code units. These results retain fresh allocation identity through
 closed-world wrapper calls and follow ordinary managed reachability.
 
 U1 makes `String` final and adds copy and checked `char[]` constructors. Each
-copies into one distinct caller-owned String, borrows rather than retains its
+copies into one distinct managed String, borrows rather than retains its
 source, and validates before allocation. Search, prefix/suffix, containment,
 subsequence, `getChars`, and lexicographic `Comparable<String>` operations use
 UTF-16 code-unit indices; code-point search recognizes supplementary pairs.
-`concat` and character/integer/long text factories return caller-owned ordinary
+`concat` and character/integer/long text factories return managed ordinary
 Strings. Fixed boolean text and literals remain immortal.
 
 D117 adds everyday String whitespace operations, literal replacement, offset
 searches, repeat, byte/char snapshots and explicit joins. No-argument Unicode
 case conversion uses fixed `en_US` behavior; no `ironwood.util.Locale` or
 mutable locale state exists. Byte APIs use UTF-8. Transformations preserve the
-fresh caller-owned result convention; see `STDLIB.md` and
+fresh managed result convention; see `STDLIB.md` and
 `DIFFERENCES_FROM_JAVA.md` for exact method boundaries.
 
 `CharSequence` declares `length()`, `charAt(int)`, `subSequence(int, int)`, and

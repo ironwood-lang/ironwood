@@ -62,7 +62,7 @@ public final class ProcessRunner {
      * @param command the executable's absolute path followed by its arguments
      * @param directory the program's working directory, or null
      * @param output the file receiving the program's merged output
-     * @return a fresh caller-owned result
+     * @return a fresh managed result
      * @throws IllegalArgumentException if the command is empty, an element
      *         contains NUL, or the executable path is not absolute
      * @throws NoSuchFileException if the executable, the directory or the

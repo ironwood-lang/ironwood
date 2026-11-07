@@ -1,5 +1,11 @@
 # Container Removal and Caller-Item Loans
 
+GC5-GC7 supersede the managed-item loan/free premises below. Current containers
+retain ordinary shared managed references; removing a value drops the documented
+physical slots and does not free that value. See [MEMORY.md](MEMORY.md) and
+[GC7 dispositions](GC7_DISPOSITION.md). This is a historical design record, not
+a pending managed-reclamation feature.
+
 This note records a known ergonomics limitation in Ironwood's compiler-proven
 reclamation of caller-owned items stored in `ironwood.ds` containers. It explains
 why an individual removal or replacement does not currently permit an immediate

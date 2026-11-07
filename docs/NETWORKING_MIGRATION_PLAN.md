@@ -2,6 +2,11 @@
 
 # Ironwood blocking TCP networking migration
 
+The implementation history below predates GC5-GC7. Managed storage now follows
+[reachability](MEMORY.md); former destructor, safe-free and exclusive helper
+proofs are superseded. Explicit descriptor/stream/TLS closure, acquisition
+rollback, deadlines, pool/native protocols and performance obligations remain.
+
 Status: Design accepted on 2026-09-14. Milestone 1 complete; Milestone 2 separately
 selected by the maintainer on 2026-09-14 and implemented, with evidence in
 [NETWORKING_M2_VERIFICATION.md](NETWORKING_M2_VERIFICATION.md). Milestone 3 was

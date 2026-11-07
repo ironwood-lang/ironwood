@@ -1,5 +1,11 @@
 # Owned Helper Borrows
 
+The managed-owner/free rules below are historical, superseded by GC5-GC7.
+Reusable iterators still share mutable traversal state and may retain their
+collection; ordinary managed references keep that graph alive. No source free or
+exclusive helper-lifetime proof remains. See [MEMORY.md](MEMORY.md) and
+[GC7 dispositions](GC7_DISPOSITION.md).
+
 Ironwood collections use a Java-shaped API without allocating a new iterator
 for every traversal. For example, `ArrayList<E>` creates one private
 `ArrayListIterator<E>`, resets it in `iterator()`, and returns the same object on

@@ -3,8 +3,8 @@
 /**
  * Blocking TCP sockets, immutable IP endpoints, host-interface snapshots and explicit proxy
  * routes. Close socket resources explicitly; collection never closes them. Stream, address,
- * option-inventory and interface getters may return borrowed values; follow each member's
- * ownership contract. DNS is synchronous. UDP, channels and selectors are outside this
+ * option-inventory and interface getters may share managed values. Their native resource
+ * state follows the documented close and view protocols. DNS is synchronous. UDP, channels and selectors are outside this
  * package's implemented surface.
  */
 package ironwood.net;

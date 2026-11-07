@@ -1,16 +1,17 @@
 # Standard library
 
 
-GC5 migration-branch status: normal executables use the single exact managed
-heap and explicit synchronous Memory.collect(). Source reclamation and managed
-destruction are removed. Historical manual-heap descriptions below are superseded
-by [the GC5 contract](../docs/MEMORY.md). Native bridge/shared-library output remains refused
-until GC6. Packaging/distribution and other-target qualification remain GC9 work.
+Normal executables use one exact managed heap and explicit synchronous
+Memory.collect(). Allocation never collects. Source reclamation and managed
+destruction are removed. [GC10 acceptance](../docs/GC10_ACCEPTANCE.md) reconciles
+the implemented contract and evidence. GC6 managed bridges and GC9 distribution
+qualify macOS arm64, Linux arm64 and Linux x86-64 within recorded configurations;
+arm64e remains unqualified.
 The selected GC SDK is staged at toolchain/ironwood-gc, with verified source,
 licenses, root/owner ABIs and exact build identities.
 
 The generated [IronDocs API reference](../docs/api/README.md) begins with
-[`ArrayObjectPool`](../docs/api/ironwood/pool/ArrayObjectPool.md). See the
+[`ArrayObjectPool`](../docs/api/0.6.2-beta/ironwood/pool/ArrayObjectPool.md). See the
 [IronDocs guide](../docs/IRONDOCS.md) to regenerate it from source comments.
 
 Original and independently implemented standard-library files use
@@ -48,15 +49,15 @@ implicitly extends `Object`, while class,
 interface, and array references widen to it. `Object` provides identity-based
 `equals(Object)`, stable opaque `hashCode()`, and Java-shaped `toString()`.
 Final `String` implements `CharSequence` and `Comparable<String>`, exposes
-UTF-16 construction, indexing/search/copy/comparison, caller-owned
+UTF-16 construction, indexing/search/copy/comparison, managed
 `substring(...)`, `concat(...)`, primitive text, and `toCharArray()` results,
 exact UTF-8 `byteLength()`, Java content `equals`/`hashCode`, and identity
 `toString()`.
 Default Object identity text and `StringBuilder.toString()` snapshots are also
-caller-owned fresh Strings. `StringBuilder` provides mutable UTF-16
-construction, growth, append, and immutable snapshots. It frees detached
-capacity during growth, frees its final owned character array in its
-destructor, and rolls that child back if construction fails. Distinct immortal
+managed fresh Strings. `StringBuilder` provides mutable UTF-16
+construction, growth, append, and immutable snapshots. Superseded capacity and
+failed-construction storage follow ordinary managed reachability and become
+reusable at an explicit collection. Distinct immortal
 `System.out` and `System.err` singletons expose primitive/Object
 `print`/`println`, flush, and error-state operations through the isolated native
 output boundary. `System` also provides one-value environment lookup, LF line
@@ -69,17 +70,17 @@ interner would be an application-owned collection.
 
 `ironwood.lang.AutoCloseable` is an ordinary interface declaring
 `void close() throws Exception`. Callers invoke it explicitly, normally from
-`finally`. Closing releases a resource-defined external capability; it never
-performs object-memory `free`, and a source destructor does not replace an
-explicit resource-closing protocol.
+`finally` or a captured deferred call. Closing releases a resource-defined
+external capability. Memory.collect() never performs that resource closure or
+invokes user cleanup.
 
 `ironwood.nio.file.Path` and `Paths` provide Java-shaped lexical POSIX paths.
-Each returned path owns its normalized text and can be explicitly reclaimed.
+Each returned path retains its normalized text through ordinary managed references.
 `ironwood.nio.file.Files` provides whole-file byte and strict UTF-8 String
 reads/writes, metadata queries, closeable directory enumeration, and recursive
 visitor traversal with explicit depth and symbolic-link policy. I/O
 arguments are borrowed; successful whole-file, attribute, time, and directory
-entry results are fresh and caller-owned. Failures use the checked `IOException`
+entry results are fresh managed values. Failures use the checked `IOException`
 family, including missing-file and filesystem exceptions. Providers, option
 arrays, permissions, Java Streams, and legacy `File` remain absent.
 
@@ -97,9 +98,10 @@ public static-final compile-time constants.
 static-final `out`/`err` references, `identityHashCode(Object)`,
 `arraycopy(Object, int, Object, int, int)`, environment, line-separator, and
 clock services. It also exposes the Ironwood diagnostics `allocationCount()`
-for cumulative successful allocations and `liveAllocationCount()` for the
-current live count. The streams are compiler-emitted immortal objects, create
-no allocation, and cannot be freed.
+for cumulative successful language allocations and `liveAllocationCount()` for
+the post-collection count plus subsequent successful allocations. Reads never
+collect or scan. Internal sidecars/native scratch are excluded. The streams are
+compiler-emitted immortal objects outside these language allocation counts.
 Identity hashing is null-safe and bypasses overrides; array copy
 validates exact invariant array types and signed ranges and preserves overlap
 and reference-alias behavior.
@@ -114,10 +116,11 @@ string-index, number-format, and class-cast runtime
 exceptions.
 `ironwood.util.NoSuchElementException` supports iterator and collection APIs.
 Each type has no-argument and `String`-message constructors. This initial
-hierarchy deliberately omits cause chaining, Java's suppressed-exception API,
-serialization, finalization, and monitor APIs. Uncaught source-level traces are
-captured and printed by compiler/runtime-private machinery; `Throwable` exposes
-no mutable stack-trace array or programmatic trace API in this first slice.
+hierarchy supports constructor and single-assignment causes, source traces,
+printStackTrace/fillInStackTrace and fresh public trace arrays. Exact managed
+metadata retains primary/secondary graphs across collecting cleanup. Java's
+suppressed-exception API, mutable trace replacement, serialization, finalization
+and monitor APIs remain absent. See [the current trace contract](../docs/STDLIB.md).
 
 `ironwood.lang.Iterable<T>` and `ironwood.util.Iterator<E>` provide the
 Java-shaped iteration foundation used by pools and data structures. `Iterable`
@@ -133,20 +136,20 @@ statically typed construction and reuse boundary for object pools.
 `ArrayObjectPool<E>` and `MultiArrayObjectPool<E>` are the only implementations.
 Both support builder preload, generic interface dispatch, and owning reuse.
 `get()` lends a pool-created value. `release()` returns it for reuse. A growing
-creation array records every builder result once; freeing the pool destroys all
-recorded objects, including those still checked out, and its private storage.
-The builder remains borrowed. Compiler checks reject cached factory results,
-dangling uses, conflicting ownership, and unproved reclamation. Duplicate returns
-are unchecked; external objects are unsupported and never recorded for destruction.
-Null returns fail. Collection keys and values remain borrowed.
+creation array records every builder result once and intentionally retains
+checked-out values. Checkout references can independently retain them. No source
+pool destruction exists. Compiler checks reject known wrong-pool origins and
+cached/publishing builder results. Duplicate returns are unchecked; each checkout
+must return at most once to its originating pool. External objects are outside
+that protocol. Null returns fail. Ordinary collections retain shared keys/values.
 
 `ArrayObjectPool<E>` checks preloaded slots from front to back and grows on
 exhaustion and over-release. It uses `ArraySizing` and `System.arraycopy` and
-reclaims superseded backing arrays after proven detachment.
+leaves superseded backing arrays eligible for collection when unreachable.
 `MultiArrayObjectPool<E>` traverses linked array segments without copying them;
-segments remain reusable until pool destruction. Both pools are single-threaded.
+segments remain intentionally retained for reuse. Both pools are single-threaded.
 Generic and primitive linked lists use `MultiArrayObjectPool` internally. Reflection
-constructors and garbage-collector retention operations are absent.
+constructors and collector-driven pool cleanup are absent.
 
 The first `ironwood.ds` utilities are `IntHolder`, `LongHolder`, and
 `MathUtils`. The holder interfaces retain their primitive-returning `get()`
@@ -163,11 +166,13 @@ to `ironwood.ds`; builders, entries, holders, and iterators are package-private
 top-level helpers. Iterators are borrowed reusable objects, and primitive
 iterators return the same mutable holder on each `next()`. Linked variants
 recycle detached nodes through `ironwood.pool` and clear user references before
-reuse. Array variants copy live values into a fresh backing and explicitly free
-the detached old container; their generic, `int`, and `long` forms support
-indexed replacement and forward/reverse value lookup. The generic read-only
-view delegates those queries and rejects replacement. There is no collector or
-soft-reference cleanup API.
+reuse. Array variants copy live values into fresh managed backing storage;
+unreachable old arrays become eligible at explicit collection. Generic, `int`
+and `long` forms support indexed replacement and forward/reverse value lookup.
+The generic read-only view delegates those queries and rejects replacement.
+Reference clear/remove drops obsolete physical slots; resetForReuse intentionally
+retains them and clearUnusedReferences clears the inactive suffix. Primitive
+clear remains cheap. There is no soft-reference cleanup API.
 
 `ByteMap<E>` covers all 256 signed-byte bit patterns with one fixed backing
 array. `CharMap<E>` covers checked ASCII keys 0 through 127. Both reject null
@@ -179,37 +184,38 @@ The hash-map tranche adds primitive-key `IntMap<E>` and `LongMap<E>`, value-key
 `HashMap<K,E>`, identity-key `IdentityHashMap<K,E>`, insertion-ordered
 `LinkedHashMap<K,E>`, and copied-key `CharSequenceMap<E>`. They use separate chaining
 with pooled entries, configurable load factors, reusable iterators with current
-key access, and deterministic reclamation of superseded bucket arrays after
-entries are relinked.
+key access, and managed lifetime for superseded bucket arrays after entries
+are relinked. Retired entries clear their key/value/link references.
 `IdentityHashMap` bypasses overrides through `System.identityHashCode`; `LinkedHashMap`
 maintains an independent insertion-order chain; `CharSequenceMap` snapshots each
 key into its entry's reusable `StringBuilder` so caller mutation cannot change a
-mapping. Soft references and collector-cleanup APIs are intentionally absent.
+mapping. Soft references and automatic collector-driven container cleanup are absent.
 
 `HashSet<E>`, `IdentityHashSet<E>`, and `LinkedHashSet<E>` are thin map-backed adapters with
 value, identity, and insertion-order behavior respectively. `IntSet` and
 `LongSet` use the primitive-key maps and return reused mutable holders from
 their borrowed iterators. The original Java static filler objects become
-instance-owned sentinels because Ironwood deliberately has no runtime class
-initializer for allocating reference-valued static state. Hash-set equality and
+instance-local managed sentinels. Runtime class initialization and its exact
+static roots follow the normal compiler contract. Hash-set equality and
 hash codes remain order-independent; linked iteration and rendering preserve
 insertion order.
 
 `ironwood.nio.ByteBuffer` is an original heap-only compatibility foundation for
 the final buffer-key map. It supports allocate/wrap, position and limit state,
 relative and absolute byte reads, bulk array/buffer writes, clear, and flip.
-`wrap(byte[])` shares borrowed storage, while `allocate(int)` records owned
-storage that its destructor frees. The borrowed and owned aliases are distinct
-so destroying a wrapped buffer never reclaims caller storage. `BufferUnderflowException` and
-`BufferOverflowException` are catchable runtime exceptions. Direct memory,
-mapping, native addresses, slices, typed views, and byte-order APIs are omitted.
+`wrap(byte[])` shares the supplied managed array; `allocate(int)` creates fresh
+managed storage. Buffer views retain their backing storage through ordinary
+references, independently of other aliases. `BufferUnderflowException` and
+`BufferOverflowException` are catchable runtime exceptions. This is heap storage,
+not a public native address or explicit deallocation API. See the current
+[buffer inventory](../docs/STDLIB.md) for the complete implemented surface.
 
 `ByteBufferMap<E>` completes the supported data-structure inventory with
 heap-backed binary keys. It accepts complete byte arrays, array ranges, and the
 remaining bytes of a heap `ByteBuffer`, copying key bytes into reusable private
 entry buffers without changing caller buffer position or limit. Values remain
-non-owned retained aliases. Direct-buffer configuration and GC cleanup methods
-are intentionally absent with the corresponding NIO and collector facilities.
+shared managed aliases. Direct-buffer configuration and collector-driven map
+cleanup remain absent; explicit collection never mutates reachable map entries.
 
 `scripts/build.sh` compiles these Ironwood sources into ordinary format-1
 `.ironclass` files and creates the deterministic

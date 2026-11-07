@@ -34,6 +34,9 @@ The [completed GC9 qualification](GC9_LINUX_X86_64_DISTRIBUTION.md) adds Linux
 arm64 JNI/recorded Java 23 controls and closes the physical x86-64 distribution
 gate, including a three-target assembled jar. arm64e, Windows, musl and 32-bit
 targets remain unsupported. This does not expand the complete P6 JDK matrix.
+The maintained classpath launch scripts pass --enable-native-access=ALL-UNNAMED
+for the existing native-access policy, including Java 24/25. That JVM grant
+does not anchor native objects or relax managed admission.
 
 ## Anchors, resources and registrations
 
@@ -53,11 +56,18 @@ Collection never calls source cleanup.
 
 Listeners.open() acquires a ListenerRegistration before retaining callback
 operations. Generated Listeners.install_* or retaining constructor operations
-bind that registration to exact final native slots. Scope registration closure
-separately from anchors. JVM reentry uses suspended exact root segments and
-explicit carrier/JNI completion. The image remains single-caller or externally
+bind that registration to exact final native slots. Reconciliation runs after
+success and failure; nested newer registrations keep their matching final
+bindings, and closing an old token cannot detach a replacement. Active
+retirement holds JNI globals until the outermost invocation completes.
+Registration closure releases its bindings, independently of RootHandle closure
+and source close. Java reachability alone does not supply native roots.
+JVM reentry uses suspended exact root segments and explicit carrier/JNI completion. The image remains single-caller or externally
 serialized, including transitions and collection. General concurrent or
 asynchronous callback lifetimes are not admitted.
+
+<a id="read-only-generic-facades"></a>
+<a id="bounded-generic-inputs"></a>
 
 ## Values, generics and foreign views
 
@@ -80,6 +90,8 @@ invocation-owned JVM carrier. JNI references and carriers are explicitly release
 on success and every failure/reentry path. Source exceptions retain D051 primary
 and ordered secondary behavior.
 
+<a id="runtime-and-distribution-contracts"></a>
+
 ## Artifacts and failure boundaries
 
 Ordinary executables use root ABI 2 / owner ABI 1. Managed bridge images use root
@@ -95,6 +107,18 @@ their current packaging roles. Host artifacts must match the verified schema,
 projection, API/compiler identities and declared target inputs. Assembly does not
 qualify an unqualified platform. See [IDK packaging](IDK.md) and the focused GC6
 image/metadata controls.
+
+## Critical calls
+
+Producer option --critical-calls=on selects additional transition-free adapters
+only for proved eligible entries; the default is off. Every selected call retains
+its registered JNI route. The generated loader uses JNI if a critical handle is
+unavailable, and -Dironwood.bridge.calls=jni explicitly selects that fallback.
+Collecting, callback-capable and other ineligible closures retain JNI and its
+exact segment/owner protocol. Selection is never an exemption from GC admission,
+image compatibility or the single-caller contract. See the separate GC8
+[critical/JNI and callback measurements](GC8_IMPLEMENTATION.md#foreign-paths-and-actual-o3-execution)
+and [GC9 target/JVM limits](GC9_LINUX_X86_64_DISTRIBUTION.md).
 
 ## Maintained checks and measurements
 

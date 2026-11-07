@@ -15,9 +15,9 @@ public abstract class SocketImpl
 ```
 
 TCP implementation protocol for custom socket facades and delegation. A supplied
-implementation is borrowed; a proven fresh factory result is adopted. An implementation may
-own a fresh delegate or borrow a caller-owned delegate. Ordinary ownership analysis applies
-to every reachable override; this protocol grants no blanket non-retention exemption.
+implementation and its delegates are retained through managed references. Factory freshness,
+actual reference effects and native-resource protocols apply to every reachable override;
+this protocol grants no blanket nonretention exemption.
 
 
 Descriptor, stream and address getters return helpers tied to their implementation or
@@ -44,7 +44,7 @@ destination-owned storage and never adopts the destination.
 | [`available()`](#member-available-28--29-) | Estimates readable bytes without waiting for new data. |
 | [`close()`](#member-close-28--29-) | Releases the resource idempotently without reclaiming managed descriptor, stream or address storage. |
 | [`getFileDescriptor()`](#member-getFileDescriptor-28--29-) | Exposes opaque descriptor state for delegation and accepted-resource transfer. |
-| [`getInetAddress()`](#member-getInetAddress-28--29-) | Returns peer address metadata tied to the implementation. |
+| [`getInetAddress()`](#member-getInetAddress-28--29-) | Returns shared managed peer address metadata. |
 | [`getLocalAddress()`](#member-getLocalAddress-28--29-) | Returns cached local address metadata tied to the implementation. |
 | [`getPort()`](#member-getPort-28--29-) | Returns the peer port retained in implementation metadata. |
 | [`getLocalPort()`](#member-getLocalPort-28--29-) | Returns the local port retained in implementation metadata. |
@@ -88,8 +88,8 @@ when called more than once.
 protected abstract void bind(InetAddress address, int port) throws IOException
 ```
 
-Binds the local endpoint. Retained metadata must follow the override's proven ownership
-effects; the facade does not transfer its input.
+Binds the local endpoint. Retained metadata follows actual reference effects;
+retaining a managed input does not transfer its native resources.
 
 **Parameters**
 
@@ -117,7 +117,7 @@ protected abstract void connect(SocketAddress address, int timeout) throws IOExc
 ```
 
 Connects a TCP resource to an endpoint. Overrides implement the endpoint and deadline
-contract and must expose any retained inputs to normal ownership analysis.
+contract and must expose any retained inputs to ordinary reference-effect analysis.
 
 **Parameters**
 
@@ -261,7 +261,7 @@ protected abstract InputStream getInputStream() throws IOException
 Returns an implementation-dependent borrowed input view. It remains tied to this
 implementation or its delegate and follows ordinary managed reachability. Closing the
 native view closes the delegate. Reads use the configured read timeout; expiration leaves
-native TCP usable. Custom overrides participate in ownership analysis.
+native TCP usable. Custom overrides retain their actual reference effects.
 
 **Throws**
 
@@ -287,7 +287,7 @@ protected abstract OutputStream getOutputStream() throws IOException
 Returns an implementation-dependent borrowed output view. It remains tied to this
 implementation or its delegate and follows ordinary managed reachability. Closing the
 native view closes the delegate. Ordinary TCP writes have no deadline and may partially
-complete before failure. Custom overrides participate in ownership analysis.
+complete before failure. Custom overrides retain their actual reference effects.
 
 **Throws**
 
@@ -373,8 +373,8 @@ descriptor state borrowed from this implementation or its delegate
 protected abstract InetAddress getInetAddress()
 ```
 
-Returns peer address metadata tied to the implementation. Overrides must preserve the
-returned value's owner relationship.
+Returns shared managed peer address metadata. Overrides must preserve the
+documented address value and native-resource behavior.
 
 **Returns**
 
@@ -393,7 +393,7 @@ protected abstract InetAddress getLocalAddress()
 
 Returns cached local address metadata tied to the implementation. Native delegates provide a
 wildcard before binding and retain bound metadata after close. Earlier borrowed native
-values remain alive until delegate reclamation.
+values follow managed reachability independently of delegate closure.
 
 **Returns**
 
@@ -569,7 +569,7 @@ protected <T> T getOption(SocketOption<T> option) throws SocketException
 ```
 
 Reads an implementation option. The default implementation rejects every non-null token.
-Custom overrides define reference-result ownership through normal analysis.
+Custom overrides retain their actual reference-result effects.
 
 **Parameters**
 

@@ -2,6 +2,12 @@
 
 # Block-scoped defer implementation plan
 
+GC5-GC7 supersede the deferred-free syntax and managed ownership portions below.
+General defer retains immediate capture, block LIFO, every-exit behavior and D051
+exception ordering, with allocation-free lowering. See the current
+[defer contract](MEMORY.md#defer-exceptions-and-resources). Original verification
+records remain historical; no managed destruction action is supported.
+
 Status: Detailed contract reviewed and accepted on 2026-09-19. Milestone 1's
 internal call checkpoint is accepted; see [focused evidence](DEFER_CALLS_VERIFICATION.md).
 The maintainer selected Stage 2, deferred free and combined verification, on
@@ -116,7 +122,7 @@ Recheck sources added before implementation.
 Contextual recognition was considered: recognize `defer` in the new statement
 forms while keeping it an ordinary identifier elsewhere. Ironwood already uses
 this approach for `SuppressUnfreed` after `@`, as described in
-[MEMORY.md](MEMORY.md#per-allocation-suppression). That alternative would reduce
+[MEMORY.md](MEMORY.md#removed-reclamation-forms). That alternative would reduce
 identifier compatibility breakage. The plan favors a reserved token for simpler
 statement recognition and error recovery, given the absence of current source
 conflicts. Contextual recognition remains technically viable; reservation is a

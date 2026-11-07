@@ -69,7 +69,7 @@ diagnostics, native execution at `-O0` through `-O3`, and source-path,
 class-path, and archive round trips. Parser acceptance alone is not completion.
 
 This boundary does not include the features listed under
-[Roadmap and deliberate exclusions](#roadmap-and-deliberate-exclusions).
+[Completed extension and deliberate exclusions](#completed-extension-and-deliberate-exclusions).
 
 ## Implemented support summary
 
@@ -546,7 +546,7 @@ unique to a body remain invisible through the enum-typed constant field.
 The synthesized `name()` and `ordinal()` members are final; default
 `toString()` returns the name unless source supplies an override. Static
 `valueCount()`, `valueAt(int)`, and `valueOf(String)` expose allocation-free
-order and lookup. Static `values()` returns a fresh caller-owned array in
+order and lookup. Static `values()` returns a fresh managed array in
 declaration order. The array is shallowly reclaimable, while its enum-constant
 elements remain immortal.
 Classic enum `switch` dispatches by the constant's immutable ordinal after one

@@ -9,9 +9,9 @@ import ironwood.ds.UnmodifiableList;
 
 /**
  * TCP implementation protocol for custom socket facades and delegation. A supplied
- * implementation is borrowed; a proven fresh factory result is adopted. An implementation may
- * own a fresh delegate or borrow a caller-owned delegate. Ordinary ownership analysis applies
- * to every reachable override; this protocol grants no blanket non-retention exemption.
+ * implementation and its delegates are retained through managed references. Factory freshness,
+ * actual reference effects and native-resource protocols apply to every reachable override;
+ * this protocol grants no blanket nonretention exemption.
  * <p>Descriptor, stream and address getters return helpers tied to their implementation or
  * delegate. Managed references retain implementations and delegates. close releases resources
  * and must be idempotent; collection never closes resources. Accept transfers one resource into
@@ -28,8 +28,8 @@ public abstract class SocketImpl {
     protected abstract void create() throws IOException;
 
     /**
-     * Binds the local endpoint. Retained metadata must follow the override's proven ownership
-     * effects; the facade does not transfer its input.
+     * Binds the local endpoint. Retained metadata follows actual reference effects;
+     * retaining a managed input does not transfer its native resources.
      *
      * @param address the local address, or null for a wildcard
      * @param port 0 through 65535; zero selects an ephemeral port
@@ -40,7 +40,7 @@ public abstract class SocketImpl {
 
     /**
      * Connects a TCP resource to an endpoint. Overrides implement the endpoint and deadline
-     * contract and must expose any retained inputs to normal ownership analysis.
+     * contract and must expose any retained inputs to ordinary reference-effect analysis.
      *
      * @param address the destination endpoint, not transferred to the implementation
      * @param timeout nonnegative milliseconds; zero means no deadline
@@ -107,7 +107,7 @@ public abstract class SocketImpl {
      * Returns an implementation-dependent borrowed input view. It remains tied to this
      * implementation or its delegate and follows ordinary managed reachability. Closing the
      * native view closes the delegate. Reads use the configured read timeout; expiration leaves
-     * native TCP usable. Custom overrides participate in ownership analysis.
+     * native TCP usable. Custom overrides retain their actual reference effects.
      *
      * @return a borrowed input stream
      * @throws IOException if the implementation cannot provide the stream
@@ -118,7 +118,7 @@ public abstract class SocketImpl {
      * Returns an implementation-dependent borrowed output view. It remains tied to this
      * implementation or its delegate and follows ordinary managed reachability. Closing the
      * native view closes the delegate. Ordinary TCP writes have no deadline and may partially
-     * complete before failure. Custom overrides participate in ownership analysis.
+     * complete before failure. Custom overrides retain their actual reference effects.
      *
      * @return a borrowed output stream
      * @throws IOException if the implementation cannot provide the stream
@@ -152,8 +152,8 @@ public abstract class SocketImpl {
     protected abstract SocketDescriptor getFileDescriptor();
 
     /**
-     * Returns peer address metadata tied to the implementation. Overrides must preserve the
-     * returned value's owner relationship.
+     * Returns shared managed peer address metadata. Overrides must preserve the
+     * documented address value and native-resource behavior.
      *
      * @return a borrowed peer address, or null when unavailable
      */
@@ -162,7 +162,7 @@ public abstract class SocketImpl {
     /**
      * Returns cached local address metadata tied to the implementation. Native delegates provide a
      * wildcard before binding and retain bound metadata after close. Earlier borrowed native
-     * values remain alive until delegate reclamation.
+     * values follow managed reachability independently of delegate closure.
      *
      * @return a borrowed local address
      */
@@ -253,7 +253,7 @@ public abstract class SocketImpl {
 
     /**
      * Reads an implementation option. The default implementation rejects every non-null token.
-     * Custom overrides define reference-result ownership through normal analysis.
+     * Custom overrides retain their actual reference-result effects.
      *
      * @param <T> the option value type
      * @param option the option token

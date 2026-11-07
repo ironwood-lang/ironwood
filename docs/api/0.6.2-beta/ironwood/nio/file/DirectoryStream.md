@@ -26,7 +26,7 @@ Defines a stream of directory entries.
 | Member | Description |
 | --- | --- |
 | [`hasNext()`](#member-hasNext-28--29-) | Returns whether an entry is available without allocating a managed path. |
-| [`nextEntry()`](#member-nextEntry-28--29-) | Returns the next entry as a fresh caller-owned value. |
+| [`nextEntry()`](#member-nextEntry-28--29-) | Returns the next entry as a fresh managed value. |
 
 ## Methods
 
@@ -51,7 +51,7 @@ Returns whether an entry is available without allocating a managed path.
 public T nextEntry()
 ```
 
-Returns the next entry as a fresh caller-owned value. This ownership-aware
+Returns the next entry as a fresh managed value. This distinctly named
 helper complements the ordinary Java-shaped Iterator view.
 
 

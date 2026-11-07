@@ -57,10 +57,10 @@ continues to use `println(Object)` and virtual `toString()` rendering.
 
 `ironwood.time.Instant` provides epoch conversion, comparison and ISO-8601
 parsing/output across Java's full Instant range (D120). Every factory returns
-a fresh caller-owned value, including epoch zero, while Java may reuse value
+a fresh managed value, including epoch zero, while Java may reuse value
 instances. The constants remain shared static objects; compare values with
 `equals`. Each `toString()` returns one fresh String. Parse exceptions copy
-their input, and `getParsedString()` returns an independently owned snapshot
+their input, and `getParsedString()` returns an independent managed snapshot
 instead of Java's retained String. Exception messages are implementation-specific.
 
 `now()` uses the existing millisecond wall clock. Stored/parsed values retain
@@ -83,7 +83,7 @@ and `fillInStackTrace()` refreshes it and returns the same receiver (D121).
 `printStackTrace()` and its PrintStream overload follow Java's description,
 cause and shared-frame conventions using the existing stdout/stderr streams.
 Ironwood's established cleanup failures use `Secondary:` rather than Java's
-suppression policy. `getStackTrace()` returns a fresh caller-owned array whose
+suppression policy. `getStackTrace()` returns a fresh managed array whose
 immutable elements are compiler-emitted process-lifetime objects. Mutable frame
 replacement remains absent. PrintWriter is available for ordinary text output,
 but there is no Throwable PrintWriter overload.
@@ -101,11 +101,11 @@ properties. Values are fresh when present; unknown and JVM-only keys return
 null. File/path/line separators, UTF-8 encoding, host OS/user/directory/temp,
 and fixed language/country keys are supported.
 
-Heap ByteBuffer slices and `array()` share their backing storage. Once those
-aliases are exposed, slices carry compiler-tracked lifetime loans. Calling
-`array()` publishes the backing array, so an owning buffer can no longer be
-compiler-proven safe to reclaim. Wrapped arrays stay caller-owned. This avoids
-a runtime alias registry while preserving safe reclamation guarantees.
+Heap ByteBuffer slices and `array()` share their managed backing storage.
+Each reachable alias keeps its referenced graph alive across explicit collection,
+including after another buffer alias becomes unreachable. There is no exclusive
+owner or independent-free proof and no runtime alias registry. Resource-backed
+foreign ByteViews retain their separate synchronous native lifetime contract.
 
 ## Numeric formatting
 
@@ -117,7 +117,7 @@ D113 removes the earlier misleading overloads that accepted only an entire
 For deliberately bounded numeric displays, Ironwood provides
 `String.formatDecimal(long value, int width)` and
 `String.formatFixed(double value, int width, int precision)`. These return
-caller-owned Strings with space padding and explicit numeric parameters. They
+managed Strings with space padding and explicit numeric parameters. They
 are Ironwood helpers, with fixed-point range and rounding limits described in
 [`docs/STDLIB.md`](STDLIB.md#core-object-and-text-types).
 
@@ -130,9 +130,9 @@ For example, `"i".toUpperCase()` is always `"I"`, while Java running with a
 Turkish default locale produces `"İ"`. `equalsIgnoreCase()` remains
 locale-independent as in Java. D117 records this deliberate product scope.
 
-String transformations return fresh caller-owned results even for unchanged or
+String transformations return fresh managed results even for unchanged or
 empty text; Java may reuse a String. This extends the existing substring/copy
-ownership convention. StringBuilder `substring` and `subSequence` likewise
+fresh-result convention. StringBuilder `substring` and `subSequence` likewise
 return one fresh String even for an empty range, independent of mutable builder
 storage. `String.join` accepts explicit arrays or zero through
 three individual elements. Iterable join is absent, and Ironwood has no
@@ -229,15 +229,15 @@ snapshot and enumeration parameters retain explicit `extends Object` bounds.
 `SocketImpl.create()` is TCP-only, and generic implementation hooks declare
 `SocketException` so dedicated facade methods preserve checked failures.
 
-Fresh default and proved-fresh factory implementations are owned; injected
-implementations and caller delegates are borrowed. Cached stream, address, and
-inventory getters borrow their owners. Endpoints, address copies, and exported
-byte arrays are independent results. Bulk results require separate element and
-shallow-array cleanup, now proved with real DNS results as well as synthetic
-fixtures. Retained hostname/scope inputs are copied. Hostname and canonical
-getters borrow per-address cached text; host-string access never triggers reverse
-lookup. Close releases native resources; Memory.collect() reclaims unreachable managed graphs. Networking
-exceptions copy their messages.
+Default and proved-fresh factory implementations retain their native-acquisition
+protocol; injected implementations and delegates are held by managed references.
+Cached streams, addresses and inventories can be shared. Endpoint copies and
+exported byte arrays are independent results; bulk result arrays and their
+elements follow managed reachability without element/shallow-array free.
+Retained hostname/scope inputs are copied. Hostname and canonical getters may
+share per-address cached text; host-string access never triggers reverse lookup.
+Close releases native resources; Memory.collect() reclaims unreachable managed
+graphs. Networking exceptions copy their messages.
 
 Implemented family policies select dual-stack capability with IPv4 fallback,
 IPv4-first OS resolution and no Ironwood positive, negative or stale DNS cache.

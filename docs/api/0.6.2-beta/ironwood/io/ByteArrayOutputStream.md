@@ -32,7 +32,7 @@ Writes bytes to an output destination.
 | [`size()`](#member-size-28--29-) | Returns the number of stored values. |
 | [`reset()`](#member-reset-28--29-) | Resets to the most recent mark. |
 | [`toByteArray()`](#member-toByteArray-28--29-) | Performs the to byte array operation. |
-| [`toString()`](#member-toString-28--29-) | Returns a caller-owned UTF-8 snapshot of the written bytes. |
+| [`toString()`](#member-toString-28--29-) | Returns a managed UTF-8 snapshot of the written bytes. |
 | [`writeTo(OutputStream)`](#member-writeTo-28-OutputStream-29-) | Writes the supplied to. |
 | [`close()`](#member-close-28--29-) | Closes this resource. |
 
@@ -142,7 +142,7 @@ Performs the to byte array operation.
 public String toString()
 ```
 
-Returns a caller-owned UTF-8 snapshot of the written bytes. Malformed
+Returns a managed UTF-8 snapshot of the written bytes. Malformed
 sequences become replacement characters. Reset, writes, and close do not
 change an existing snapshot.
 

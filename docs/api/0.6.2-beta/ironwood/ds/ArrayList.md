@@ -431,7 +431,7 @@ comparator is required even for an empty list; unlike Java's
 The sort takes O(n log n) comparisons, or n - 1 for already sorted
 input. Lists of at most sixteen elements are sorted without workspace;
 a longer list allocates one private array of `size() / 2`
-references and frees it before returning, also on failure. If the
+references. Scratch follows ordinary managed reachability on return or failure. If the
 comparator throws, the exception propagates and the list holds the same
 elements in an unspecified order. A comparator that mutates this list
 leaves its order unspecified; the comparator must not do so.

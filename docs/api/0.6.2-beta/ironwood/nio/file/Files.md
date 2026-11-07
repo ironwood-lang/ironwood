@@ -248,7 +248,7 @@ deletes its file.
 
 **Returns**
 
-a fresh caller-owned path of the new file
+a fresh managed path of the new file
 
 
 [Back to member summary](#member-summary)
@@ -283,7 +283,7 @@ directory is tried.
 
 **Returns**
 
-a fresh caller-owned path of the new file
+a fresh managed path of the new file
 
 **See also**
 
@@ -322,7 +322,7 @@ owner-only permissions before the umask.
 
 **Returns**
 
-a fresh caller-owned path of the new directory
+a fresh managed path of the new directory
 
 
 [Back to member summary](#member-summary)
@@ -354,7 +354,7 @@ selected as [`createTempFile(String,String)`](#member-createTempFile-28-String-2
 
 **Returns**
 
-a fresh caller-owned path of the new directory
+a fresh managed path of the new directory
 
 
 [Back to member summary](#member-summary)
@@ -702,7 +702,7 @@ Ironwood helper stands for Java's
 
 **Returns**
 
-fresh caller-owned attributes
+fresh managed attributes
 
 
 [Back to member summary](#member-summary)

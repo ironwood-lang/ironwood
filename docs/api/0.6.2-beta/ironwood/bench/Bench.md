@@ -139,7 +139,7 @@ while (bench.getIterations() < warmup + measurements) {
 | [`getMeasurements()`](#member-getMeasurements-28--29-) | Returns the number of recorded measurements, excluding warmup. |
 | [`getAverage()`](#member-getAverage-28--29-) | Returns mean nanoseconds rounded to two fractional digits, or zero if empty. |
 | [`results(boolean)`](#member-results-28-boolean-29-) | Creates an independent report with counts, mean, minimum, and maximum. |
-| [`results()`](#member-results-28--29-) | Returns a fresh caller-owned report including percentiles. |
+| [`results()`](#member-results-28--29-) | Returns a fresh managed report including percentiles. |
 | [`printResults(boolean)`](#member-printResults-28-boolean-29-) | Prints a report and a blank line. |
 | [`printResults()`](#member-printResults-28--29-) | Prints a report including percentiles. |
 
@@ -416,7 +416,7 @@ a fresh managed String
 public String results()
 ```
 
-Returns a fresh caller-owned report including percentiles.
+Returns a fresh managed report including percentiles.
 
 
 [Back to member summary](#member-summary)

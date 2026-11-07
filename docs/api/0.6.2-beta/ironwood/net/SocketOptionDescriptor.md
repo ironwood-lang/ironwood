@@ -15,7 +15,7 @@ public interface SocketOptionDescriptor
 ```
 
 Describes an option independently of its specialized value type. Metadata and tokens in a socket
-inventory are borrowed from that inventory's owner.
+inventory may be shared managed values retained by the inventory.
 
 
 ## Member summary
@@ -38,7 +38,7 @@ public String name()
 ```
 
 Returns the descriptive option name. Built-in names are process-lifetime strings; custom
-tokens define their text lifetime.
+tokens may return shared managed text.
 
 **Returns**
 

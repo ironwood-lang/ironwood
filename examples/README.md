@@ -155,7 +155,7 @@ feature explanation and source links are in
 | `lexicalcapture` | `LexicalCapture` | Explicit-final and effectively-final lexical capture |
 | `nestaccess` | `NestAccess` | Private access across one source nest |
 | `lexicalmembertypes` | `LexicalMemberTypes` | Member classes and interfaces inside local and anonymous classes |
-| `capturedaliases` | `CapturedAliases` | Hidden capture aliases and safe explicit `free` |
+| `capturedaliases` | `CapturedAliases` | Hidden capture aliases and managed graph reachability |
 | `interfacemembers` | `InterfaceMembers` | Interface constants plus abstract, default, static, and private methods |
 | `interfacedefaults` | `InterfaceDefaults` | Class-wins, most-specific defaults, re-abstraction, and explicit interface-super |
 | `boundedgenerics` | `BoundedGenerics` | Upper, intersection, dependent, and recursive bounds |
@@ -202,9 +202,9 @@ declarations, cross-method propagation, and a reachable catch; it exits with
 status `42`.
 The resource example closes `AutoCloseable` objects explicitly in ordinary
 `finally`, preserves a body failure as primary when `close()` also fails, and
-keeps closing separate from compiler-checked wrapper reclamation.
+keeps closing separate from managed reachability and collection.
 The deferred-cleanup example places explicit cleanup beside acquisition, checks
-close-before-free on normal and exceptional exits, and releases a pool item at
+close ordering on normal and exceptional exits, and releases a pool item at
 each loop-block exit, including `continue`. Its run script verifies five summary
 lines and status `42`; its native checks verify reclamation and allocation-free
 pool reuse. Run only its `compile.sh`, `link.sh`, and `run.sh` for a focused check.

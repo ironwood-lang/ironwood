@@ -148,7 +148,7 @@ public final class Files {
      * @param prefix the name's beginning, or null for none
      *
      * @param suffix the name's end, or null for {@code ".tmp"}
-     * @return a fresh caller-owned path of the new file
+     * @return a fresh managed path of the new file
      * @throws IllegalArgumentException if the prefix or suffix would give the name a
      * parent
      * @throws InvalidPathException if the prefix or suffix contains NUL
@@ -168,7 +168,7 @@ public final class Files {
      *
      * @param prefix the name's beginning, or null for none
      * @param suffix the name's end, or null for {@code ".tmp"}
-     * @return a fresh caller-owned path of the new file
+     * @return a fresh managed path of the new file
      * @throws IllegalArgumentException if the prefix or suffix would give the
      *         name a parent
      * @throws InvalidPathException if the prefix or suffix contains NUL
@@ -189,7 +189,7 @@ public final class Files {
      *
      * @param dir an existing directory; borrowed for the call
      * @param prefix the name's beginning, or null for none
-     * @return a fresh caller-owned path of the new directory
+     * @return a fresh managed path of the new directory
      * @throws IllegalArgumentException if the prefix contains a separator
      * @throws InvalidPathException if the prefix contains NUL
      * @throws IOException if the directory cannot be created
@@ -205,7 +205,7 @@ public final class Files {
      * selected as {@link #createTempFile(String, String)} selects it.
      *
      * @param prefix the name's beginning, or null for none
-     * @return a fresh caller-owned path of the new directory
+     * @return a fresh managed path of the new directory
      * @throws IllegalArgumentException if the prefix contains a separator
      * @throws InvalidPathException if the prefix contains NUL
      * @throws IOException if the directory cannot be created
@@ -507,7 +507,7 @@ public final class Files {
      * {@code readAttributes(path, BasicFileAttributes.class, NOFOLLOW_LINKS)}.
      *
      * @param path the entry to inspect; borrowed for the call
-     * @return fresh caller-owned attributes
+     * @return fresh managed attributes
      * @throws IOException if the entry cannot be inspected
      */
     public static BasicFileAttributes readAttributesNoFollow(Path path) throws IOException {

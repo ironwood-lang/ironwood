@@ -8,7 +8,11 @@ free, destructor, implicit temporary destruction or managed constructor rollback
 General defer, initialization, native resource and pool protocols remain.
 Historical proof discussions and examples mentioning those removed forms are
 superseded by the completed GC7 consumer migration, not alternate supported semantics.
-Native bridge/shared-library output remains refused until GC6 qualification.
+[GC6 managed admission](GC6_IMPLEMENTATION.md) uses schema 2 / objects-gc-v1,
+root ABI 3 / owner ABI 2 and independent handles/registrations.
+[GC9](GC9_LINUX_X86_64_DISTRIBUTION.md) qualifies macOS arm64, Linux arm64 and
+Linux x86-64 within its exact toolchain/OS bounds; arm64e remains unqualified.
+[GC10 acceptance](GC10_ACCEPTANCE.md) reconciles the completed integration.
 
 The compiler builds the bundled Java-shaped standard library from 255
 source files. IronDocs covers 171 public and protected types across 16 packages:
@@ -40,8 +44,10 @@ remain authoritative for exact signatures.
 Main and testing libraries use one managed model. Canonical Memory.collect()
 works through normal source/class/archive compilation. Explicit resource close,
 pool release and native acquisition rollback remain; managed destruction does
-not. The source-only bridge API remains present for artifact reconstruction,
-but native use and all bridge/shared-library output refuse until GC6.
+not. The bridge API supports synchronous borrowed views through the qualified
+managed producer. Raw shared IR and unsupported foreign lifetimes still refuse.
+Java reachability alone does not anchor native managed objects; use the generated
+RootHandle and ListenerRegistration APIs in [the producer guide](JAVA_BRIDGE_USAGE.md).
 
 ## `ironwood.bench`
 
@@ -104,8 +110,8 @@ references can also widen to `Object`. Primitive values are not objects.
 | `Object` | Public constructor plus identity-based `equals(Object)`, stable opaque `hashCode()`, and Java-shaped `toString()` defaults. A default runtime-created identity String has ordinary managed lifetime. |
 | `CharSequence` | Interface declaring `length()`, `charAt(int)`, `subSequence(int, int)`, and `toString()`. |
 | `Comparable<T>` | Interface declaring `compareTo(T)`; `String`, `Path`, and `Instant` implement their corresponding forms. |
-| `String` | Final immutable UTF-16 text with copy, UTF-8 `byte[]`, and checked `char[]` constructors; length/character access; caller-owned substring, array-export, concat, and explicit `formatDecimal(long, int)`/`formatFixed(double, int, int)` numeric-field results; common contains/search/prefix/suffix/subsequence/copy operations; primitive/Object `valueOf`; lexicographic comparison; exact UTF-8 `byteLength`; content equality/hash; and identity `toString()`. Equal decoded literals and String constant expressions are pooled immortal objects; dynamic `+`/`+=` results are ordinary exact-size allocations. Runtime `intern()` is deliberately absent. |
-| `StringBuilder` | Mutable UTF-16 text with empty, capacity, `String`, and `CharSequence` constructors; length/capacity queries and mutation; `isEmpty`, `charAt`, `setCharAt`, `ensureCapacity`, append and insert overloads, `delete`, `deleteCharAt`, `replace`, surrogate-aware `reverse`, and whole/offset `indexOf`. Append and insert cover `char`, whole/ranged `char[]`, `String`, whole/ranged `CharSequence`, `Object`, `boolean`, `int`, `long`, `float`, and `double`. `toString`, whole/ranged `substring`, and `subSequence` produce caller-owned String snapshots; backing storage and failed-construction graphs use ordinary managed lifetime. |
+| `String` | Final immutable UTF-16 text with copy, UTF-8 `byte[]`, and checked `char[]` constructors; length/character access; managed substring, array-export, concat, and explicit `formatDecimal(long, int)`/`formatFixed(double, int, int)` numeric-field results; common contains/search/prefix/suffix/subsequence/copy operations; primitive/Object `valueOf`; lexicographic comparison; exact UTF-8 `byteLength`; content equality/hash; and identity `toString()`. Equal decoded literals and String constant expressions are pooled immortal objects; dynamic `+`/`+=` results are ordinary exact-size allocations. Runtime `intern()` is deliberately absent. |
+| `StringBuilder` | Mutable UTF-16 text with empty, capacity, `String`, and `CharSequence` constructors; length/capacity queries and mutation; `isEmpty`, `charAt`, `setCharAt`, `ensureCapacity`, append and insert overloads, `delete`, `deleteCharAt`, `replace`, surrogate-aware `reverse`, and whole/offset `indexOf`. Append and insert cover `char`, whole/ranged `char[]`, `String`, whole/ranged `CharSequence`, `Object`, `boolean`, `int`, `long`, `float`, and `double`. `toString`, whole/ranged `substring`, and `subSequence` produce managed String snapshots; backing storage and failed-construction graphs use ordinary managed lifetime. |
 | `StringBuffer` | Java-shaped mutable UTF-16 counterpart to StringBuilder. Ironwood has no language threads, so synchronization has no observable role or cost. |
 | `Runnable` | Interface declaring `void run()`. |
 | `Number` | Abstract non-boxing numeric base with primitive conversion methods. |
@@ -142,7 +148,7 @@ maximal dynamic chain. Object conversions may obtain temporary text from
 `toString()`. Concatenation copies each rendering after evaluating operands in
 source order, preserving failures and aliases. Rendered Strings have ordinary
 managed lifetime, including after a later conversion throws.
-`String.valueOf(float)` and `valueOf(double)` each return one fresh caller-owned
+`String.valueOf(float)` and `valueOf(double)` each return one fresh managed
 String through that same floating conversion. `StringBuilder.append(float)` and
 `append(double)` select the matching valueOf overload, copy the result, and
 leave the temporary String to managed reachability if builder growth fails. A float stays float
@@ -181,7 +187,7 @@ and dynamic format strings. There is no restricted format-string parser.
 
 The Ironwood-specific `String.formatDecimal(long value, int width)` and
 `String.formatFixed(double value, int width, int precision)` helpers return one
-caller-owned numeric field, left-padded with spaces to a nonnegative minimum
+managed numeric field, left-padded with spaces to a nonnegative minimum
 width without truncation. Width zero disables padding. Fixed precision must be
 zero through nine; use six explicitly for six fractional digits. Finite fixed
 formatting retains the bounded binary scaling and `Math.round` algorithm, with
@@ -220,7 +226,7 @@ no intermediate text or conversion arrays to reclaim.
 
 ```java
 String literal = "value";          // Immortal compiler storage.
-String copy = new String(literal); // One distinct caller-owned allocation.
+String copy = new String(literal); // One distinct managed allocation.
                          // Reclaims only the heap copy.
 ```
 
@@ -373,7 +379,7 @@ cause, and message/cause constructors. A cause-only constructor uses the
 cause's description as its message, or null for a null cause.
 `getLocalizedMessage()` delegates to the virtual `getMessage()` by default.
 `Throwable.toString()` calls the virtual
-localized getter once and returns a fresh caller-owned String containing the
+localized getter once and returns a fresh managed String containing the
 concrete qualified class name, followed by `: ` and the message when non-null.
 An empty message retains the separator; a null message produces only the name.
 Causes and traces are not part of this description. Object printing,
@@ -399,7 +405,7 @@ replaces it. A no-op override can keep an exception stackless. Printing uses
 virtual descriptions and causes, shared-tail compression and cycle detection.
 Ironwood cleanup failures are labeled `Secondary:`, separately from causes.
 Private trace storage, traversal helpers and rendering results use the managed heap.
-Explicit collection reclaims them when unreachable. `getStackTrace()` returns a fresh caller-owned array containing
+Explicit collection reclaims them when unreachable. `getStackTrace()` returns a fresh managed array containing
 immutable compiler-emitted process-lifetime `StackTraceElement` objects.
 Mutable trace replacement remains absent.
 See the [stack-trace review](STDLIB_STACK_TRACE_REVIEW.md) for emergency behavior,
@@ -453,7 +459,7 @@ descriptor. Returned lines and output snapshots are independent managed values. 
 lazily allocated char slot; built-in overrides avoid that helper.
 
 `ByteArrayOutputStream.toString()` decodes only the written prefix using
-Ironwood's fixed UTF-8 default. It returns one fresh caller-owned String,
+Ironwood's fixed UTF-8 default. It returns one fresh managed String,
 including for an empty stream, with no intermediate byte/char array. Malformed
 sequences become U+FFFD as in Java's UTF-8 conversion; this differs from the
 strict malformed-input failure of `Files.readString`. Reset, later writes,
@@ -494,7 +500,7 @@ millisecond wall clock; elapsed-time measurement remains `System.nanoTime()`.
 Invalid grammar/ranges and numeric overflow use the corresponding Java-shaped
 exceptions. Error wording is implementation-specific.
 
-Every factory returns one fresh caller-owned Instant, and `toString()` returns
+Every factory returns one fresh managed Instant, and `toString()` returns
 one fresh String. Parsing and rendering use primitive state without temporary
 builders or arrays. Parse exceptions own copied diagnostic characters;
 `getParsedString()` returns an independent fresh String. The constants remain
@@ -577,7 +583,7 @@ basic file attributes, and controlled recursive visitor traversal.
 
 | Type | Current surface |
 | --- | --- |
-| `Path` | `Comparable<Path>` interface with one/two-component `of`, text/equality/hash, absolute/root/file-name/parent/name-count/index queries, prefixes, resolution, relativization, normalization, absolute conversion, and host real-path resolution (`toRealPath`). Returned path values are caller-owned. |
+| `Path` | `Comparable<Path>` interface with one/two-component `of`, text/equality/hash, absolute/root/file-name/parent/name-count/index queries, prefixes, resolution, relativization, normalization, absolute conversion, and host real-path resolution (`toRealPath`). Returned path values are managed. |
 | `Paths` | Fixed-arity `get(String)` factory corresponding to Java's common one-component varargs call. |
 | `Files` | Existing whole-file/factory/metadata calls plus delete and `deleteIfExists`, recursive createDirectories, no-replace copy/move, the publication moves `moveAtomicReplacing`, `moveReplacing` and `moveAtomicNoReplace`, exclusive temporary files and directories, advisory `isReadable`/`isExecutable`, the no-follow `readAttributesNoFollow` helper, strict-UTF-8 readAllLines returning `ironwood.ds.ArrayList<String>`, and recursive `walkFileTree`. Calls borrow paths/content and retain no caller reference. |
 | `DirectoryStream<T>` | Closeable, single-iterator directory view. `hasNext()` performs allocation-free lookahead, and `nextEntry()` returns a fresh managed path. Explicit close releases the native handle. |
@@ -1037,12 +1043,13 @@ out-of-band semantics. Performance preferences are advisory. Dedicated methods
 use those same hooks. Inventories are cached
 read-only `ironwood.ds.UnmodifiableList<SocketOptionDescriptor>` values.
 
-Default and freshly created factory implementations are owned by their facade;
-explicit injected implementations are borrowed. Close releases the descriptor;
-Memory.collect() reclaims unreachable managed graphs and never substitutes for close. Stream,
-address and inventory getters borrow their owner's storage. Endpoint snapshots,
-address copies and byte arrays are fresh independent results. Accepted sockets
-survive listener reclamation. Networking exceptions copy caller messages.
+Default/factory implementations preserve the proved-fresh native-acquisition
+contract; facades retain injected implementations and delegates through managed
+references. Close releases the descriptor. Memory.collect() reclaims unreachable
+managed graphs and never substitutes for close. Stream, address and inventory
+getters may share managed values. Endpoint snapshots, address copies and byte
+arrays are fresh independent results. Accepted sockets survive listener closure
+and collection while their own roots/resources remain valid. Networking exceptions copy caller messages.
 See [the member/ownership matrix](STDLIB_N1_SOURCE_REVIEW.md),
 [Milestone 1](STDLIB_N1_VERIFICATION.md) and
 [Milestone 2 evidence](NETWORKING_M2_VERIFICATION.md) for exact supported socket/address
@@ -1063,12 +1070,12 @@ OS lookup, resolver-result cleanup and destination constructors.
 Milestone 3 provides NetworkInterface lookup/enumeration, InterfaceAddress
 metadata, interface-valued IPv6 scope factories/getters and both
 InetAddress.isReachable overloads. Lookup results and top-level enumerations
-own flat structural snapshots. Names, parents, addresses and broadcast metadata
-borrow that root. Address/subinterface cursors and mutable
-ArrayList<InterfaceAddress> results retain their managed snapshot graph.
-Entries can outlive their cursor/list while the query stays alive. Caller-added
-entries retain ordinary ironwood.ds loans. Hardware byte arrays, rendered text
-and copied scope/address graphs are independent owned results.
+retain independent flat structural snapshots. Names, parents, addresses and
+broadcast metadata may share that graph. Address/subinterface cursors, mutable
+ArrayList<InterfaceAddress> results and retained entries keep their referenced
+managed snapshot graph alive, even after the original query/cursor is dropped.
+Caller-added entries retain ordinary managed references. Hardware byte arrays,
+rendered text and copied scope/address graphs are independent managed results.
 
 Interface flags, MTU and hardware access query current native state; captured
 structure does not turn these into cached getters. `Enumeration<E extends Object>`
@@ -1162,9 +1169,10 @@ general cryptography, general math coverage, boxed primitives, general-purpose
 Java collection interfaces, or a native FFI. These remain future library or
 language work rather than hidden runtime dependencies.
 
-The library also deliberately excludes facilities whose semantics depend on a
-JVM or garbage collector, including runtime class loading, reflection-based
-construction, soft references, and collector-control APIs. See
+The library deliberately excludes JVM runtime class loading, reflection-based
+construction, soft references and general collector tuning. Canonical
+Memory.collect() is the supported explicit collection operation; it does not
+supply Java finalization or weak-reference behavior. See
 [`LANGUAGE_SPECS.md`](LANGUAGE_SPECS.md) for the broader supported-language
 surface and roadmap. The proposed Java-shaped path from the current inventory
 to useful file and command-line programs is in

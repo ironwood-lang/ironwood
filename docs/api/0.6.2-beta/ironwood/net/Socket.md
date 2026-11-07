@@ -39,7 +39,7 @@ TCP writes are blocking; SO_TIMEOUT bounds reads only.
 | [`Socket(InetAddress,int)`](#member-Socket-28-InetAddress-2c-int-29-) | Creates and connects a socket without a connect deadline. |
 | [`Socket(String,int,InetAddress,int)`](#member-Socket-28-String-2c-int-2c-InetAddress-2c-int-29-) | Creates and connects a socket without a connect deadline, binding the requested local endpoint first. |
 | [`Socket(InetAddress,int,InetAddress,int)`](#member-Socket-28-InetAddress-2c-int-2c-InetAddress-2c-int-29-) | Creates and connects a socket without a connect deadline, binding the requested local endpoint first. |
-| [`Socket(SocketImpl)`](#member-Socket-28-SocketImpl-29-) | Creates a facade borrowing a caller-owned implementation, or adopts a fresh factory result when null is supplied. |
+| [`Socket(SocketImpl)`](#member-Socket-28-SocketImpl-29-) | Creates a facade borrowing a managed implementation, or adopts a fresh factory result when null is supplied. |
 | [`setSocketImplFactory(SocketImplFactory)`](#member-setSocketImplFactory-28-SocketImplFactory-29-) | Registers the factory used by future client sockets. |
 | [`bind(SocketAddress)`](#member-bind-28-SocketAddress-29-) | Binds the local endpoint before connecting. |
 | [`connect(SocketAddress)`](#member-connect-28-SocketAddress-29-) | Connects to the destination without a connect deadline. |
@@ -138,7 +138,7 @@ public Socket(String host, int port) throws UnknownHostException, IOException
 ```
 
 Creates and connects a socket without a connect deadline. Host resolution is synchronous.
-Retained address metadata is copied; caller inputs remain caller-owned. A failed
+Retained address metadata is copied; caller inputs remain managed. A failed
 construction closes any opened resource.
 
 **Parameters**
@@ -168,7 +168,7 @@ public Socket(InetAddress address, int port) throws IOException
 ```
 
 Creates and connects a socket without a connect deadline. Retained address metadata is
-copied; caller inputs remain caller-owned. A failed construction closes any opened resource.
+copied; caller inputs remain managed. A failed construction closes any opened resource.
 
 **Parameters**
 
@@ -198,7 +198,7 @@ public Socket(String host, int port, InetAddress localAddress, int localPort) th
 
 Creates and connects a socket without a connect deadline, binding the requested local
 endpoint first. Host resolution is synchronous. Retained address metadata is copied; caller
-inputs remain caller-owned. A failed construction closes any opened resource.
+inputs remain managed. A failed construction closes any opened resource.
 
 **Parameters**
 
@@ -229,7 +229,7 @@ public Socket(InetAddress address, int port, InetAddress localAddress, int local
 ```
 
 Creates and connects a socket without a connect deadline, binding the requested local
-endpoint first. Retained address metadata is copied; caller inputs remain caller-owned. A
+endpoint first. Retained address metadata is copied; caller inputs remain managed. A
 failed construction closes any opened resource.
 
 **Parameters**
@@ -260,7 +260,7 @@ failed construction closes any opened resource.
 protected Socket(SocketImpl implementation) throws SocketException
 ```
 
-Creates a facade borrowing a caller-owned implementation, or adopts a fresh factory
+Creates a facade borrowing a managed implementation, or adopts a fresh factory
 result when null is supplied. Closing cascades to the implementation. Managed references
 retain implementations and delegates; preserve native protocol validity until all facade
 views and the facade have been reclaimed.
@@ -459,7 +459,7 @@ public void close() throws IOException
 
 Closes the resource idempotently and marks this facade closed before delegating. Also closes
 a caller-supplied implementation without adopting it. Managed storage and cached metadata
-remain until free; prior connection and binding history is preserved.
+remain reachable with the object; prior connection and binding history is preserved.
 
 **Throws**
 
@@ -540,7 +540,7 @@ public InetAddress getLocalAddress()
 ```
 
 Returns a borrowed local address, or a cached wildcard when unbound or closed. Previously
-returned native address values remain alive until the socket owner is reclaimed. The returned address has a managed lifetime.
+returned address values follow managed reachability independently of socket closure.
 
 **Returns**
 
@@ -596,7 +596,7 @@ destination, including unresolved names. The copy has an independent managed lif
 
 **Returns**
 
-a fresh caller-owned endpoint, or null before connection
+a fresh managed endpoint, or null before connection
 
 
 [Back to member summary](#member-summary)
@@ -614,7 +614,7 @@ the address is a wildcard while the previously bound port is retained.
 
 **Returns**
 
-a fresh caller-owned endpoint, or null when never bound
+a fresh managed endpoint, or null when never bound
 
 
 [Back to member summary](#member-summary)
@@ -716,7 +716,7 @@ public UnmodifiableList<SocketOptionDescriptor> supportedOptions()
 ```
 
 Returns the implementation's read-only option inventory. The inventory and tokens are
-borrowed, not caller-owned; built-in inventories live for the process. Custom inventories
+borrowed, not managed; built-in inventories live for the process. Custom inventories
 remain tied to their implementation. Implementation-only timeout and urgent-data tokens are
 excluded.
 
@@ -736,7 +736,7 @@ public <T> T getOption(SocketOption<T> option) throws IOException
 ```
 
 Reads a supported typed option. The native implementation uses primitive values without
-boxing. Custom implementations define reference-result ownership through their ordinary
+boxing. Custom implementations preserve actual reference-result retention through their ordinary
 source effects.
 
 **Parameters**

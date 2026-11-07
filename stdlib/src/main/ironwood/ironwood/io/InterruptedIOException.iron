@@ -26,7 +26,7 @@ public class InterruptedIOException extends IOException {
     /**
      * Creates an exception with copied detail text and a zero transfer count.
      *
-     * @param message the caller-owned message to copy, or null
+     * @param message the managed message to copy, or null
      */
     public InterruptedIOException(String message) {
 

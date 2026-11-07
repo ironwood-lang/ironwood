@@ -14,9 +14,9 @@
 public interface SocketImplFactory
 ```
 
-Creates implementations that a socket facade adopts and reclaims. Registered factories are
+Creates implementations that a socket facade retains and closes explicitly. Registered factories are
 retained for the process lifetime. Every result must be a fresh, unpublished implementation;
-compiler ownership analysis verifies the transfer.
+native acquisition analysis verifies the implementation protocol.
 
 
 ## Member summary

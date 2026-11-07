@@ -68,7 +68,7 @@ message loop. The existing primary/secondary failure order remains unchanged.
 
 The project test also checks a real listener bind failure. A separate
 [deterministic failure fixture](../../integration-tests/cases/defer_server_failure.iron)
-checks close-before-free, cleanup before catch, continued accepts and outer
+checks explicit close ordering, cleanup before catch, continued accepts and outer
 status `74` without depending on an OS close error. See
 [adoption verification](../../docs/DEFER_PROJECT_VERIFICATION.md) for focused
 commands, allocation results and generated-code comparisons.

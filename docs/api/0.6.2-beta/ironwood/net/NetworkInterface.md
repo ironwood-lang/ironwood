@@ -14,11 +14,11 @@
 public final class NetworkInterface
 ```
 
-Captured interface structure with live status queries. Individual lookup results own their
-snapshot; enumeration elements borrow the enumeration's snapshot. Names, addresses, parents and
-subinterfaces remain tied to that owner. Free caller-owned cursors and lists before the snapshot
-owner, and never free borrowed entries separately. Status, MTU and hardware queries consult the
-current host by the captured interface name and can fail if it disappears.
+Captured interface structure with live status queries. Individual lookup results retain an
+independent snapshot; enumeration elements share their snapshot. Names, addresses, parents,
+subinterfaces, cursors and lists follow ordinary managed reachability, including cycles.
+Status, MTU and hardware queries consult the current host by the captured interface name
+and can fail if it disappears.
 
 
 ## Member summary
@@ -77,7 +77,7 @@ snapshot independently of the input.
 
 **Returns**
 
-a fresh caller-owned interface query, or null when no interface matches
+a fresh managed interface query, or null when no interface matches
 
 
 [Back to member summary](#member-summary)
@@ -108,7 +108,7 @@ snapshot independently of the input.
 
 **Returns**
 
-a fresh caller-owned interface query, or null when no interface matches
+a fresh managed interface query, or null when no interface matches
 
 
 [Back to member summary](#member-summary)
@@ -139,7 +139,7 @@ snapshot independently of the input.
 
 **Returns**
 
-a fresh caller-owned interface query, or null when no interface matches
+a fresh managed interface query, or null when no interface matches
 
 
 [Back to member summary](#member-summary)
@@ -163,7 +163,7 @@ metadata retain their captured snapshot. Each remains valid while reachable.
 
 **Returns**
 
-a fresh caller-owned enumeration, possibly empty
+a fresh managed enumeration, possibly empty
 
 
 [Back to member summary](#member-summary)
@@ -441,7 +441,7 @@ Queries the current hardware address and copies it independently of the snapshot
 
 **Returns**
 
-fresh caller-owned hardware bytes, or null when no address is reported
+fresh managed hardware bytes, or null when no address is reported
 
 
 [Back to member summary](#member-summary)

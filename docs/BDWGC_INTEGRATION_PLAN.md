@@ -20,9 +20,12 @@ and resident-memory qualification, extended by the separate
 GC7 consumer checks. [GC9 is complete within its recorded target/distribution
 bounds](GC9_LINUX_X86_64_DISTRIBUTION.md), including Linux arm64 implementation,
 physical x86-64 execution, local packages/IDKs and three-target bridge assembly.
-GC10 and self-hosting remain unstarted.
+[GC10 final acceptance](GC10_ACCEPTANCE.md) completes the documentation,
+evidence and separately scoped self-hosting handoff. GC0-GC10 are complete
+within their recorded bounds. Self-hosting has not restarted; Java remains
+the authoritative bootstrap under D008.
 
-The selected direction is BDWGC 8.2.12 with compiler-provided roots and exact
+The implemented model is BDWGC 8.2.12 with compiler-provided roots and exact
 layout metadata, synchronous `Memory.collect()`, removal of source `free` and
 destructors, and preservation of general `defer`. This follows the
 [local evaluation](GC_EVALUATION.md) and its
@@ -35,7 +38,9 @@ storage remains valid while reachable from the compiler/runtime's strong roots.
 Unreachable managed storage becomes reusable during an explicit collection.
 Source code no longer needs an ownership proof to reclaim ordinary heap graphs.
 
-The completed implementation must provide all of the following:
+The completed implementation provides the following contract. The design
+requirements and milestone histories below preserve the original dependency
+order; current acceptance is reconciled in [GC10](GC10_ACCEPTANCE.md).
 
 - `ironwood.lang.Memory.collect()` is a public static `void` operation. It runs
   a full collection on the calling application thread and completes marking and
@@ -274,8 +279,8 @@ failure. Add/remove roots at the existing throw/wrapper lifecycle, not at every
 ordinary call. Preserve primary/secondary ordering, rethrow identity and existing
 bounded emergency behavior. Clear emergency references when their active use ends.
 
-Class destructors currently mix memory reclamation with other cleanup. Classify
-each body and generated rollback:
+At the pre-GC0 baseline, class destructors mixed memory reclamation with other
+cleanup. GC0-GC7 applied this disposition to each body and generated rollback:
 
 | Existing action | GC-era disposition |
 | --- | --- |
@@ -404,7 +409,8 @@ GC0's [accounting experiment](GC0_BASELINE_AND_CONTRACTS.md#collection-and-accou
 establishes this route for the selected engine profile, so both APIs are retained.
 [GC2 qualification](GC2_LAYOUTS_AND_QUALIFICATION.md) covers the audited
 allocation families and failure paths with exact scanners or explicit legacy
-layout refusals. Production root/exception/foreign integration remains gated.
+layout refusals. Production root/exception/foreign integration was then gated;
+GC5/GC6 and GC9 completion records below close those prerequisite gates.
 
 ## 5. Milestones and dependencies
 
@@ -758,8 +764,9 @@ distribution readiness or self-hosting. The subsequent
 [native Linux x86-64 report](GC7_GC8_LINUX_X86_64_QUALIFICATION.md) adds physical
 current-source timing, actual ELF callers, resident/reuse phases and stable
 native resource counts, with a rebuilt exact SDK profile. Its longer same-path
-A/A controls explain short-batch call/pool variation. Other targets and broader
-distribution readiness remain open. GC9 is the next separately scoped stage.
+A/A controls explain short-batch call/pool variation. At that checkpoint other
+targets and broader distribution readiness remained open; GC9 subsequently completes its scoped
+qualification. The GC8 measurements and their limits are unchanged.
 
 ### GC9. Qualify supported targets and distribution
 
@@ -817,11 +824,23 @@ describes the old model as implemented. A new self-hosting attempt requires a
 separate scoped task with an end-to-end checkpoint and explicit phase collection
 sites; this plan does not revive the discarded migration branch.
 
+**Completed, 2026-11-07:** [GC10 acceptance](GC10_ACCEPTANCE.md) reconciles GC0-GC9
+completion records and exact configurations, preserves incomplete checkpoints
+and frozen measurements, synchronizes current contracts/guidance/generated API
+references and records decision D329. Documentation, comment-only source,
+link/anchor, status/identity, historical-hash and generated-content checks pass,
+with license, tracked-file and diff checks. No implementation acceptance gap was
+found. The updated self-hosting plans propose a separately authorized bounded
+Java-to-I1-to-I2 task, explicit phase collections, the 16 GiB guard and conditional
+I3. This is integration acceptance, not self-hosting success, compiler capacity
+or release/publication readiness.
+
 ## 6. Focused validation matrix
 
 Each row needs a registered focused selection or dedicated native harness before
 its implementing milestone is accepted. Names below describe planned coverage;
-they are not claims that these tests already exist.
+they are the original planned categories. The GC10 matrix links their actual
+implemented selections and outcomes, without claiming every test ran at HEAD.
 
 | Contract | Positive/reclamation coverage | Failure or nearby counterexample |
 | --- | --- | --- |
@@ -839,7 +858,7 @@ they are not claims that these tests already exist.
 | Targets/distribution | Executables/libraries and collector SDKs work on each supported target. | Incorrect metadata version, stripped root section, interposed collector or target mismatch refuses build/load. |
 
 Reuse existing defer behavior selections listed in
-[LOCAL_TESTING.md](LOCAL_TESTING.md#deferred-cleanup-milestone-1), adapting only
+[LOCAL_TESTING.md](LOCAL_TESTING.md#maintained-consumer-checks), adapting only
 tests whose ownership/free expectations become obsolete. Preserve their current
 exit/failure-order and allocation-free registration evidence. Use
 `./scripts/test.sh --test 'EXACT NAME'` and exact focused groups; unknown names
@@ -873,11 +892,12 @@ checkpoints clearly. Record a concrete remaining gate at each stopping point.
 No branch creation beyond the maintainer's request, pushing, hosted jobs or
 automatic self-hosting restart is part of this document's implementation plan.
 
-GC0-GC9 are complete within their documented boundaries. Preserve exact native
+GC0-GC10 are complete within their documented boundaries. See
+[final acceptance and remaining limits](GC10_ACCEPTANCE.md). Preserve exact native
 and suspended roots, runtime owners, independent handle/registration lifetimes,
 explicit resource closure, isolated images and configuration/payload/pass
 verification. Raw shared IR and unsupported foreign lifetimes refuse. Carry
 forward arm64e and future unmatched-hardware gates. GC9's physical-host follow-up
 records the completed target/distribution matrix. GC8 changes no memory-model
-contract and makes no self-hosting capacity claim. GC10 and self-hosting remain
-unstarted.
+contract and makes no self-hosting capacity claim. GC10 accepts this model
+and the planning handoff; self-hosting remains a separately authorized task.

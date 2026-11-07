@@ -2,7 +2,32 @@
 
 # Additions Before Self-Hosting
 
-Status: proposed implementation plan, not an accepted language decision or an
+Current status, 2026-11-07: preparation M0-M6 evidence below is historical and
+remains frozen. The later self-hosting attempt built I1, failed I2 under the
+16 GiB guard and was stopped/rolled back. Java remains authoritative under D008.
+[GC10 acceptance](GC10_ACCEPTANCE.md) closes integration, not the old I2 failure.
+Use the updated [bounded checkpoint proposal](SELF_HOSTING_PLAN.md#proposed-separately-authorized-java-to-i1-to-i2-checkpoint)
+for current prerequisites; this document authorizes no restart.
+
+GC5-GC7 supersede B0/B1/B7 and S1 requirements for managed-free ownership,
+destructor/rollback eligibility, `--unfreed` modes and rejected-free evidence.
+GC7 removed ClosedWorldEffectAnalyzer, RejectedFreeEvidence, the owned-field/
+element and temporary-borrow passes; they are not current port dependencies.
+Current escape/return/dispatch, exact GC effects and pool/native/foreign analyses
+remain conservative and need measured convergence. Independent snapshots,
+ordering/identity, allocation volume, intentional retention, cache bounds,
+physical slot clearing and explicit resource/failure protocols still matter.
+GC8 demonstrates bounded repeated resident graphs, not compiler capacity.
+
+Re-audit the current Java/toolchain and freeze a new input closure before any
+separately authorized port. Account for published versus temporary graphs at
+explicit phase collection sites; retain the 16 GiB guard, fixed deadlines,
+diagnostic evidence and Java/artifact comparisons. Require Java-to-I1-to-I2 before
+broad peripheral work, with I3/reproducibility conditional on I2. Preserve the
+original baselines, M0-M6 manifests, budgets and observations below; historical
+"current" source descriptions and removed flags are not present-day requirements.
+
+Original status: proposed implementation plan, not an accepted language decision or an
 implementation claim. Audited on 2026-10-04 at repository commit
 `10b44d88fb182f67961bad58d0226921effef8df`. The source baseline is
 `37e2dda14a1de7088bd0a079492a6fbec6c156a7` (`0.6.1-beta`), shared with
@@ -727,8 +752,8 @@ equivalents.
 Primary source anchors for this audit:
 
 - [FunctionAnalyzer](../compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java),
-  [ClosedWorldEffectAnalyzer](../compiler/src/main/java/ironwood/compiler/semantic/ClosedWorldEffectAnalyzer.java),
-  [RejectedFreeEvidence](../compiler/src/main/java/ironwood/compiler/semantic/RejectedFreeEvidence.java).
+  `ClosedWorldEffectAnalyzer` (historical path `compiler/src/main/java/ironwood/compiler/semantic/ClosedWorldEffectAnalyzer.java`),
+  `RejectedFreeEvidence` (historical path `compiler/src/main/java/ironwood/compiler/semantic/RejectedFreeEvidence.java`).
 - [ArrayList](../stdlib/src/main/ironwood/ironwood/ds/ArrayList.iron),
   [HashMap](../stdlib/src/main/ironwood/ironwood/ds/HashMap.iron),
   [IdentityHashMap](../stdlib/src/main/ironwood/ironwood/ds/IdentityHashMap.iron),
@@ -987,7 +1012,7 @@ copies and local traversal are the initial scope.
 This addition may need compiler work. The audited rules in
 [DataStructureSemantics](../compiler/src/main/java/ironwood/compiler/semantic/DataStructureSemantics.java)
 recognize particular containers, methods, and even method-body shapes.
-[TemporaryListBorrowAnalysis](../compiler/src/main/java/ironwood/compiler/semantic/TemporaryListBorrowAnalysis.java)
+`TemporaryListBorrowAnalysis` (historical path `compiler/src/main/java/ironwood/compiler/semantic/TemporaryListBorrowAnalysis.java`)
 recognizes a limited local-list pattern. A new factory or copy constructor does
 not automatically acquire the right ownership proof.
 
@@ -1383,7 +1408,7 @@ shape or result contract requires revisiting those assumptions.
 | `FunctionAnalyzer.fileIntrinsicOperation` and [IrFileInstruction](../compiler/src/main/java/ironwood/compiler/ir/IrFileInstruction.java) | Bind the exact intrinsic owner/signature, validate operation result/operand types, and preserve throwing versus nonthrowing lowering |
 | [EscapeSummaryAnalyzer](../compiler/src/main/java/ironwood/compiler/semantic/EscapeSummaryAnalyzer.java) | Maintain `isBorrowingFilesFacade` and its uses in inferred summaries and `applyAuditedBorrowingContract`; preserve call-scoped borrowing for audited Files parameters |
 | `AllocationResultSemantics`, symbolic return origins, and owned-result analysis | Classify genuinely fresh paths/attributes/arrays separately from returned input aliases and dependent borrows |
-| [ClosedWorldPruner](../compiler/src/main/java/ironwood/compiler/ClosedWorldPruner.java) and [ClosedWorldEffectAnalyzer](../compiler/src/main/java/ironwood/compiler/semantic/ClosedWorldEffectAnalyzer.java) | Preserve allocation-failure reachability and effects of file operations, including the current non-allocating `LAST_ERROR` distinction in effect analysis |
+| [ClosedWorldPruner](../compiler/src/main/java/ironwood/compiler/ClosedWorldPruner.java) and `ClosedWorldEffectAnalyzer` (historical path `compiler/src/main/java/ironwood/compiler/semantic/ClosedWorldEffectAnalyzer.java`) | Preserve allocation-failure reachability and effects of file operations, including the current non-allocating `LAST_ERROR` distinction in effect analysis |
 | [BorrowDispatchAnalysis](../compiler/src/main/java/ironwood/compiler/semantic/BorrowDispatchAnalysis.java) | File reference results currently use conservative compatible-type propagation; new results must not become an empty dispatch set or gain invented non-retention facts |
 | [PrimitiveGenericSpecializer](../compiler/src/main/java/ironwood/compiler/semantic/PrimitiveGenericSpecializer.java) and [IrCfgRenamer](../compiler/src/main/java/ironwood/compiler/ir/IrCfgRenamer.java) | Reconstruct file operations with specialized/renamed results and operands, preserving the operation and source span |
 | [IrInvokeTerminator](../compiler/src/main/java/ironwood/compiler/ir/IrInvokeTerminator.java), `LlvmEmitter`, and isolated runtime functions/declarations | Preserve eligibility for potentially throwing file operations, normal/unwind paths, runtime ABI calls, and result/error conventions |

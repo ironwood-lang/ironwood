@@ -4,8 +4,8 @@
  * Contributed to Ironwood by the original author and relicensed under
  * Ironwood's default project license.
  *
- * Modified for Ironwood: neutral package, heap-only copied keys, reusable
- * helpers, explicit builder, and deterministic reclamation of superseded
+ * Modified for Ironwood: neutral package, copied keys, reusable
+ * helpers, explicit builder, and managed lifetime of superseded
  * bucket arrays.
  */
 package ironwood.ds;

@@ -149,13 +149,13 @@ SDK; prepare it or set `IRONWOOD_TLS_HOME` as described in [TLS.md](TLS.md):
 - Milestone 4: explicit proxy values, copied configuration, credential validation,
   direct routing, SOCKS4 target restrictions and negotiation deadlines.
 - Milestone 5: TLS client state, timeout/identity validation, copied proxy/CA
-  configuration, failed trust loading and deterministic reclamation.
+  configuration, failed trust loading and explicit native-resource closure.
 
 Networking tests use ephemeral loopback sockets and read-only host interface
 queries. They do not send live reachability probes. Controlled native errors,
 resolver/probe injection, allocation-failure sweeps, removed-syntax and native/protocol rejection,
 benchmarks and machine-code checks remain in the focused
-[networking compiler/integration drivers](LOCAL_TESTING.md#networking-milestone-1).
+[networking compiler/integration drivers](LOCAL_TESTING.md#maintained-consumer-checks).
 
 For the focused compiler-harness check of the testing module, run:
 

@@ -6,8 +6,8 @@ import ironwood.io.IOException;
 
 /**
  * Immutable IPv4 or IPv6 address bits with lazily cached host metadata. Factory and copy results
- * are caller-owned; addresses returned by sockets and interface snapshots are borrowed. Strings
- * from host-name getters are borrowed, while numeric text and raw bytes are fresh results. DNS
+ * are fresh managed values; sockets and interface snapshots may return shared cached values.
+ * Host-name getters may share text; numeric text and raw bytes are fresh results. DNS
  * uses synchronous host resolution with no shared Ironwood cache. Classification, equality and
  * hashing use stored bits and do not resolve names.
  */
@@ -58,7 +58,7 @@ public abstract class InetAddress {
 
     /**
      * Creates an address by copying network-order bytes without DNS. IPv4-mapped 16-byte inputs
-     * normalize to Inet4Address. The inputs remain caller-owned.
+     * normalize to Inet4Address. The inputs remain managed.
      *
      * @param address 4 or 16 network-order bytes to copy
      * @return a fresh address owned by the caller
@@ -71,7 +71,7 @@ public abstract class InetAddress {
 
     /**
      * Creates an address by copying network-order bytes without DNS. IPv4-mapped 16-byte inputs
-     * normalize to Inet4Address. The inputs remain caller-owned.
+     * normalize to Inet4Address. The inputs remain managed.
      *
      * @param host an optional host label to copy without resolving it
      * @param address 4 or 16 network-order bytes to copy
@@ -181,7 +181,7 @@ public abstract class InetAddress {
      * syntax is rejected.
      *
      * @param host the nonempty numeric text to parse, borrowed for this call
-     * @return a fresh caller-owned address, or null for a nonliteral hostname
+     * @return a fresh managed address, or null for a nonliteral hostname
      * @throws NullPointerException if host is null
      * @throws UnknownHostException if numeric syntax or scope is invalid, or host is empty
      */
@@ -386,7 +386,7 @@ public abstract class InetAddress {
     /**
      * Copies the address into network-order bytes without DNS.
      *
-     * @return a fresh caller-owned array of 4 IPv4 bytes or 16 IPv6 bytes
+     * @return a fresh managed array of 4 IPv4 bytes or 16 IPv6 bytes
      */
     public final byte[] getAddress() {
 

@@ -765,7 +765,7 @@ This Ironwood helper accepts no format string or Formatter flags.
 
 **Returns**
 
-a caller-owned String, never truncated to fit the width
+a managed String, never truncated to fit the width
 
 
 [Back to member summary](#member-summary)
@@ -800,7 +800,7 @@ This Ironwood helper does not implement Java Formatter decimal rounding.
 
 **Returns**
 
-a caller-owned String, never truncated to fit the width
+a managed String, never truncated to fit the width
 
 
 [Back to member summary](#member-summary)

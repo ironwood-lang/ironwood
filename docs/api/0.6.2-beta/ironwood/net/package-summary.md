@@ -12,8 +12,8 @@
 
 Blocking TCP sockets, immutable IP endpoints, host-interface snapshots and explicit proxy
 routes. Close socket resources explicitly; collection never closes them. Stream, address,
-option-inventory and interface getters may return borrowed values; follow each member's
-ownership contract. DNS is synchronous. UDP, channels and selectors are outside this
+option-inventory and interface getters may share managed values. Their native resource
+state follows the documented close and view protocols. DNS is synchronous. UDP, channels and selectors are outside this
 package's implemented surface.
 
 | Type | Kind | Description |
@@ -24,7 +24,7 @@ package's implemented surface.
 | [`Inet6Address`](Inet6Address.md) | class | Immutable 128-bit IPv6 value with an optional numeric or interface scope. |
 | [`InetAddress`](InetAddress.md) | class | Immutable IPv4 or IPv6 address bits with lazily cached host metadata. |
 | [`InetSocketAddress`](InetSocketAddress.md) | class | Immutable IP endpoint with a port and either a copied address or an unresolved host label. |
-| [`InterfaceAddress`](InterfaceAddress.md) | class | Immutable address, broadcast and prefix metadata borrowed from an interface snapshot. |
+| [`InterfaceAddress`](InterfaceAddress.md) | class | Immutable address, broadcast and prefix metadata from an interface snapshot. |
 | [`NativeSocketImpl`](NativeSocketImpl.md) | class | Publicly callable native TCP delegate for custom SocketImpl implementations. |
 | [`NetworkInterface`](NetworkInterface.md) | class | Captured interface structure with live status queries. |
 | [`NoRouteToHostException`](NoRouteToHostException.md) | class | Reports that the destination has no available network route. |
@@ -37,7 +37,7 @@ package's implemented surface.
 | [`SocketDescriptor`](SocketDescriptor.md) | class | Opaque state borrowed from a [`native socket implementation`](NativeSocketImpl.md). |
 | [`SocketException`](SocketException.md) | class | Reports a socket state or native networking failure. |
 | [`SocketImpl`](SocketImpl.md) | class | TCP implementation protocol for custom socket facades and delegation. |
-| [`SocketImplFactory`](SocketImplFactory.md) | interface | Creates implementations that a socket facade adopts and reclaims. |
+| [`SocketImplFactory`](SocketImplFactory.md) | interface | Creates implementations that a socket facade retains and closes explicitly. |
 | [`SocketImplOptions`](SocketImplOptions.md) | class | Provides process-lifetime tokens for the implementation protocol. |
 | [`SocketOption`](SocketOption.md) | interface | Identifies a socket option with a statically checked value type. |
 | [`SocketOptionDescriptor`](SocketOptionDescriptor.md) | interface | Describes an option independently of its specialized value type. |

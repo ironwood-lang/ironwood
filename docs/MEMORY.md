@@ -6,7 +6,8 @@ GC5 replaces the manual reclamation model on the migration branch. This is the
 single normal native heap model, including programs that never collect. The
 [GC0 baseline](GC0_BASELINE_AND_CONTRACTS.md) and earlier decisions describe the
 historical model; they do not authorize legacy lowering. See the
-[implementation report](GC5_IMPLEMENTATION.md) for qualification and limits.
+[GC5 implementation report](GC5_IMPLEMENTATION.md) for the cutover and
+[GC10 acceptance](GC10_ACCEPTANCE.md) for reconciled evidence and current limits.
 
 Objects, arrays, Strings, compiler-created heap values and runtime sidecars use
 pinned BDWGC 8.2.12. Storage is completely zero initialized before the dynamic
@@ -21,7 +22,8 @@ reserved declarations fail, including declarations reconstructed from format-1
 `.ironclass` and `.ironjar` embedded sources. User classes named Memory remain
 ordinary classes. The compiler never executes an unrecognized intrinsic stub.
 
-Collection is synchronous and finishes marking and sweeping before returning.
+Collection is full and synchronous on the calling application thread and
+finishes marking and sweeping before returning.
 Only this explicit operation collects. Allocation failure throws without an
 implicit collection. There are no background workers, incremental steps,
 finalizers, reference counting, write barriers, ambient stack scanning, continuous
@@ -100,17 +102,20 @@ System.liveAllocationCount() is cached at collection completion, plus successful
 language allocations since that collection. Reads do not collect or scan. Native
 scratch and fixed image objects are outside these language counts.
 
-## Temporary boundaries
+## Qualification and remaining boundaries
 
 Normal source, class and archive compilation and the entire main/testing library
-are supported. [GC6 managed bridges](GC6_IMPLEMENTATION.md) are qualified on macOS
-arm64 and Linux x86-64. Generated RootHandle anchors and ListenerRegistration
-ownership are explicit and independent of source closure and collection. Exact
+are supported. [GC6 managed bridges](GC6_IMPLEMENTATION.md), extended by
+[GC9 target/distribution qualification](GC9_LINUX_X86_64_DISTRIBUTION.md), cover
+macOS arm64, Linux arm64 and Linux x86-64 within the recorded configurations.
+Generated RootHandle anchors and ListenerRegistration ownership are explicit and independent of source closure and collection. Exact
 current/suspended segments cover collecting JVM reentry without unwinding Java.
 Every independent native image owns its collector and roots. Schema 2 binds
 required protocol versions and actual SDK/payload hashes before user execution.
 Raw shared IR, unknown foreign lifetimes, async callbacks and raw cross-image
-managed references remain unsupported. Linux arm64 and arm64e remain gated.
+managed references remain unsupported. arm64e remains unqualified. Java
+reachability alone is not a native root: an open generated handle or registration
+and the exact foreign-root protocol must authorize the lifetime.
 GC7 completes repository consumer migration and obsolete managed-free proof removal.
 [GC8](GC8_IMPLEMENTATION.md) qualifies bounded critical kernels and repeated
 resident graph/reuse phases on native macOS arm64 and, through a separate
@@ -118,5 +123,7 @@ resident graph/reuse phases on native macOS arm64 and, through a separate
 They include explicit-only collection and stable native resource balances.
 Their process memory, collector capacity and cached live counts have distinct
 scopes; RSS need not fall after
-collection. Broader target/distribution acceptance remains GC9, and this does
-not establish self-hosting readiness.
+collection. GC9 completes the focused native/distribution matrix, without
+expanding those performance workloads or the complete JDK matrix.
+[GC10 acceptance](GC10_ACCEPTANCE.md) closes integration, not compiler capacity,
+self-hosting success, release readiness or publication.

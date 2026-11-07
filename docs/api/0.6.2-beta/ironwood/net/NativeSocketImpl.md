@@ -579,7 +579,7 @@ public InetAddress getLocalAddress()
 
 Returns cached local address metadata tied to the implementation. Native delegates provide a
 wildcard before binding and retain bound metadata after close. Earlier borrowed native
-values remain alive until delegate reclamation.
+values follow managed reachability independently of delegate closure.
 
 **Returns**
 

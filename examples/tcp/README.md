@@ -25,9 +25,10 @@ are sent sequentially. General blocking clients and servers run in separate
 processes; this pattern does not provide concurrent application progress.
 
 The source closes the listener before using the accepted connection.
-Stream getters return borrowed views, while endpoint snapshots are independently
-owned. Nested cleanup closes descriptors and then frees socket graphs even when
-an operation fails. See [TcpLoopback.iron](src/main/ironwood/org/ironwood/tcp/TcpLoopback.iron)
+Stream views and endpoint snapshots follow managed reachability. Nested cleanup
+explicitly closes descriptors even when an operation fails; collection is separate
+from that resource lifecycle. See [TcpLoopback.iron](src/main/ironwood/org/ironwood/tcp/TcpLoopback.iron)
 for the complete program and [the networking member matrix](../../docs/STDLIB_N1_SOURCE_REVIEW.md)
 for the supported API. The [Milestone 2 example](../tcpnames/README.md) adds
-DNS and destination constructors. Milestones 3 through 6 remain unselected.
+DNS and destination constructors. The later blocking networking milestones are
+complete; their historical evidence retains its original source/toolchain scope.

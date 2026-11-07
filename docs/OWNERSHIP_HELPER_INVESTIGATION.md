@@ -2,6 +2,11 @@
 
 # Ownership helper-boundary investigation
 
+The investigation and implementation below describe the former managed-free
+model. GC5-GC7 supersede those heap-only helper proofs, while retaining actual
+reference effects, pool/native protocols, resource closure and D132/D133. See
+[GC7 dispositions](GC7_DISPOSITION.md). Do not restore these retired passes.
+
 2026-09-20. Baseline: `ab415661ccb6e6548d958f60ab0fc535562cef6b`, clean
 canonical `main`. macOS ARM64, Java 21.0.1, LLVM 23.1.0, ironwoodc
 0.5.1-beta. The preceding standalone-block changes were already committed.

@@ -23,7 +23,7 @@ public class UnknownHostException extends IOException {
     /**
      * Creates an exception with a copy of the supplied detail message.
      *
-     * @param message the caller-owned message to copy, or null
+     * @param message the managed message to copy, or null
      */
     public UnknownHostException(String message) {
 

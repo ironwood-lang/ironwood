@@ -15,8 +15,8 @@ public abstract class InetAddress
 ```
 
 Immutable IPv4 or IPv6 address bits with lazily cached host metadata. Factory and copy results
-are caller-owned; addresses returned by sockets and interface snapshots are borrowed. Strings
-from host-name getters are borrowed, while numeric text and raw bytes are fresh results. DNS
+are fresh managed values; sockets and interface snapshots may return shared cached values.
+Host-name getters may share text; numeric text and raw bytes are fresh results. DNS
 uses synchronous host resolution with no shared Ironwood cache. Classification, equality and
 hashing use stored bits and do not resolve names.
 
@@ -66,7 +66,7 @@ public static InetAddress getByAddress(byte[] address) throws UnknownHostExcepti
 ```
 
 Creates an address by copying network-order bytes without DNS. IPv4-mapped 16-byte inputs
-normalize to Inet4Address. The inputs remain caller-owned.
+normalize to Inet4Address. The inputs remain managed.
 
 **Parameters**
 
@@ -96,7 +96,7 @@ public static InetAddress getByAddress(String host, byte[] address) throws Unkno
 ```
 
 Creates an address by copying network-order bytes without DNS. IPv4-mapped 16-byte inputs
-normalize to Inet4Address. The inputs remain caller-owned.
+normalize to Inet4Address. The inputs remain managed.
 
 **Parameters**
 
@@ -236,7 +236,7 @@ syntax is rejected.
 
 **Returns**
 
-a fresh caller-owned address, or null for a nonliteral hostname
+a fresh managed address, or null for a nonliteral hostname
 
 
 [Back to member summary](#member-summary)
@@ -396,7 +396,7 @@ Copies the address into network-order bytes without DNS.
 
 **Returns**
 
-a fresh caller-owned array of 4 IPv4 bytes or 16 IPv6 bytes
+a fresh managed array of 4 IPv4 bytes or 16 IPv6 bytes
 
 
 [Back to member summary](#member-summary)

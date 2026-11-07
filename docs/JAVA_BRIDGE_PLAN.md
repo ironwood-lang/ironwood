@@ -2,6 +2,13 @@
 
 # Ironwood Java Bridge implementation plan
 
+GC6-GC7 supersede the managed owner/dependent/permanent/free projections and
+proof machinery below. This is the historical P0-P7 design and qualification
+record. Current producers use schema 2 / objects-gc-v1, RootHandle and
+ListenerRegistration with exact foreign/suspended roots. Use the
+[current producer guide](JAVA_BRIDGE_USAGE.md) and [GC10 acceptance](GC10_ACCEPTANCE.md);
+old release/JDK and ownership tables do not broaden current GC qualification.
+
 Status: P0-P4/P6 implementation accepted under D225; bounded P5 implementation and qualification complete.
 Work followed the maintainer's separate 2026-09-26 authorization. See
 [the durable progress log](JAVA_BRIDGE_PROGRESS.md) for current checkpoints and evidence. This document alone does not authorize implementation.

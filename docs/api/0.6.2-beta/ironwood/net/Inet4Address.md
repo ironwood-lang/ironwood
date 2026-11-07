@@ -17,8 +17,8 @@ public final class Inet4Address extends InetAddress
 **Extends:** [`InetAddress`](InetAddress.md)
 
 An immutable IPv4 value obtained from [`InetAddress`](InetAddress.md) factories and queries. Address classification
-uses the stored bits without DNS. Factory results are caller-owned; values obtained through
-socket or interface getters follow those getters' borrowing contracts.
+uses the stored bits without DNS. Factories return fresh managed values; socket and interface
+getters may return shared cached values with ordinary managed lifetimes.
 
 
 ---

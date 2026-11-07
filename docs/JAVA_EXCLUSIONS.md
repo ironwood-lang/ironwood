@@ -2,7 +2,7 @@
 
 Ironwood strives to make native development feel like Java. It keeps Java's familiar
 object model and everyday source style, while leaving out features that depend
-on a JVM, garbage collection, runtime dynamism, hidden allocation, or a
+on a JVM, automatic garbage collection, runtime dynamism, hidden allocation, or a
 shared-memory concurrency model.
 
 This guide highlights the Java features Ironwood preserves, the mechanisms it
@@ -20,18 +20,18 @@ behind. For the complete Java SE 26 feature audit, see
 | Primitive generic arguments | 💡 Ironwood design | Types such as `Box<int>` are specialized directly into native value storage. This avoids boxing and wrapper allocation. |
 | Arrays | 💡 Ironwood design | Primitive, reference, and multidimensional arrays are supported. Arrays are invariant, and child arrays are allocated explicitly so type safety, ownership, and lifetime remain visible. |
 | Exceptions | ✅ Supported | Checked and unchecked exceptions, `throw`, `catch`, `finally`, causes, and source stack traces retain familiar Java shapes. |
-| Try-with-resources syntax | ❌ Deliberately excluded | Resources are declared normally and closed in an explicit `finally` or by a [deferred void call](LANGUAGE.md#explicit-deferred-cleanup-milestone-1). This keeps cleanup order visible and keeps `close()`, which releases an external resource, separate from Memory.collect(), which reclaims unreachable managed storage. Both Java resource-header forms remain rejected. |
+| Try-with-resources syntax | ❌ Deliberately excluded | Resources are declared normally and closed in an explicit `finally` or by a [deferred void call](LANGUAGE.md#explicit-deferred-cleanup). This keeps cleanup order visible and keeps `close()`, which releases an external resource, separate from Memory.collect(), which reclaims unreachable managed storage. Both Java resource-header forms remain rejected. |
 | Cleanup failure handling | 💡 Ironwood design | If an operation such as `read()` throws first and cleanup such as `close()` throws second, the first exception remains primary. The second and any later failures are recorded as secondary exceptions in occurrence order. This rule applies to ordinary `finally` and deferred actions, not only resource cleanup. |
 | Enums and control flow | ✅ Supported | Java-shaped enums, classic and modern non-pattern `switch`, switch expressions, enhanced `for`, labeled flow, and ordinary statements are available. |
 | Strings, literals, and comments | ✅ Supported | Java-shaped strings, concatenation, text blocks, the documented escape set, and comments are supported, with raw text blocks added as an Ironwood convenience. |
 | Packages and imports | ✅ Supported | Named and unnamed packages, ordinary and wildcard imports, static imports, visibility, and public-type filename rules retain familiar Java shapes. |
 | Reusable libraries | 💡 Ironwood design | `.ironclass` and `.ironjar` files provide compile-time reuse. The final link rebuilds them into one optimized native program instead of loading or linking Java binaries at runtime. |
-| Garbage collection | ❌ Purposefully excluded | Ordinary objects are not reclaimed merely because they become unreachable. Ironwood therefore has no collector pauses or runtime GC tuning. |
+| Garbage collection | 💡 Explicit scheduling | Canonical Memory.collect() completes full marking and sweeping synchronously on the caller. Allocation never collects; there are no background workers, finalizers or conservative fallback. See [GC10 acceptance](GC10_ACCEPTANCE.md). |
 | Managed reclamation scheduling | 💡 Ironwood design | Canonical Memory.collect() reclaims unreachable graphs synchronously. Allocation never collects. No source destruction callback or manual heap mode remains. |
 | Javadoc tooling | 💡 Focused alternative | IronDocs supports a practical Javadoc-style subset and generates Markdown. The full Javadoc and custom-doclet ecosystem is outside the current scope. |
 | Raw generic types, unchecked casts, and array covariance | ❌ Deliberately excluded | These legacy compromises can weaken type safety and defer failures to runtime. Ironwood rejects them at compile time. |
 | Automatic boxing and unboxing | ❌ Deliberately excluded | An innocent-looking conversion can create a hidden wrapper with no clear owner or reclamation point. Ironwood keeps primitives as values and specializes generic code instead. |
-| Varargs | ❌ Deliberately excluded | An expanded varargs call creates a hidden array that may escape or allocate repeatedly on a hot path. Use fixed-arity overloads or an explicit caller-owned array. |
+| Varargs | ❌ Deliberately excluded | An expanded varargs call creates a hidden array that may escape or allocate repeatedly on a hot path. Use fixed-arity overloads or an explicit managed array. |
 | Lambdas, closures, and method references | ❌ Deliberately excluded | They can hide captured-object allocation and ownership. Anonymous classes provide an explicit object and lifetime for callback behavior. |
 | General annotations and annotation processing | ❌ Deliberately excluded | An open-ended metadata, processor, and reflection subsystem would enlarge the language and runtime. Ironwood provides only narrow compiler-owned directives such as `@Override`, `@Test`. |
 | Records and sealed types | ❌ Deliberately excluded | Records hide object-policy choices behind generated code. Sealed syntax is not needed for the compiler to know and optimize the complete hierarchy. |
@@ -48,7 +48,7 @@ behind. For the complete Java SE 26 feature audit, see
 The rule is simple: Ironwood follows Java where the result remains suitable for a
 small, high-performance native runtime. When a Java feature would hide
 allocation, weaken type safety, require runtime dynamism, or assume garbage
-collection, Ironwood makes the difference explicit.
+automatic collection, Ironwood makes the difference explicit.
 
 The networking migration applies this rule to extension APIs as well.
 It replaces Java's boxed `SocketOptions` protocol with primitive-specialized

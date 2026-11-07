@@ -177,7 +177,7 @@ public class NanoBench {
         return builder.toString();
     }
 
-    /** Returns a fresh caller-owned report String, including a trailing blank line. */
+    /** Returns a fresh managed report String, including a trailing blank line. */
     public final String results() {
 
         NanoBench.formatResults(this.builder, this.measurements, getAverage(), this.minTime, this.maxTime);

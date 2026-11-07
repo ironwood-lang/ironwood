@@ -76,7 +76,7 @@ Creates an exception with copied detail text and a zero transfer count.
 
 | Name | Description |
 | --- | --- |
-| `message` | the caller-owned message to copy, or null |
+| `message` | the managed message to copy, or null |
 
 
 [Back to member summary](#member-summary)

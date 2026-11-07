@@ -86,7 +86,7 @@ The arguments are borrowed for the call; nothing is retained.
 
 **Returns**
 
-a fresh caller-owned result
+a fresh managed result
 
 
 [Back to member summary](#member-summary)

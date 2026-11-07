@@ -86,9 +86,9 @@ public class ServerSocket implements Closeable {
     }
 
     /**
-     * Creates an unbound facade borrowing a non-null caller-owned implementation. Close cascades
-     * to it. Keep its resource lifecycle and delegates valid until
-     * facade reclamation.
+     * Creates an unbound facade borrowing a non-null managed implementation. Close cascades
+     * to it. Managed references retain it and its delegates; resource state must remain valid
+     * for each operation, independently of collection.
      *
      * @param implementation the non-null implementation to borrow
      * @throws NullPointerException if implementation is null
@@ -205,7 +205,7 @@ public class ServerSocket implements Closeable {
     }
 
     /**
-     * Accepts into a caller-owned empty destination. Borrows its implementation and transfers the
+     * Accepts into a managed empty destination. Borrows its implementation and transfers the
      * accepted resource exactly once; the listener never owns the destination. The destination
      * must be unconnected, unbound and open. Acceptance failure before transfer releases the newly
      * acquired native resource.
@@ -294,7 +294,7 @@ public class ServerSocket implements Closeable {
     /**
      * Copies the bound address and port into an independent endpoint, including after close.
      *
-     * @return a fresh caller-owned endpoint, or null before binding
+     * @return a fresh managed endpoint, or null before binding
      */
     public SocketAddress getLocalSocketAddress() {
 
@@ -304,7 +304,7 @@ public class ServerSocket implements Closeable {
 
     /**
      * Returns the implementation's read-only option inventory. The inventory and tokens are
-     * borrowed, not caller-owned; built-in inventories live for the process. Custom inventories
+     * borrowed, not managed; built-in inventories live for the process. Custom inventories
      * remain tied to their implementation. Implementation-only timeout and urgent-data tokens are
      * excluded.
      *
@@ -318,7 +318,7 @@ public class ServerSocket implements Closeable {
 
     /**
      * Reads a supported typed option. The native implementation uses primitive values without
-     * boxing. Custom implementations define reference-result ownership through their ordinary
+     * boxing. Custom implementations preserve actual reference-result retention through their ordinary
      * source effects.
      *
      * @param <T> the option value type

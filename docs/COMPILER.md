@@ -1015,7 +1015,7 @@ toolchains. The C runtime exports:
 - the U2/U5 whole-file read/write, metadata, directory iteration,
   current-directory, and lexical path helpers, which receive compiler-validated
   values, keep native handles and scratch storage private, return exact
-  caller-owned language results, and report categorized failures for checked
+  managed language results, and report categorized failures for checked
   Ironwood exceptions;
 - `ironwood_parse_float` and `ironwood_parse_double`, which receive
   grammar-validated UTF-16, normalize into bounded stack storage, and return
@@ -1330,7 +1330,7 @@ typed-IR, and native integration tests. Packaged
 compiler and IDK archives include the runtime and the library sources/classes.
 Package smoke testing covers the packaged milestone and post-milestone examples,
 including native primitive-generic specialization,
-caller-owned String-result reclamation, plus source discovery and `.ironclass`
+managed String results and explicit phase collection, plus source discovery and `.ironclass`
 classpath consumption using only bundled inputs.
 
 ## Toolchain discovery

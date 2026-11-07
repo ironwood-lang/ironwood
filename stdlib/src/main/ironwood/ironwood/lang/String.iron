@@ -541,7 +541,7 @@ public final class String implements CharSequence, Comparable<String> {
      *
      * @param value integer to render
      * @param width nonnegative minimum field width; zero adds no padding
-     * @return a caller-owned String, never truncated to fit the width
+     * @return a managed String, never truncated to fit the width
      * @throws IllegalArgumentException if width is negative
      */
     public static String formatDecimal(long value, int width) {
@@ -585,7 +585,7 @@ public final class String implements CharSequence, Comparable<String> {
      * @param value floating value to render
      * @param width nonnegative minimum field width; zero adds no padding
      * @param precision fractional digit count from zero through nine
-     * @return a caller-owned String, never truncated to fit the width
+     * @return a managed String, never truncated to fit the width
      * @throws IllegalArgumentException if width or precision is out of range,
      *         or the finite magnitude exceeds the long-based scaling range
      */

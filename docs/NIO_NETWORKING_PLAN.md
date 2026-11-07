@@ -2,6 +2,11 @@
 
 # NIO TCP channels and selectors roadmap
 
+Apply the current [managed memory contract](MEMORY.md) to any separately
+selected work. Earlier managed-free/owning-container premises are superseded by
+GC5-GC7; native descriptor, buffer/resource protocols and explicit close remain.
+GC10 does not select these pending milestones.
+
 Status: Roadmap staging accepted on 2026-09-18 under
 [D167](DECISIONS.md#d167---stage-nio-tcp-channels-and-selectors-as-one-public-capability).
 All four milestones below are pending and unselected. This document records

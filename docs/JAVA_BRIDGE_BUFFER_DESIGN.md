@@ -2,6 +2,11 @@
 
 # P7c0 bounded byte-view design
 
+GC6-GC7 supersede the old native-facade free/ownership references below.
+The JVM-owned ByteView storage, bounds, permissions and synchronous confinement
+contract remain; it still has no close/free API. Exact managed/foreign owners
+cover supported collecting reentry. See [current usage](JAVA_BRIDGE_USAGE.md).
+
 Status: P7c0 accepted; P7c1 implementation authorized on 2026-09-28. The
 maintainer explicitly approved JVM-managed storage, then requested proceeding
 to P7c1 after the remaining shared-type/dependency gate was reported. That

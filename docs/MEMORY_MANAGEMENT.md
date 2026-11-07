@@ -35,6 +35,10 @@ then clearUnusedReferences() when that retention is no longer wanted. Primitive
 clear stays cheap. Pools intentionally retain reusable entries.
 
 Preparation OOM is catchable and reclaims nothing. Corrupt metadata refuses
-before collection. Native bridge/shared-library output, Linux arm64 and arm64e
-remain explicitly unqualified. Whole-project consumer migration and performance
-acceptance follow GC5; old examples containing reclamation syntax require migration.
+before collection. Maintained consumers have migrated under [GC7](GC7_IMPLEMENTATION.md).
+[GC8](GC8_IMPLEMENTATION.md) and its Linux follow-up qualify bounded critical
+kernels and resident graphs; [GC9](GC9_LINUX_X86_64_DISTRIBUTION.md) qualifies
+native/managed distribution on macOS arm64, Linux arm64 and Linux x86-64.
+arm64e remains unqualified. See [GC10 acceptance](GC10_ACCEPTANCE.md) for exact
+configuration limits and [Java Bridge usage](JAVA_BRIDGE_USAGE.md) for explicit
+anchors and registrations. Java reachability alone does not root native objects.

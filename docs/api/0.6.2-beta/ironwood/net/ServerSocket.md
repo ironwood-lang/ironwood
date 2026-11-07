@@ -37,12 +37,12 @@ TCP writes are blocking; SO_TIMEOUT bounds accept only.
 | [`ServerSocket(int)`](#member-ServerSocket-28-int-29-) | Creates, binds and starts a TCP listener. |
 | [`ServerSocket(int,int)`](#member-ServerSocket-28-int-2c-int-29-) | Creates, binds and starts a TCP listener. |
 | [`ServerSocket(int,int,InetAddress)`](#member-ServerSocket-28-int-2c-int-2c-InetAddress-29-) | Creates, binds and starts a TCP listener. |
-| [`ServerSocket(SocketImpl)`](#member-ServerSocket-28-SocketImpl-29-) | Creates an unbound facade borrowing a non-null caller-owned implementation. |
+| [`ServerSocket(SocketImpl)`](#member-ServerSocket-28-SocketImpl-29-) | Creates an unbound facade borrowing a non-null managed implementation. |
 | [`setSocketFactory(SocketImplFactory)`](#member-setSocketFactory-28-SocketImplFactory-29-) | Registers the factory used by future listeners. |
 | [`bind(SocketAddress)`](#member-bind-28-SocketAddress-29-) | Binds and begins listening, copying retained endpoint metadata in the native implementation. |
 | [`bind(SocketAddress,int)`](#member-bind-28-SocketAddress-2c-int-29-) | Binds and begins listening, copying retained endpoint metadata in the native implementation. |
 | [`accept()`](#member-accept-28--29-) | Waits for a connection and transfers its native resource into a new client socket from the client factory. |
-| [`implAccept(Socket)`](#member-implAccept-28-Socket-29-) | Accepts into a caller-owned empty destination. |
+| [`implAccept(Socket)`](#member-implAccept-28-Socket-29-) | Accepts into a managed empty destination. |
 | [`close()`](#member-close-28--29-) | Closes the resource idempotently and marks this facade closed before delegating. |
 | [`isClosed()`](#member-isClosed-28--29-) | Reports whether close has been invoked, including when native close reported an error. |
 | [`isBound()`](#member-isBound-28--29-) | Reports whether binding completed successfully. |
@@ -170,9 +170,9 @@ the operating system may adjust the hint. Construction failure closes any acquir
 protected ServerSocket(SocketImpl implementation)
 ```
 
-Creates an unbound facade borrowing a non-null caller-owned implementation. Close cascades
-to it; free does not reclaim it. Keep the implementation and its delegates alive until
-facade reclamation.
+Creates an unbound facade borrowing a non-null managed implementation. Close cascades
+to it. Managed references retain it and its delegates; resource state must remain valid
+for each operation, independently of collection.
 
 **Parameters**
 
@@ -312,7 +312,7 @@ a fresh connected socket owned by the caller
 protected final void implAccept(Socket destination) throws IOException
 ```
 
-Accepts into a caller-owned empty destination. Borrows its implementation and transfers the
+Accepts into a managed empty destination. Borrows its implementation and transfers the
 accepted resource exactly once; the listener never owns the destination. The destination
 must be unconnected, unbound and open. Acceptance failure before transfer releases the newly
 acquired native resource.
@@ -346,7 +346,7 @@ public void close() throws IOException
 
 Closes the resource idempotently and marks this facade closed before delegating. Also closes
 a caller-supplied implementation without adopting it. Managed storage and cached metadata
-remain until free; prior binding history is preserved.
+remain reachable with the object; prior binding history is preserved.
 
 **Throws**
 
@@ -437,7 +437,7 @@ Copies the bound address and port into an independent endpoint, including after 
 
 **Returns**
 
-a fresh caller-owned endpoint, or null before binding
+a fresh managed endpoint, or null before binding
 
 
 [Back to member summary](#member-summary)
@@ -451,7 +451,7 @@ public UnmodifiableList<SocketOptionDescriptor> supportedOptions()
 ```
 
 Returns the implementation's read-only option inventory. The inventory and tokens are
-borrowed, not caller-owned; built-in inventories live for the process. Custom inventories
+borrowed, not managed; built-in inventories live for the process. Custom inventories
 remain tied to their implementation. Implementation-only timeout and urgent-data tokens are
 excluded.
 
@@ -471,7 +471,7 @@ public <T> T getOption(SocketOption<T> option) throws IOException
 ```
 
 Reads a supported typed option. The native implementation uses primitive values without
-boxing. Custom implementations define reference-result ownership through their ordinary
+boxing. Custom implementations preserve actual reference-result retention through their ordinary
 source effects.
 
 **Parameters**

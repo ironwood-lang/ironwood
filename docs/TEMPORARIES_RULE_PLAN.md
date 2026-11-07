@@ -2,6 +2,11 @@
 
 # Unnamed temporary reclamation plan
 
+Historical implementation record. GC5-GC7 supersede implicit managed temporary
+destruction and its proof machinery. Operand evaluation, exception order and
+explicit native-resource cleanup remain applicable. Current temporary values
+follow [managed reachability](MEMORY.md); this plan authorizes no restoration.
+
 Status: Proposed on 2026-09-25. Milestone 0, the contract review, was
 completed by the maintainer on 2026-09-25 with the decisions recorded in
 section 5. All four milestones and the example and project adoption were

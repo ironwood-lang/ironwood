@@ -468,7 +468,7 @@ public class Bench {
         return builder.toString();
     }
 
-    /** Returns a fresh caller-owned report including percentiles. */
+    /** Returns a fresh managed report including percentiles. */
     public String results() {
 
         return results(true);
