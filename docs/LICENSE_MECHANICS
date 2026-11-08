@@ -212,3 +212,9 @@ under `target/` are excluded; force-tracked source there is still checked.
 For source exports without a Git index, the audit scans source files while
 pruning generated `target/` directories. Third-party notices and distribution
 licensing obligations remain as specified above.
+
+Git trust for this audit is limited to its own checkout path and the current
+command, allowing shared container mounts without changing global Git settings.
+Equivalent directory aliases are accepted; a different repository root is
+rejected. Git inspection and inventory failures stop the audit and retain the
+underlying diagnostic.

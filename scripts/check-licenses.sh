@@ -12,13 +12,21 @@ IRONWOOD_SOURCE_LIST=$(mktemp)
 trap 'rm -f "$IRONWOOD_SOURCE_LIST"' EXIT
 
 if [[ -e "$IRONWOOD_PROJECT_ROOT/.git" || -L "$IRONWOOD_PROJECT_ROOT/.git" ]]; then
-    if [[ $(git -C "$IRONWOOD_PROJECT_ROOT" rev-parse --show-toplevel 2>/dev/null || true) != "$IRONWOOD_PROJECT_ROOT" ]]; then
+    # A shared container mount can have another owner. Trust only the checkout
+    # whose audit script is already running, for these Git commands alone.
+    IRONWOOD_AUDIT_GIT=(git -C "$IRONWOOD_PROJECT_ROOT" -c "safe.directory=$IRONWOOD_PROJECT_ROOT")
+    if ! IRONWOOD_REPOSITORY_ROOT=$("${IRONWOOD_AUDIT_GIT[@]}" rev-parse --show-toplevel 2> "$IRONWOOD_SOURCE_LIST"); then
         echo "error: cannot inspect repository for license audit" >&2
+        cat "$IRONWOOD_SOURCE_LIST" >&2
+        exit 1
+    fi
+    if [[ ! "$IRONWOOD_REPOSITORY_ROOT" -ef "$IRONWOOD_PROJECT_ROOT" ]]; then
+        echo "error: repository root mismatch for license audit: $IRONWOOD_REPOSITORY_ROOT (expected $IRONWOOD_PROJECT_ROOT)" >&2
         exit 1
     fi
     # Include tracked files even when ignored, plus new maintained source. SDK
     # caches and generated target output do not belong to the source inventory.
-    if ! git -C "$IRONWOOD_PROJECT_ROOT" ls-files -z --cached --others --exclude-standard \
+    if ! "${IRONWOOD_AUDIT_GIT[@]}" ls-files -z --cached --others --exclude-standard \
             -- "${IRONWOOD_SOURCE_ROOTS[@]}" > "$IRONWOOD_SOURCE_LIST"; then
         echo "error: cannot enumerate source files for license audit" >&2
         exit 1
