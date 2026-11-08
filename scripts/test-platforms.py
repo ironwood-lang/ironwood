@@ -24,6 +24,7 @@ PLATFORMS = ("macos-arm64", "linux-arm64", "linux-x86_64")
 PROFILE = "ironwood-tests"
 DOCKER = ["docker", "--context", "colima-" + PROFILE]
 PROGRESS = re.compile(r"^\d{2}:\d{2}:\d{2}\.\d{3} - \d+/\d+ - ")
+SUITE_SUMMARY = re.compile(r"^(?:PASS: (\d+) compiler tests|FAIL: (\d+) test\(s\), (\d+) passed)$")
 IMAGE_INPUTS = ("scripts/platform-tests/Dockerfile", "packaging/idk-environment.yml",
                 "scripts/prepare-tls.py", "packaging/tls-dependencies.properties", "LICENSES/MPL-2.0.txt")
 
@@ -386,18 +387,27 @@ def execute(root, args):
                 with subprocess.Popen(command, cwd=root, stdout=subprocess.PIPE,
                                       stderr=subprocess.STDOUT, text=True, start_new_session=True) as process:
                     try:
+                        timestamped_progress = False
                         for line in process.stdout:
                             print(line, end="", flush=True)
                             output.write(line)
                             output.flush()
-                            message = PROGRESS.sub("", line)
-                            if message.startswith("ok - "):
-                                result["passed_count"] += 1
-                            if message.startswith("not ok - "):
-                                failures.append(message.removeprefix("not ok - ").strip())
-                                result["seconds"] = round(time.monotonic() - started, 2)
-                                save_report(report, result)
-                            if line.startswith(("PASS:", "FAIL:")):
+                            progress = PROGRESS.match(line)
+                            if progress:
+                                timestamped_progress = True
+                            if progress or not timestamped_progress:
+                                message = PROGRESS.sub("", line)
+                                if message.startswith("ok - "):
+                                    result["passed_count"] += 1
+                                if message.startswith("not ok - "):
+                                    failures.append(message.removeprefix("not ok - ").strip())
+                                    result["seconds"] = round(time.monotonic() - started, 2)
+                                    save_report(report, result)
+                            summary = SUITE_SUMMARY.fullmatch(line.rstrip("\r\n"))
+                            if summary:
+                                # Nested native suites also print progress and summaries.
+                                # CompilerTests owns the final count for this selection.
+                                result["passed_count"] = int(summary[1] or summary[3])
                                 completed = True
                         exit_code = process.wait()
                     except KeyboardInterrupt:

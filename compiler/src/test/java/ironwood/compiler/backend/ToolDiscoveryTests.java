@@ -88,19 +88,27 @@ public final class ToolDiscoveryTests {
             Path fake = Files.createDirectories(root.resolve("fake"));
             Files.writeString(fake.resolve("xcrun"), "#!/bin/sh\ntouch " + marker + "\necho /fake/sdk\n");
             Files.setPosixFilePermissions(fake.resolve("xcrun"), PosixFilePermissions.fromString("rwx------"));
-            Process real = new ProcessBuilder("/usr/bin/xcrun", "--show-sdk-path").start();
+            ProcessBuilder realBuilder = new ProcessBuilder("/usr/bin/xcrun", "--show-sdk-path");
+            realBuilder.environment().remove("SDKROOT");
+            Process real = realBuilder.start();
             String sdk = new String(real.getInputStream().readAllBytes(), StandardCharsets.UTF_8).strip();
             require(real.waitFor() == 0, "xcrun failed");
             Map<String, String> hostile = Map.of("PATH", fake + ":/usr/bin:/bin");
             require(reference("sdk", hostile).equals(sdk + "\n"), "TLS SDK through PATH");
             require(reference("sdk", Map.of("PATH", fake.toString(), "SDKROOT", "/explicit/sdk"))
                     .equals("/explicit/sdk\n"), "SDKROOT is used as given");
-            Process macosx = new ProcessBuilder("/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path").start();
+            ProcessBuilder macBuilder = new ProcessBuilder("/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path");
+            macBuilder.environment().remove("SDKROOT");
+            Process macosx = macBuilder.start();
             String macSdk = Path.of(new String(macosx.getInputStream().readAllBytes(), StandardCharsets.UTF_8).strip())
                     .toAbsolutePath().normalize().toString();
             require(macosx.waitFor() == 0, "xcrun --sdk macosx failed");
             String mac = reference("mac", hostile);
             require(mac.startsWith(macSdk + "\n"), "Apple SDK through PATH: " + mac);
+            Path selectedSdk = root.resolve("selected SDK");
+            Files.createSymbolicLink(selectedSdk, Path.of(macSdk));
+            require(reference("mac", Map.of("PATH", hostile.get("PATH"), "SDKROOT", selectedSdk.toString()))
+                    .startsWith(selectedSdk + "\n"), "explicit SDK alias is preserved");
             require(!Files.exists(marker), "a PATH-selected xcrun ran");
         } finally {
             delete(root);

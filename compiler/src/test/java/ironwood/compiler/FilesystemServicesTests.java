@@ -389,6 +389,11 @@ final class FilesystemServicesTests {
     /** Runs a Java reference in a fresh JVM with inherited options cleared. */
     static String reference(String path, String classPath, List<String> arguments, Path directory,
                             Map<String, String> environment, String... options) throws Exception {
+        return referenceWithClearedEnvironment(path, classPath, arguments, directory, environment, List.of(), options);
+    }
+
+    static String referenceWithClearedEnvironment(String path, String classPath, List<String> arguments, Path directory,
+                            Map<String, String> environment, List<String> clearedVariables, String... options) throws Exception {
         Path java = Path.of(System.getProperty("java.home"), "bin", "java");
         List<String> command = new ArrayList<>(List.of(java.toString()));
         command.addAll(List.of(options));
@@ -401,6 +406,7 @@ final class FilesystemServicesTests {
         for (String variable : List.of("JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS", "TMPDIR")) {
             builder.environment().remove(variable);
         }
+        for (String variable : clearedVariables) builder.environment().remove(variable);
         builder.environment().putAll(environment);
         Process process = builder.start();
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);

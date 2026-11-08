@@ -452,6 +452,26 @@ class PlatformWorkflowTests(unittest.TestCase):
         self.assertRegex(summary, r"linux-arm64\s+INTERRUPTED\s+0\s+1")
         self.assertRegex(summary, r"macos-arm64\s+NOT RUN\s+-\s+-\s+-")
 
+    def test_compiler_summary_excludes_nested_results_and_requires_suite_completion(self):
+        self.prepare_gc_sdk("macos-arm64")
+        self.enterContext(patch.object(workflow, "run"))
+        nested = ["ok - Native case"] * 20 + ["not ok - Expected native failure",
+                                               "PASS: 18 passed, 0 skipped, 18 total"]
+        for tail, code, passed, failures, completed in (
+                (["PASS: 1 compiler tests"], 0, 1, [], True),
+                (["12:23:23.003 - 2/2 - not ok - Example", "FAIL: 1 test(s), 1 passed"], 1, 1, ["Example"], True),
+                ([], 1, 1, [], False)):
+            with self.subTest(tail=tail):
+                lines = ["12:23:23.003 - 1/1 - ok - First", *nested, *tail]
+                script = self.write("scripts/test.sh", "#!/bin/sh\ncat <<'RESULTS'\n"
+                                    + "\n".join(lines) + "\nRESULTS\nexit " + str(code) + "\n")
+                script.chmod(0o755)
+                self.assertEqual(code, self.execute("--platform", "macos-arm64", "--test", "Example"))
+                report = json.loads((self.root / "workspace/platform-tests/macos-arm64.json").read_text())
+                self.assertEqual(passed, report["passed_count"])
+                self.assertEqual(failures, report["failed_tests"])
+                self.assertEqual(completed, report["completed"])
+
     def test_legacy_failure_lines_are_still_recognized(self):
         self.prepare_gc_sdk("macos-arm64")
         self.enterContext(patch.object(workflow, "run"))

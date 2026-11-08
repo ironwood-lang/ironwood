@@ -59,9 +59,13 @@ class Main {
         clangVersion.add(clang).add("--version");
         answer(print, "clang ", probes.output(clangVersion, failure), true);
         if (!mac) return;
-        Command sdkPath = new Command(4);
-        sdkPath.add("/usr/bin/xcrun").add("--sdk").add("macosx").add("--show-sdk-path");
-        String sdk = probes.output(sdkPath, failure);
+        // Match MacNativeTools: an explicit SDK keeps its spelling and skips discovery.
+        String sdk = System.getenv("SDKROOT");
+        if (sdk == null) {
+            Command sdkPath = new Command(4);
+            sdkPath.add("/usr/bin/xcrun").add("--sdk").add("macosx").add("--show-sdk-path");
+            sdk = probes.output(sdkPath, failure);
+        }
         answer(print, "sdk ", sdk, false);
         Command linkerPath = new Command(5);
         linkerPath.add("/usr/bin/xcrun").add("--sdk").add("macosx").add("--find").add("ld");

@@ -357,7 +357,9 @@ selected platform's result, passed/failed counts, and elapsed time (`HH:MM:SS`),
 plus total test time. It identifies full, selected, or retried tests and labels
 interrupted, incomplete, unrun, and skipped platforms explicitly. The total sums
 platform runtimes and excludes VM setup and preflight checks. Setup and dry runs
-do not print test results.
+do not print test results. The passed count comes from the final `CompilerTests`
+summary, excluding nested native-suite progress. A nested suite summary does not
+mark the compiler run complete.
 
 Reports are created when a platform starts and updated as failures occur. Ctrl+C,
 terminal hangup, and termination requests stop the current test process and its

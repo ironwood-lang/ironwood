@@ -3,6 +3,7 @@
 package ironwood.compiler;
 
 import ironwood.compiler.backend.LlvmToolchain;
+import ironwood.compiler.backend.MacNativeTools;
 import ironwood.compiler.source.SourceFile;
 
 import java.nio.charset.StandardCharsets;
@@ -10,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -116,21 +118,39 @@ final class DriverAdapterTests {
         try {
             Path helper = ProcessRunnerTests.helper(root);
             Path temporary = Files.createDirectories(root.resolve("tmp"));
-            String answers = reference(REFERENCE, FilesystemServicesTests.CLASSES,
-                    List.of("toolchain", toolchain.home().toString()), null, Map.of());
-            int probes = System.getProperty("os.name").startsWith("Mac") ? 6 : 2;
-            String counters = "cold: launches " + probes + " logs " + probes + "/" + probes + " bytes read retained some\n"
-                    + "repeated: launches " + probes + " logs " + probes + "/" + probes + " bytes read retained some\n"
-                    + "fresh invocation: launches " + probes + " logs " + probes + "/" + probes
-                    + " bytes read retained some\nmissing tool -> failed\nfailing probe twice -> launches 2\n"
-                    + "oversized output -> failed explicitly\nafter failures: launches " + (probes + 3) + " logs "
-                    + (probes + 4) + "/" + (probes + 4) + " bytes read retained some\n";
-            for (Path executable : links(root, "compiler_discovery_probes", List.of("Command", "Probes", "ProbeRecord",
-                    "TreeDeletion"))) {
-                String output = runCapture(List.of(executable.toString(), toolchain.home().toString(), helper.toString()),
-                        null, Map.of("TMPDIR", temporary.toString()));
-                require(output.equals(answers + counters), "probes:\n" + output + "\nversus\n" + answers + counters);
-                require(entries(temporary).isEmpty(), "probe scratch remains: " + entries(temporary));
+            List<Path> executables = links(root, "compiler_discovery_probes", List.of("Command", "Probes", "ProbeRecord",
+                    "TreeDeletion"));
+            boolean mac = System.getProperty("os.name").startsWith("Mac");
+            record ProbeEnvironment(Map<String, String> variables, List<String> cleared, int launches) {}
+            List<ProbeEnvironment> environments = new ArrayList<>();
+            int inheritedProbes = mac ? 6 : 2;
+            if (mac && System.getenv("SDKROOT") != null) inheritedProbes--;
+            environments.add(new ProbeEnvironment(Map.of(), List.of(), inheritedProbes));
+            if (mac) {
+                // Compile with the qualified SDK, then vary only the child discovery environment.
+                environments.add(new ProbeEnvironment(Map.of(), List.of("SDKROOT"), 6));
+                Path alias = root.resolve("SDK alias.sdk");
+                Files.createSymbolicLink(alias, MacNativeTools.discover().sdk());
+                environments.add(new ProbeEnvironment(Map.of("SDKROOT", alias.toString()), List.of(), 5));
+            }
+            for (ProbeEnvironment environment : environments) {
+                String answers = FilesystemServicesTests.referenceWithClearedEnvironment(REFERENCE, FilesystemServicesTests.CLASSES,
+                        List.of("toolchain", toolchain.home().toString()), null, environment.variables(), environment.cleared());
+                int probes = environment.launches();
+                String counters = "cold: launches " + probes + " logs " + probes + "/" + probes + " bytes read retained some\n"
+                        + "repeated: launches " + probes + " logs " + probes + "/" + probes + " bytes read retained some\n"
+                        + "fresh invocation: launches " + probes + " logs " + probes + "/" + probes
+                        + " bytes read retained some\nmissing tool -> failed\nfailing probe twice -> launches 2\n"
+                        + "oversized output -> failed explicitly\nafter failures: launches " + (probes + 3) + " logs "
+                        + (probes + 4) + "/" + (probes + 4) + " bytes read retained some\n";
+                for (Path executable : executables) {
+                    Map<String, String> variables = new HashMap<>(environment.variables());
+                    variables.put("TMPDIR", temporary.toString());
+                    String output = runCapture(List.of(executable.toString(), toolchain.home().toString(), helper.toString()),
+                            null, variables, environment.cleared().toArray(String[]::new));
+                    require(output.equals(answers + counters), "probes:\n" + output + "\nversus\n" + answers + counters);
+                    require(entries(temporary).isEmpty(), "probe scratch remains: " + entries(temporary));
+                }
             }
         } finally {
             delete(root);
@@ -262,12 +282,14 @@ final class DriverAdapterTests {
         return "exit " + process.exitValue() + "\n" + out + "--\n" + err;
     }
 
-    private static String runCapture(List<String> command, Path directory, Map<String, String> environment)
+    private static String runCapture(List<String> command, Path directory, Map<String, String> environment,
+                                     String... clearedVariables)
             throws Exception {
         ProcessBuilder builder = new ProcessBuilder(command).redirectError(ProcessBuilder.Redirect.DISCARD);
         if (directory != null) builder.directory(directory.toFile());
         builder.environment().remove("TMPDIR");
         builder.environment().remove("IRONWOOD_ALLOCATION_LIMIT");
+        for (String variable : clearedVariables) builder.environment().remove(variable);
         builder.environment().putAll(environment);
         Process process = builder.start();
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
