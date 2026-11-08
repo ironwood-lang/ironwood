@@ -205,3 +205,10 @@ Before committing a port:
 OpenJDK code without an express Classpath Exception, code under an unrecognized
 license, or code whose origin cannot be established must not be imported until
 its licensing is reviewed and recorded.
+
+The repository license audit checks tracked files and non-ignored new source
+within the maintained source roots. Ignored build output and dependency caches
+under `target/` are excluded; force-tracked source there is still checked.
+For source exports without a Git index, the audit scans source files while
+pruning generated `target/` directories. Third-party notices and distribution
+licensing obligations remain as specified above.

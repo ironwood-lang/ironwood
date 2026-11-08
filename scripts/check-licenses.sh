@@ -7,6 +7,32 @@ IRONWOOD_SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 IRONWOOD_PROJECT_ROOT=$(CDPATH= cd -- "$IRONWOOD_SCRIPT_DIR/.." && pwd)
 IRONWOOD_FAILURES=0
 IRONWOOD_DERIVED_COUNT=0
+IRONWOOD_SOURCE_ROOTS=(compiler/src runtime stdlib/src examples projects integration-tests scripts packaging ide .github)
+IRONWOOD_SOURCE_LIST=$(mktemp)
+trap 'rm -f "$IRONWOOD_SOURCE_LIST"' EXIT
+
+if [[ -e "$IRONWOOD_PROJECT_ROOT/.git" || -L "$IRONWOOD_PROJECT_ROOT/.git" ]]; then
+    if [[ $(git -C "$IRONWOOD_PROJECT_ROOT" rev-parse --show-toplevel 2>/dev/null || true) != "$IRONWOOD_PROJECT_ROOT" ]]; then
+        echo "error: cannot inspect repository for license audit" >&2
+        exit 1
+    fi
+    # Include tracked files even when ignored, plus new maintained source. SDK
+    # caches and generated target output do not belong to the source inventory.
+    if ! git -C "$IRONWOOD_PROJECT_ROOT" ls-files -z --cached --others --exclude-standard \
+            -- "${IRONWOOD_SOURCE_ROOTS[@]}" > "$IRONWOOD_SOURCE_LIST"; then
+        echo "error: cannot enumerate source files for license audit" >&2
+        exit 1
+    fi
+else
+    # Source exports have no Git index. Their target directories are generated
+    # output, while ordinary source remains subject to the same header checks.
+    IRONWOOD_SOURCE_DIRECTORIES=()
+    for IRONWOOD_SOURCE_ROOT in "${IRONWOOD_SOURCE_ROOTS[@]}"; do
+        IRONWOOD_SOURCE_DIRECTORIES+=("$IRONWOOD_PROJECT_ROOT/$IRONWOOD_SOURCE_ROOT")
+    done
+    find "${IRONWOOD_SOURCE_DIRECTORIES[@]}" -type d -name target -prune -o \
+        -type f -print0 > "$IRONWOOD_SOURCE_LIST"
+fi
 
 IRONWOOD_REQUIRED_LICENSE_FILES=(
     LICENSE
@@ -45,6 +71,14 @@ for IRONWOOD_REQUIRED_LICENSE_FILE in "${IRONWOOD_REQUIRED_LICENSE_FILES[@]}"; d
 done
 
 while IFS= read -r -d '' IRONWOOD_SOURCE_FILE; do
+    if [[ "$IRONWOOD_SOURCE_FILE" != /* ]]; then
+        IRONWOOD_SOURCE_FILE="$IRONWOOD_PROJECT_ROOT/$IRONWOOD_SOURCE_FILE"
+    fi
+    [[ -f "$IRONWOOD_SOURCE_FILE" && ! -L "$IRONWOOD_SOURCE_FILE" ]] || continue
+    case "$IRONWOOD_SOURCE_FILE" in
+        *.java|*.iron|*.c|*.h|*.cpp|*.hpp|*.sh|*.yml|*.yaml) ;;
+        *) continue ;;
+    esac
     IRONWOOD_RELATIVE_FILE=${IRONWOOD_SOURCE_FILE#"$IRONWOOD_PROJECT_ROOT/"}
     IRONWOOD_SPDX_LINE=$(grep -m 1 'SPDX-License-Identifier:' "$IRONWOOD_SOURCE_FILE" 2>/dev/null         | sed 's/^.*SPDX-License-Identifier:/SPDX-License-Identifier:/'         | sed 's/[[:space:]]*\*\/[[:space:]]*$//' || true)
 
@@ -89,9 +123,7 @@ while IFS= read -r -d '' IRONWOOD_SOURCE_FILE; do
             IRONWOOD_FAILURES=$((IRONWOOD_FAILURES + 1))
             ;;
     esac
-done < <(
-    find         "$IRONWOOD_PROJECT_ROOT/compiler/src"         "$IRONWOOD_PROJECT_ROOT/runtime"         "$IRONWOOD_PROJECT_ROOT/stdlib/src"         "$IRONWOOD_PROJECT_ROOT/examples"         "$IRONWOOD_PROJECT_ROOT/projects"         "$IRONWOOD_PROJECT_ROOT/integration-tests"         "$IRONWOOD_PROJECT_ROOT/scripts"         "$IRONWOOD_PROJECT_ROOT/packaging"         "$IRONWOOD_PROJECT_ROOT/ide"         "$IRONWOOD_PROJECT_ROOT/.github"         -type f \(             -name '*.java' -o             -name '*.iron' -o             -name '*.c' -o             -name '*.h' -o             -name '*.cpp' -o             -name '*.hpp' -o             -name '*.sh' -o             -name '*.yml' -o             -name '*.yaml'         \) -print0
-)
+done < "$IRONWOOD_SOURCE_LIST"
 
 IRONWOOD_MAKEFILE_SPDX=$(grep -m 1 'SPDX-License-Identifier:' "$IRONWOOD_PROJECT_ROOT/Makefile" || true)
 if [[ "$IRONWOOD_MAKEFILE_SPDX" != "# SPDX-License-Identifier: MIT OR Apache-2.0" ]]; then
