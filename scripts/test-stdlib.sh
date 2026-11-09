@@ -22,6 +22,34 @@ if [[ $# -ne 0 ]]; then
     exit 2
 fi
 
+# Reuse the platform runner's prepared inputs without downloading or building an SDK.
+if [[ ! ${IRONWOOD_GC_HOME+x} ]]; then
+    IRONWOOD_TEST_GC_BUNDLED="$IRONWOOD_TEST_PROJECT_ROOT/toolchain/ironwood-gc"
+    if [[ -e "$IRONWOOD_TEST_GC_BUNDLED" || -L "$IRONWOOD_TEST_GC_BUNDLED" ]]; then
+        export IRONWOOD_GC_HOME="$IRONWOOD_TEST_GC_BUNDLED"
+    else
+        case "$(uname -sm)" in
+            "Darwin arm64") IRONWOOD_TEST_GC_PLATFORM=macos-arm64 ;;
+            "Linux aarch64"|"Linux arm64") IRONWOOD_TEST_GC_PLATFORM=linux-arm64 ;;
+            "Linux x86_64") IRONWOOD_TEST_GC_PLATFORM=linux-x86_64 ;;
+            *) echo "error: unsupported stdlib test host; no qualified GC SDK target" >&2; exit 1 ;;
+        esac
+        export IRONWOOD_GC_HOME="$IRONWOOD_TEST_PROJECT_ROOT/workspace/platform-tests/gc/$IRONWOOD_TEST_GC_PLATFORM"
+    fi
+fi
+if [[ -z "$IRONWOOD_GC_HOME" ]]; then
+    echo "error: IRONWOOD_GC_HOME is empty; select a prepared GC SDK" >&2
+    exit 1
+fi
+if [[ ! -f "$IRONWOOD_GC_HOME/build.properties" ]]; then
+    printf 'error: no prepared GC SDK at %s\n' "$IRONWOOD_GC_HOME" >&2
+    printf 'Set IRONWOOD_LLVM_HOME to LLVM 23.1.0, then prepare it explicitly:\n' >&2
+    printf '  python3 %q --prefix %q --llvm-home "$IRONWOOD_LLVM_HOME"\n' \
+        "$IRONWOOD_TEST_SCRIPT_DIR/prepare-gc.py" "$IRONWOOD_GC_HOME" >&2
+    printf 'Or set IRONWOOD_GC_HOME to an existing qualified SDK.\n' >&2
+    exit 1
+fi
+
 if [[ "$IRONWOOD_TEST_SKIP_BUILD" == false ]]; then
     "$IRONWOOD_TEST_SCRIPT_DIR/build.sh"
 fi

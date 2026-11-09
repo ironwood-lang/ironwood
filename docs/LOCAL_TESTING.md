@@ -112,6 +112,15 @@ PoolRetentionTests and CollectionRetentionTests include explicit phase checks;
 ordinary library operations and critical loops never collect to repair counts.
 The all-suites standard-library script is not a routine focused selection.
 
+`scripts/test-stdlib.sh` uses an explicit `IRONWOOD_GC_HOME` first, then a bundled
+`toolchain/ironwood-gc`, then the current host's prepared SDK under
+`workspace/platform-tests/gc/<platform>`. This also applies with `--skip-build`.
+It never downloads or builds an SDK automatically. If none is prepared, it stops
+before rebuilding the compiler and prints a `scripts/prepare-gc.py` command.
+Set `IRONWOOD_LLVM_HOME` to the pinned LLVM 23.1.0 installation before using that
+command. Explicit overrides and existing bundled SDKs are never replaced by a
+cache fallback; the native linker still checks SDK configuration and hashes.
+
 Networking drivers test controlled loopback/native-fault fixtures. Choose the
 specific M1-M6 driver or exact CompilerTests selector required by the changed
 protocol. File/socket/TLS cleanup and pool release remain explicit. Do not use
