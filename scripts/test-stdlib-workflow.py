@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT OR Apache-2.0
 
-"""Check stdlib SDK selection with isolated commands, without native compilation."""
+"""Check stdlib and compiler launcher SDK selection without native compilation."""
 
 import os
 from pathlib import Path
@@ -11,6 +11,8 @@ import unittest
 
 
 RUNNER = Path(__file__).with_name("test-stdlib.sh").read_text()
+LAUNCHER = Path(__file__).resolve().parent.parent.joinpath("bin/ironwoodc").read_text()
+JVM_OPTIONS = Path(__file__).with_name("jvm-options.sh").read_text()
 
 
 class StdlibWorkflowTests(unittest.TestCase):
@@ -20,7 +22,7 @@ class StdlibWorkflowTests(unittest.TestCase):
         self.root = Path(temporary.name).resolve() / "source tree"
         self.write("scripts/test-stdlib.sh", RUNNER)
         self.write("fake/bin/uname", '#!/bin/sh\nprintf "%s\\n" "$FIXTURE_HOST"\n', executable=True)
-        stop = '#!/bin/sh\nprintf "%s" "$IRONWOOD_GC_HOME" > "$FIXTURE_SELECTION"\nexit 23\n'
+        stop = '#!/bin/sh\nprintf "%s" "${IRONWOOD_GC_HOME-<unset>}" > "$FIXTURE_SELECTION"\nexit 23\n'
         self.write("fake/bin/java", stop, executable=True)
         self.write("scripts/build.sh", stop, executable=True)
         self.selection = self.root / "selection"
@@ -102,6 +104,60 @@ class StdlibWorkflowTests(unittest.TestCase):
         self.assertEqual(1, result.returncode)
         self.assertIn("unsupported stdlib test host", result.stderr)
         self.assertFalse(self.selection.exists())
+
+    def prepare_launcher(self, packaged=False):
+        self.write("bin/ironwoodc", LAUNCHER)
+        self.write("scripts/jvm-options.sh", JVM_OPTIONS)
+        self.write("scripts/jdk.sh", 'ironwood_select_java() { IRONWOOD_JAVA="$FIXTURE_JAVA"; }\n')
+        self.env["FIXTURE_JAVA"] = str(self.root / "fake/bin/java")
+        (self.root / "compiler/src/main/java").mkdir(parents=True)
+        (self.root / "stdlib/src/main/ironwood").mkdir(parents=True)
+        self.write("compiler/build/stdlib/.built", "")
+        self.write("VERSION", "0.0.0\n")
+        self.write("lib/ironwoodc.jar" if packaged else "compiler/build/ironwoodc.jar", "fixture jar\n")
+
+    def assert_launcher_selected(self, expected):
+        result = subprocess.run(["bash", str(self.root / "bin/ironwoodc"), "--link"],
+                                cwd=self.root.parent, env=self.env, capture_output=True, text=True, timeout=10)
+        self.assertEqual(23, result.returncode, result.stderr)
+        self.assertEqual(str(expected), self.selection.read_text())
+
+    def test_source_launcher_selects_each_supported_host_cache(self):
+        self.prepare_launcher()
+        for host, target in (("Darwin arm64", "macos-arm64"), ("Linux aarch64", "linux-arm64"),
+                             ("Linux arm64", "linux-arm64"), ("Linux x86_64", "linux-x86_64")):
+            with self.subTest(host=host):
+                self.env["FIXTURE_HOST"] = host
+                self.assert_launcher_selected(self.sdk("workspace/platform-tests/gc/" + target))
+
+    def test_source_launcher_preserves_all_explicit_overrides(self):
+        self.prepare_launcher()
+        self.sdk("workspace/platform-tests/gc/macos-arm64")
+        for override in (str(self.sdk("explicit SDK")), str(self.root / "missing SDK"), ""):
+            with self.subTest(override=override):
+                self.env["IRONWOOD_GC_HOME"] = override
+                self.assert_launcher_selected(override)
+
+    def test_source_launcher_keeps_bundled_sdk_precedence(self):
+        self.prepare_launcher()
+        self.sdk("workspace/platform-tests/gc/macos-arm64")
+        bundled = self.root / "toolchain/ironwood-gc"
+        bundled.mkdir(parents=True)
+        self.assert_launcher_selected("<unset>")
+        self.sdk("toolchain/ironwood-gc")
+        self.assert_launcher_selected("<unset>")
+
+    def test_source_launcher_does_not_select_missing_or_foreign_sdk(self):
+        self.prepare_launcher()
+        self.sdk("workspace/platform-tests/gc/linux-x86_64")
+        self.assert_launcher_selected("<unset>")
+        self.env["FIXTURE_HOST"] = "Darwin x86_64"
+        self.assert_launcher_selected("<unset>")
+
+    def test_packaged_launcher_does_not_select_source_cache(self):
+        self.prepare_launcher(packaged=True)
+        self.sdk("workspace/platform-tests/gc/macos-arm64")
+        self.assert_launcher_selected("<unset>")
 
 
 if __name__ == "__main__":

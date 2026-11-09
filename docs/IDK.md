@@ -401,7 +401,10 @@ both downloader executables. The N1 event-loop phase remains pending.
 
 Normal native linking requires a GC5 qualified SDK. Set IRONWOOD_GC_HOME in a
 source checkout, or stage the complete verified SDK at toolchain/ironwood-gc in
-a distribution. This selects inputs, not a memory mode. Missing or stale inputs
+a distribution. The source-checkout `bin/ironwoodc` launcher also reuses the host's
+prepared `workspace/platform-tests/gc/<platform>` SDK when neither an explicit
+override nor bundled SDK exists. Packaged launchers do not use this cache.
+This selects inputs, not a memory mode. Missing or stale inputs
 refuse before execution. The normal link verifies exact target/configuration,
 LLVM 23.1.0, engine-3, root ABI 2, owner ABI 1, the required nonmoving pass and
 all copied source/payload checksums. package-gc-inputs.py copies source, notices,

@@ -36,6 +36,12 @@ $ ./run.sh
 exit status: 42
 ```
 
+Use the checkout's `bin/ironwoodc` on `PATH` when testing source changes. Without
+an explicit `IRONWOOD_GC_HOME` or bundled `toolchain/ironwood-gc`, this launcher
+reuses the current host's prepared SDK in `workspace/platform-tests/gc/<platform>`.
+Prepare that SDK explicitly using `scripts/prepare-gc.py` or platform-test setup;
+linking never downloads or builds it. Packaged tools use their bundled SDK.
+
 With `ironwoodc` on `PATH`, run every example from the repository root:
 
 ```console

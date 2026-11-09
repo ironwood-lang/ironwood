@@ -26,6 +26,22 @@ if [[ -f "$IRONWOOD_ROOT/lib/ironwoodc.jar" ]]; then
     IRONWOOD_JAR="$IRONWOOD_ROOT/lib/ironwoodc.jar"
 else
     IRONWOOD_JAR="$IRONWOOD_ROOT/compiler/build/ironwoodc.jar"
+    # Source-checkout tools share the platform runner's prepared SDK. Preserve
+    # explicit overrides and bundled inputs, including incomplete bundles.
+    if [[ ! ${IRONWOOD_GC_HOME+x} \
+            && ! -e "$IRONWOOD_ROOT/toolchain/ironwood-gc" \
+            && ! -L "$IRONWOOD_ROOT/toolchain/ironwood-gc" ]]; then
+        IRONWOOD_GC_PLATFORM=
+        case "$(uname -sm)" in
+            "Darwin arm64") IRONWOOD_GC_PLATFORM=macos-arm64 ;;
+            "Linux aarch64"|"Linux arm64") IRONWOOD_GC_PLATFORM=linux-arm64 ;;
+            "Linux x86_64") IRONWOOD_GC_PLATFORM=linux-x86_64 ;;
+        esac
+        if [[ -n "$IRONWOOD_GC_PLATFORM" \
+                && -f "$IRONWOOD_ROOT/workspace/platform-tests/gc/$IRONWOOD_GC_PLATFORM/build.properties" ]]; then
+            export IRONWOOD_GC_HOME="$IRONWOOD_ROOT/workspace/platform-tests/gc/$IRONWOOD_GC_PLATFORM"
+        fi
+    fi
     IRONWOOD_REBUILD=false
     if [[ ! -f "$IRONWOOD_JAR" \
             || "$IRONWOOD_ROOT/VERSION" -nt "$IRONWOOD_JAR" \
