@@ -136,7 +136,12 @@ Ironwood manages memory like Java, but you choose when to collect the garbage.
 Call `Memory.collect()` when your program has time to clean up.
 
 You can create garbage as needed, but aim to minimize it by pooling and reusing
-mutable instances (see [Object Pooling](#object-pooling) below).
+mutable instances.
+
+## Object Pooling
+
+Ironwood ships with a native object pool (<a href="docs/api/README.md">`ironwood.pool`</a>), which is paramount for hot paths without allocation. You can <a href="docs/OBJECT_POOLING.md">click here</a> for more info.
+
 
 ## Deterministic Cleanup with `defer`
 
@@ -190,10 +195,6 @@ public String message(String name) {
     return sb.toString(); // managed result survives pool release
 }
 ```
-
-## Object Pooling
-
-Ironwood ships with a native object pool (<a href="docs/api/README.md">`ironwood.pool`</a>), which is paramount for hot paths without allocation. You can <a href="docs/OBJECT_POOLING.md">click here</a> for more info.
 
 ## Ironwood Standard Library
 
