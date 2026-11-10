@@ -14,6 +14,10 @@ if [[ -z "$IRONWOOD_ARCHIVE" || ! -f "$IRONWOOD_ARCHIVE" ]]; then
     exit 1
 fi
 
+# Release verification must use only the SDKs and runtime shipped in the archive.
+unset JAVA_HOME IRONWOOD_LLVM_HOME IRONWOOD_GC_HOME IRONWOOD_TLS_HOME \
+    IRONWOOD_BRIDGE_SUPPORT_HOME IRONWOOD_RUNTIME_HOME IRONWOOD_STDLIB_HOME
+
 IRONWOOD_TEST_DIR=$(mktemp -d "${TMPDIR:-/tmp}/ironwood-idk-test.XXXXXX")
 trap 'rm -rf "$IRONWOOD_TEST_DIR"' EXIT
 tar -xzf "$IRONWOOD_ARCHIVE" -C "$IRONWOOD_TEST_DIR"
@@ -60,6 +64,19 @@ verify_linux_glibc_baseline() {
         | sort -u)
 }
 
+verify_and_clear_linux_target() {
+    local target=$1 binary
+    if [[ $(uname -s) != Linux ]]; then return; fi
+    # Each target carries complete native support sources. Audit before removing
+    # finished examples so their copies cannot exhaust the release runner disk.
+    while IFS= read -r -d '' binary; do
+        if "$IRONWOOD_IDK_ROOT/toolchain/bin/llvm-readelf" --file-headers "$binary" >/dev/null 2>&1; then
+            verify_linux_glibc_baseline "$binary"
+        fi
+    done < <(find "$target" -type f -perm -u+x -print0)
+    rm -rf "$target"
+}
+
 # The first packaged launcher runs conda-unpack. It must preserve the separately
 # prepared TLS SDK, including checksummed build provenance with original paths.
 verify_tls_sdk() {
@@ -68,6 +85,13 @@ verify_tls_sdk() {
         --prefix "$IRONWOOD_IDK_ROOT/toolchain/ironwood-tls" \
         --llvm-home "$IRONWOOD_IDK_ROOT/toolchain"
 }
+verify_gc_sdk() {
+    "$IRONWOOD_IDK_ROOT/toolchain/bin/python" \
+        "$IRONWOOD_IDK_ROOT/scripts/prepare-gc.py" --verify \
+        --prefix "$IRONWOOD_IDK_ROOT/toolchain/ironwood-gc" \
+        --llvm-home "$IRONWOOD_IDK_ROOT/toolchain"
+}
+verify_gc_sdk
 verify_tls_sdk
 cp "$IRONWOOD_IDK_ROOT/toolchain/ironwood-tls/build.properties" \
     "$IRONWOOD_TEST_DIR/tls-build.properties"
@@ -76,7 +100,8 @@ env -u JAVA_HOME -u IRONWOOD_LLVM_HOME PATH=/usr/bin:/bin \
 cmp "$IRONWOOD_TEST_DIR/tls-build.properties" \
     "$IRONWOOD_IDK_ROOT/toolchain/ironwood-tls/build.properties"
 verify_tls_sdk
-echo "TLS SDK checksums preserved across launcher relocation"
+verify_gc_sdk
+echo "GC and TLS SDK checksums preserved across launcher relocation"
 
 IRONWOOD_REQUIRED_EXECUTABLES=(
     bin/ironwoodc
@@ -174,6 +199,7 @@ if [[ "$IRONWOOD_BRIDGE_OUTPUT" != $'Java listener: 2\nJava listener: 5\nCounter
     exit 1
 fi
 echo "packaged Java Bridge callbacks passed without external build tools or support overrides"
+verify_and_clear_linux_target "$IRONWOOD_IDK_ROOT/examples/java-bridge/basics/target"
 for IRONWOOD_BRIDGE_BUILD_FILE in maven-producer/pom.xml maven-consumer/pom.xml \
         gradle-producer/build.gradle gradle-producer/settings.gradle \
         gradle-consumer/build.gradle gradle-consumer/settings.gradle; do
@@ -427,6 +453,7 @@ printf '\000\377A' > "$IRONWOOD_TEST_DIR/stream-input.bin"
 "$IRONWOOD_IDK_ROOT/projects/streaming/run.sh" cat \
     "$IRONWOOD_TEST_DIR/stream-copy.bin" > "$IRONWOOD_TEST_DIR/stream-cat.bin"
 cmp "$IRONWOOD_TEST_DIR/stream-input.bin" "$IRONWOOD_TEST_DIR/stream-cat.bin"
+verify_and_clear_linux_target "$IRONWOOD_IDK_ROOT/projects/streaming/target"
 
 env -u JAVA_HOME -u IRONWOOD_LLVM_HOME \
     PATH="$IRONWOOD_IDK_ROOT/bin:/usr/bin:/bin" \
@@ -444,6 +471,7 @@ if ! grep -Fqx 'A body stays strong through every season.' <<< "$IRONWOOD_MINIGR
     exit 1
 fi
 
+verify_and_clear_linux_target "$IRONWOOD_IDK_ROOT/projects/minigrep/target"
 IRONWOOD_EXPECTED_VERSION=$(tr -d '[:space:]' < "$IRONWOOD_IDK_ROOT/VERSION")
 IRONWOOD_EXPECTED_LLVM_VERSION=$("$IRONWOOD_IDK_ROOT/toolchain/bin/llvm-config" --version)
 IRONWOOD_EXPECTED_CLANG_VERSION=$("$IRONWOOD_IDK_ROOT/toolchain/bin/clang" --version)
@@ -478,6 +506,7 @@ for IRONWOOD_EXAMPLE in basic hello controlflow objects inheritance exceptions c
     env -u JAVA_HOME -u IRONWOOD_LLVM_HOME \
         PATH=/usr/bin:/bin \
         "$IRONWOOD_IDK_ROOT/examples/$IRONWOOD_EXAMPLE/run.sh"
+    verify_and_clear_linux_target "$IRONWOOD_IDK_ROOT/examples/$IRONWOOD_EXAMPLE/target"
 done
 
 env -u JAVA_HOME -u IRONWOOD_LLVM_HOME \
@@ -672,7 +701,8 @@ class TcpPackage {
 IRONWOOD_TCP
 env -u JAVA_HOME -u IRONWOOD_RUNTIME_HOME -u IRONWOOD_LLVM_HOME PATH=/usr/bin:/bin \
     "$IRONWOOD_IDK_ROOT/bin/ironwoodc" "$IRONWOOD_TEST_DIR/TcpPackage.iron" \
-    -d "$IRONWOOD_TEST_DIR/tcp-classes" env -u JAVA_HOME -u IRONWOOD_RUNTIME_HOME -u IRONWOOD_LLVM_HOME PATH=/usr/bin:/bin \
+    -d "$IRONWOOD_TEST_DIR/tcp-classes"
+env -u JAVA_HOME -u IRONWOOD_RUNTIME_HOME -u IRONWOOD_LLVM_HOME PATH=/usr/bin:/bin \
     "$IRONWOOD_IDK_ROOT/bin/ironwoodc" --link --main-class TcpPackage \
     -cp "$IRONWOOD_TEST_DIR/tcp-classes" -o "$IRONWOOD_TEST_DIR/tcp-package" -O3
 "$IRONWOOD_TEST_DIR/tcp-package"
@@ -685,7 +715,8 @@ env -u JAVA_HOME -u IRONWOOD_RUNTIME_HOME -u IRONWOOD_LLVM_HOME PATH="/usr/bin:/
     "$IRONWOOD_IDK_ROOT/bin/ironwoodc" \
     --source-path "$IRONWOOD_PROXY_EXAMPLE/src/main/ironwood" \
     "$IRONWOOD_PROXY_EXAMPLE/src/main/ironwood/org/ironwood/proxy/ProxyTunnel.iron" \
-    -d "$IRONWOOD_PROXY_EXAMPLE/target/classes" env -u JAVA_HOME -u IRONWOOD_RUNTIME_HOME -u IRONWOOD_LLVM_HOME PATH="/usr/bin:/bin" \
+    -d "$IRONWOOD_PROXY_EXAMPLE/target/classes"
+env -u JAVA_HOME -u IRONWOOD_RUNTIME_HOME -u IRONWOOD_LLVM_HOME PATH="/usr/bin:/bin" \
     "$IRONWOOD_IDK_ROOT/bin/ironwoodc" --link --main-class org.ironwood.proxy.ProxyTunnel \
     -cp "$IRONWOOD_PROXY_EXAMPLE/target/classes" -o "$IRONWOOD_PROXY_EXAMPLE/target/ProxyTunnel" \
     -O3

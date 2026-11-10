@@ -10,7 +10,7 @@ RUN case "$TARGETARCH" in \
       *) exit 1 ;; \
     esac \
     && curl --fail --location --retry 3 \
-      "https://micro.mamba.pm/api/micromamba/$IRONWOOD_SUBDIR/latest" \
+      "https://micro.mamba.pm/api/micromamba/$IRONWOOD_SUBDIR/2.10.0" \
       --output /tmp/micromamba.tar.bz2 \
     && tar -xjf /tmp/micromamba.tar.bz2 -C /usr/local bin/micromamba \
     && rm /tmp/micromamba.tar.bz2

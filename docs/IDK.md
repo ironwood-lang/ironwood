@@ -367,7 +367,8 @@ Prepare the application SDK before packaging, separately from Conda OpenSSL:
 ```sh
 export PATH="$IRONWOOD_IDK_TOOLCHAIN_HOME/bin:$PATH"
 python scripts/prepare-tls.py --llvm-home "$IRONWOOD_IDK_TOOLCHAIN_HOME" --prefix "$IRONWOOD_IDK_TOOLCHAIN_HOME/ironwood-tls"
-./scripts/package-idk.sh 0.4.2-beta
+python scripts/prepare-gc.py --llvm-home "$IRONWOOD_IDK_TOOLCHAIN_HOME" --prefix "$IRONWOOD_IDK_TOOLCHAIN_HOME/ironwood-gc"
+./scripts/package-idk.sh "$(cat VERSION)"
 ```
 
 The toolchain environment supplies pinned LLVM, Perl, Make and Python build
@@ -445,3 +446,36 @@ child deadline and 16 GiB process-group RSS guard; bound archive stages separate
 The IDK selector clears development PATH entries. The host-package selector
 retains the supplied external native-tool PATH, including lld on Linux; it does
 not turn a host package into a self-contained IDK.
+
+## Release packaging checks
+
+`scripts/build-release-idk.sh VERSION PLATFORM` is the common local and hosted
+release build. It checks source and frozen IronDocs, explicitly prepares missing
+GC/TLS/support SDKs, verifies existing SDKs, packages the IDK, then runs both the
+normal relocated smoke and the GC9 distribution smoke against its archive.
+It never runs the compiler test suite or publishes anything. The packager itself
+only verifies existing inputs and rejects missing, empty or altered GC selections
+before rebuilding. `IRONWOOD_GC_HOME` overrides the toolchain's `ironwood-gc` SDK.
+Generated example and project `target/` directories are excluded from packages.
+
+The release workflow builds Linux IDKs in the same pinned container recipe as
+local platform testing. Keep its LLVM/sysroot install prefix at
+`/opt/ironwood-toolchain` and micromamba 2.10.0's cache at
+`/root/.local/share/mamba`. Conda records prefix-rewritten file checksums in its
+sysroot receipt; changing these paths changes the qualified identity even with
+the same upstream package. Fresh installs at these paths must match the checked-in
+GC profiles. No profile check is relaxed for hosted packaging.
+
+macOS release builds and downloaded-archive checks use the
+[`xcode-27` hosted image](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md)
+with Xcode 27.2 build 27B52 and its macOS 27.2 SDK selected explicitly. The SDK's
+settings checksum remains bound by the GC profile. Downloaded IDKs run both
+archive smokes on all three matching hosted targets before publication. The
+normal IDK smoke clears development SDK/runtime overrides and verifies bundled
+GC and TLS checksums before and after the first launcher relocation.
+Linux smoke checks audit each completed example's ELF requirements before
+removing its temporary output, keeping repeated native-support copies within
+runner disk limits.
+GC9 metadata variants also reserve disk from their expanded payload size and
+JVM scratch needs, replacing a fixed 30 GiB floor that excluded hosted runners.
+All mutation cases and native RSS/deadline guards remain enabled.

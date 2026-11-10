@@ -104,6 +104,15 @@ if [[ "${IRONWOOD_LLVM_VERSION%%.*}" != 23 ]]; then
     exit 1
 fi
 
+IRONWOOD_GC_PREFIX=${IRONWOOD_GC_HOME-$IRONWOOD_IDK_TOOLCHAIN_HOME/ironwood-gc}
+if [[ -z "$IRONWOOD_GC_PREFIX" || ! -f "$IRONWOOD_GC_PREFIX/build.properties" ]]; then
+    echo "error: IDK packaging requires a prepared GC SDK; set IRONWOOD_GC_HOME or prepare toolchain/ironwood-gc" >&2
+    exit 1
+fi
+IRONWOOD_GC_PREFIX=$(CDPATH= cd -- "$IRONWOOD_GC_PREFIX" && pwd -P)
+"$IRONWOOD_IDK_TOOLCHAIN_HOME/bin/python" "$IRONWOOD_SCRIPT_DIR/prepare-gc.py" --verify \
+    --prefix "$IRONWOOD_GC_PREFIX" --llvm-home "$IRONWOOD_IDK_TOOLCHAIN_HOME" --target "$IRONWOOD_PLATFORM"
+
 IRONWOOD_TLS_PREFIX=${IRONWOOD_TLS_HOME:-$IRONWOOD_IDK_TOOLCHAIN_HOME/ironwood-tls}
 IRONWOOD_TLS_PREFIX=$(CDPATH= cd -- "$IRONWOOD_TLS_PREFIX" && pwd -P)
 "$IRONWOOD_IDK_TOOLCHAIN_HOME/bin/python" "$IRONWOOD_SCRIPT_DIR/prepare-tls.py" --verify \
@@ -214,14 +223,14 @@ while IFS= read -r IRONWOOD_EXAMPLE_FILE; do
     IRONWOOD_EXAMPLE_RELATIVE=${IRONWOOD_EXAMPLE_FILE#"$IRONWOOD_PROJECT_ROOT/examples/"}
     mkdir -p "$IRONWOOD_STAGE_DIR/examples/$(dirname -- "$IRONWOOD_EXAMPLE_RELATIVE")"
     cp "$IRONWOOD_EXAMPLE_FILE" "$IRONWOOD_STAGE_DIR/examples/$IRONWOOD_EXAMPLE_RELATIVE"
-done < <(find "$IRONWOOD_PROJECT_ROOT/examples" -type f \
+done < <(find "$IRONWOOD_PROJECT_ROOT/examples" -type d -name target -prune -o -type f \
     \( -name '*.iron' -o -name '*.java' -o -name '*.sh' -o -name '*.py' \
         -o -name 'pom.xml' -o -name '*.gradle' -o -name 'README.md' \) -print)
 while IFS= read -r IRONWOOD_PROJECT_FILE; do
     IRONWOOD_PROJECT_RELATIVE=${IRONWOOD_PROJECT_FILE#"$IRONWOOD_PROJECT_ROOT/projects/"}
     mkdir -p "$IRONWOOD_STAGE_DIR/projects/$(dirname -- "$IRONWOOD_PROJECT_RELATIVE")"
     cp "$IRONWOOD_PROJECT_FILE" "$IRONWOOD_STAGE_DIR/projects/$IRONWOOD_PROJECT_RELATIVE"
-done < <(find "$IRONWOOD_PROJECT_ROOT/projects" -type f \
+done < <(find "$IRONWOOD_PROJECT_ROOT/projects" -type d -name target -prune -o -type f \
     \( -name '*.iron' -o -name '*.java' -o -name '*.sh' -o -name '*.txt' \
         -o -name 'README.md' \) -print)
 cp -R "$IRONWOOD_PROJECT_ROOT/runtime/include" "$IRONWOOD_STAGE_DIR/runtime/include"
@@ -230,7 +239,7 @@ cp -R "$IRONWOOD_PROJECT_ROOT/stdlib/src" "$IRONWOOD_STAGE_DIR/stdlib/src"
 cp "$IRONWOOD_PROJECT_ROOT/stdlib/README.md" "$IRONWOOD_STAGE_DIR/stdlib/README.md"
 cp -R "$IRONWOOD_PROJECT_ROOT/compiler/build/stdlib" "$IRONWOOD_STAGE_DIR/lib/stdlib"
 "$IRONWOOD_IDK_TOOLCHAIN_HOME/bin/python" "$IRONWOOD_SCRIPT_DIR/package-gc-inputs.py" \
-    --stage "$IRONWOOD_STAGE_DIR" --llvm-home "$IRONWOOD_IDK_TOOLCHAIN_HOME"
+    --stage "$IRONWOOD_STAGE_DIR" --llvm-home "$IRONWOOD_IDK_TOOLCHAIN_HOME" --sdk "$IRONWOOD_GC_PREFIX"
 printf '%s\n' "$IRONWOOD_VERSION" > "$IRONWOOD_STAGE_DIR/VERSION"
 
 # The separately copied SDK must not acquire conda-unpack relocation entries:

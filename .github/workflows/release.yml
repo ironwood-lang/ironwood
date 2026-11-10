@@ -43,24 +43,29 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: macos-15
+          - runner: xcode-27
             platform: macos-arm64
-            sysroot: ""
           - runner: ubuntu-24.04-arm
             platform: linux-arm64
-            sysroot: sysroot_linux-aarch64=2.17
+            docker-platform: linux/arm64
           - runner: ubuntu-24.04
             platform: linux-x86_64
-            sysroot: sysroot_linux-64=2.17
+            docker-platform: linux/amd64
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v7
+      - name: Select qualified Apple SDK
+        if: matrix.platform == 'macos-arm64'
+        run: |
+          echo 'DEVELOPER_DIR=/Applications/Xcode_27.2.app/Contents/Developer' >> "$GITHUB_ENV"
+          echo 'SDKROOT=/Applications/Xcode_27.2.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk' >> "$GITHUB_ENV"
       - uses: mamba-org/setup-micromamba@v3
+        if: matrix.platform == 'macos-arm64'
         with:
           environment-file: packaging/idk-environment.yml
-          create-args: ${{ matrix.sysroot }}
+          micromamba-version: 2.10.0-0
           cache-downloads: true
           post-cleanup: all
       - name: Resolve release version
@@ -68,31 +73,27 @@ jobs:
         run: |
           IDK_VERSION=${GITHUB_REF_NAME#v}
           echo "IDK_VERSION=$IDK_VERSION" >> "$GITHUB_ENV"
-      - name: Build source and verify IronDocs
+      - name: Package and verify macOS IDK
+        if: matrix.platform == 'macos-arm64'
         shell: bash -el {0}
         run: |
-          export JAVA_HOME="$CONDA_PREFIX/lib/jvm"
-          export PATH="$JAVA_HOME/bin:$CONDA_PREFIX/bin:$PATH"
-          export IRONWOOD_LLVM_HOME="$CONDA_PREFIX"
-          # Compiler/native suites run locally before release.
-          python3 scripts/test-jvm-options.py
-          ./scripts/check-licenses.sh
-          ./scripts/check-tracked-files.sh
-          ./scripts/build.sh
-          ./scripts/update-irondocs.sh --check
-      - name: Package and smoke-test IDK
-        shell: bash -el {0}
-        run: |
-          export JAVA_HOME="$CONDA_PREFIX/lib/jvm"
-          export PATH="$JAVA_HOME/bin:$CONDA_PREFIX/bin:$PATH"
           export IRONWOOD_IDK_TOOLCHAIN_HOME="$CONDA_PREFIX"
-          python scripts/prepare-tls.py --llvm-home "$CONDA_PREFIX" --prefix "$CONDA_PREFIX/ironwood-tls"
-          if [[ "${{ matrix.platform }}" == linux-* ]]; then
-            python -B scripts/prepare-java-bridge-support.py --setup \
-              --target "${{ matrix.platform }}" --prefix "$CONDA_PREFIX/ironwood-bridge-support"
-          fi
-          ./scripts/package-idk.sh "$IDK_VERSION"
-          ./scripts/test-idk.sh "dist/ironwood-idk-$IDK_VERSION-${{ matrix.platform }}.tar.gz"
+          ./scripts/build-release-idk.sh "$IDK_VERSION" "${{ matrix.platform }}"
+      - name: Package and verify Linux IDK
+        if: startsWith(matrix.platform, 'linux-')
+        shell: bash
+        run: |
+          # The fixed install/cache paths preserve the qualified sysroot receipt.
+          docker build --platform "${{ matrix.docker-platform }}" \
+            --file scripts/platform-tests/Dockerfile --tag ironwood-release-idk .
+          docker run --rm --platform "${{ matrix.docker-platform }}" \
+            --user "$(id -u):$(id -g)" --env HOME=/tmp \
+            --env IRONWOOD_IDK_TOOLCHAIN_HOME=/opt/ironwood-toolchain \
+            --env "IRONWOOD_GC_HOME=$GITHUB_WORKSPACE/workspace/release-inputs/gc/${{ matrix.platform }}" \
+            --env "IRONWOOD_BRIDGE_SUPPORT_HOME=$GITHUB_WORKSPACE/workspace/release-inputs/support/${{ matrix.platform }}" \
+            --mount "type=bind,source=$GITHUB_WORKSPACE,target=$GITHUB_WORKSPACE" \
+            --workdir "$GITHUB_WORKSPACE" ironwood-release-idk \
+            bash scripts/build-release-idk.sh "$IDK_VERSION" "${{ matrix.platform }}"
       - name: Upload IDK to draft release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -109,7 +110,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: macos-15
+          - runner: xcode-27
             platform: macos-arm64
           - runner: ubuntu-24.04-arm
             platform: linux-arm64
@@ -121,6 +122,11 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v7
+      - name: Select qualified Apple SDK
+        if: matrix.platform == 'macos-arm64'
+        run: |
+          echo 'DEVELOPER_DIR=/Applications/Xcode_27.2.app/Contents/Developer' >> "$GITHUB_ENV"
+          echo 'SDKROOT=/Applications/Xcode_27.2.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk' >> "$GITHUB_ENV"
       - name: Download and smoke-test draft release IDK
         shell: bash
         env:
@@ -136,6 +142,7 @@ jobs:
             --dir dist
           test -f "dist/$IDK_ASSET"
           ./scripts/test-idk.sh "dist/$IDK_ASSET"
+          ./scripts/test-idk.sh "dist/$IDK_ASSET" --gc9
 
   publish-release:
     name: Publish GitHub release

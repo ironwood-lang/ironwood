@@ -20,6 +20,20 @@ engine = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(engine)
 
 
+def require_metadata_space(jar, directory):
+    # The refusal driver writes one ZIP_STORED variant at a time, then removes
+    # it. Bound its expanded payload and headers, plus a native extraction and
+    # JVM/log scratch reserve; a fixed 30 GiB floor excludes hosted runners.
+    with zipfile.ZipFile(jar) as archive:
+        expanded = sum(item.file_size + 256 + 2 * len(item.filename.encode('utf-8'))
+                       for item in archive.infolist())
+    required = 2 * expanded + 256 * 1024**2
+    available = shutil.disk_usage(directory).free
+    if available < required:
+        raise RuntimeError(f'metadata variants require {required} bytes, only {available} available')
+    return required
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--distribution', required=True, type=Path)
@@ -255,8 +269,7 @@ def main():
             run('scalar-source-to-class', [compiler, scalar, '-d', scalar_classes])
             run('scalar-producer', [compiler, '--java-bridge', '--export', 'gc9scalar', '-O3',
                 '-cp', scalar_classes, '--llvm-home', llvm, '--license', package / 'LICENSE-MIT', '-o', scalar_jar])
-            if shutil.disk_usage(out).free < 30 * 1024**3 + 2 * scalar_jar.stat().st_size:
-                raise RuntimeError('metadata variants would cross the 30 GiB disk floor')
+            require_metadata_space(scalar_jar, out)
             run('scalar-load-refusals', [python, ROOT / 'scripts/test-gc6-metadata.py', '--jar', scalar_jar,
                 '--type', 'gc9scalar.Scalar', '--java-home', java, '--output', out / 'scalar-metadata'])
             for name in ('ironwood-nonmoving-statepoints.so', 'ironwood-nonmoving-statepoints.properties'):

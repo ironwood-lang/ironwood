@@ -828,7 +828,8 @@ class TcpPackage {
 IRONWOOD_TCP
 env -u JAVA_HOME -u IRONWOOD_RUNTIME_HOME -u IRONWOOD_LLVM_HOME PATH="$IRONWOOD_SYSTEM_PATH" \
     "$IRONWOOD_PACKAGE_ROOT/bin/ironwoodc" "$IRONWOOD_TEST_DIR/TcpPackage.iron" \
-    -d "$IRONWOOD_TEST_DIR/tcp-classes" env -u JAVA_HOME -u IRONWOOD_RUNTIME_HOME -u IRONWOOD_LLVM_HOME PATH="$IRONWOOD_SYSTEM_PATH" \
+    -d "$IRONWOOD_TEST_DIR/tcp-classes"
+env -u JAVA_HOME -u IRONWOOD_RUNTIME_HOME -u IRONWOOD_LLVM_HOME PATH="$IRONWOOD_SYSTEM_PATH" \
     "$IRONWOOD_PACKAGE_ROOT/bin/ironwoodc" --link --main-class TcpPackage \
     -cp "$IRONWOOD_TEST_DIR/tcp-classes" -o "$IRONWOOD_TEST_DIR/tcp-package" -O3 --llvm-home "$IRONWOOD_SYSTEM_LLVM_HOME"
 "$IRONWOOD_TEST_DIR/tcp-package"
@@ -841,7 +842,8 @@ env -u JAVA_HOME -u IRONWOOD_RUNTIME_HOME -u IRONWOOD_LLVM_HOME PATH="$IRONWOOD_
     "$IRONWOOD_PACKAGE_ROOT/bin/ironwoodc" \
     --source-path "$IRONWOOD_PROXY_EXAMPLE/src/main/ironwood" \
     "$IRONWOOD_PROXY_EXAMPLE/src/main/ironwood/org/ironwood/proxy/ProxyTunnel.iron" \
-    -d "$IRONWOOD_PROXY_EXAMPLE/target/classes" env -u JAVA_HOME -u IRONWOOD_RUNTIME_HOME -u IRONWOOD_LLVM_HOME PATH="$IRONWOOD_SYSTEM_PATH" \
+    -d "$IRONWOOD_PROXY_EXAMPLE/target/classes"
+env -u JAVA_HOME -u IRONWOOD_RUNTIME_HOME -u IRONWOOD_LLVM_HOME PATH="$IRONWOOD_SYSTEM_PATH" \
     "$IRONWOOD_PACKAGE_ROOT/bin/ironwoodc" --link --main-class org.ironwood.proxy.ProxyTunnel \
     -cp "$IRONWOOD_PROXY_EXAMPLE/target/classes" -o "$IRONWOOD_PROXY_EXAMPLE/target/ProxyTunnel" \
     -O3 --llvm-home "$IRONWOOD_SYSTEM_LLVM_HOME"

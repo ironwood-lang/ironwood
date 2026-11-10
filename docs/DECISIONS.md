@@ -12909,3 +12909,29 @@ occurrence order. If no
   verification is bypassed to obtain a successful link.
 - **Scope:** This is a fail-closed boundary for a historical helper. Completing
   its backend migration and attempting self-hosting require separate work.
+
+## D331 - Require qualified release inputs and independent archive checks
+
+- **Status:** Accepted.
+- **Context:** The hosted release omitted GC preparation, and the IDK packager
+  could produce an archive without that required SDK. Source SDK overrides could
+  mask missing packaged inputs. Conda sysroot receipts also depend on install
+  and cache paths, and the default hosted Apple SDK differed from the qualified
+  SDK. These are release integration gaps under D328 and D329.
+- **Decision:** Use one release build helper to prepare or verify GC, TLS and
+  native support inputs explicitly. IDK packaging must verify a selected GC SDK
+  before building and copy its full source, notices and manifest. Linux releases
+  use the platform-test container recipe with micromamba 2.10.0 and the qualified
+  `/opt/ironwood-toolchain` install and `/root/.local/share/mamba` cache paths.
+  macOS selects Xcode 27.2 build 27B52 and its SDK through the `xcode-27` image.
+  Preserve exact GC configuration, SDK checksums and root/owner ABI verification.
+- **Validation:** Both produced and downloaded release IDKs must pass the normal
+  relocated smoke and GC9 distribution smoke on each matching hosted target.
+  Clear development SDK/runtime overrides in IDK smoke checks. Exclude generated
+  example/project output from archives. Audit Linux ELF compatibility before
+  discarding each completed example's temporary native-support copies.
+  Reserve metadata-variant disk space from expanded payload sizes and scratch
+  needs, preserving every refusal case and the existing native RSS/deadline guards.
+- **Scope:** These checks remain release-only. Local translated x86 execution
+  is recorded separately from physical x86 qualification. D328's evidence bounds
+  and D329's separate self-hosting requirement remain in force.

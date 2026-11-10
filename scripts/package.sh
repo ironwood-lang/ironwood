@@ -97,14 +97,14 @@ while IFS= read -r IRONWOOD_EXAMPLE_FILE; do
     IRONWOOD_EXAMPLE_RELATIVE=${IRONWOOD_EXAMPLE_FILE#"$IRONWOOD_PROJECT_ROOT/examples/"}
     mkdir -p "$IRONWOOD_STAGE_DIR/examples/$(dirname -- "$IRONWOOD_EXAMPLE_RELATIVE")"
     cp "$IRONWOOD_EXAMPLE_FILE" "$IRONWOOD_STAGE_DIR/examples/$IRONWOOD_EXAMPLE_RELATIVE"
-done < <(find "$IRONWOOD_PROJECT_ROOT/examples" -type f \
+done < <(find "$IRONWOOD_PROJECT_ROOT/examples" -type d -name target -prune -o -type f \
     \( -name '*.iron' -o -name '*.java' -o -name '*.sh' -o -name '*.py' \
         -o -name 'pom.xml' -o -name '*.gradle' -o -name 'README.md' \) -print)
 while IFS= read -r IRONWOOD_PROJECT_FILE; do
     IRONWOOD_PROJECT_RELATIVE=${IRONWOOD_PROJECT_FILE#"$IRONWOOD_PROJECT_ROOT/projects/"}
     mkdir -p "$IRONWOOD_STAGE_DIR/projects/$(dirname -- "$IRONWOOD_PROJECT_RELATIVE")"
     cp "$IRONWOOD_PROJECT_FILE" "$IRONWOOD_STAGE_DIR/projects/$IRONWOOD_PROJECT_RELATIVE"
-done < <(find "$IRONWOOD_PROJECT_ROOT/projects" -type f \
+done < <(find "$IRONWOOD_PROJECT_ROOT/projects" -type d -name target -prune -o -type f \
     \( -name '*.iron' -o -name '*.java' -o -name '*.sh' -o -name '*.txt' \
         -o -name 'README.md' \) -print)
 cp -R "$IRONWOOD_PROJECT_ROOT/runtime/include" "$IRONWOOD_STAGE_DIR/runtime/include"
