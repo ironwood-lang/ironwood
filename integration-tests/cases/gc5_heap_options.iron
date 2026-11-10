@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// With -Xmx8m, catches real allocator exhaustion before any collection, then
+// explicitly reclaims garbage and exhausts the same heap again. Exit 0 is success.
+import ironwood.lang.Memory;
+
+class Gc5HeapOptions {
+
+    static byte[] garbage;
+
+    static int exhaust() {
+
+        long total = System.allocationCount();
+        long live = System.liveAllocationCount();
+        int count = 0;
+        try {
+            // The upper bound also makes an accidentally ignored limit fail safely.
+            while (count < 256) {
+                garbage = new byte[256 * 1024];
+                garbage[0] = 42;
+                count++;
+            }
+            return 10;
+        } catch (OutOfMemoryError expected) {
+            if (count == 0 || garbage == null || garbage[0] != 42) return 11;
+            if (System.allocationCount() != total + count) return 12;
+            // With no collection, unreachable allocations still count as live.
+            if (System.liveAllocationCount() != live + count) return 13;
+        }
+        return 0;
+    }
+
+    public static int main(String[] args) {
+
+        if (args.length == 1 && args[0].equals("oom")) {
+            int status = exhaust();
+            if (status != 0) return status;
+            garbage = null;
+            long before = System.liveAllocationCount();
+            Memory.collect();
+            if (System.liveAllocationCount() >= before) return 14;
+            status = exhaust();
+            if (status != 0) return status;
+            System.out.println("heap exhaustion caught twice; explicit collection recovered");
+            return 0;
+        }
+        System.out.println(args.length);
+        for (int i = 0; i < args.length; i++) System.out.println(args[i]);
+        return 0;
+    }
+}

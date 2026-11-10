@@ -1,0 +1,137 @@
+{
+  "format": 1,
+  "license": "SPDX-License-Identifier: MIT OR Apache-2.0",
+  "date": "2026-11-10",
+  "base_revision": "2f3d2fbe29aea2852d7dd68095c8ce3c30c102c1",
+  "decision": "D332",
+  "scope": "Focused startup heap-option checks, not a release or complete compiler suite.",
+  "root_abi": 2,
+  "owner_abi": 1,
+  "foreign_root_abi": 3,
+  "foreign_owner_abi": 2,
+  "native_host_receipt_variant": "Identity recomputed from current inputs and the previously recorded system receipt; no new physical x86 execution claimed.",
+  "targets": {
+    "macos-arm64": {
+      "execution": "native macOS arm64",
+      "configuration.sha256": "55e8e669ae929f5979ce4d9b324ab2e0cb5e44d83b17b4c0505bdd7318aa95ac",
+      "focused_compiler_selectors_passed": [
+        "GC native SDK profiles bind exact configurations and system inputs",
+        "Milestone 1 program still lowers to typed IR",
+        "process arguments reach main as UTF-16 Strings",
+        "native heap options bound real exhaustion and preserve application arguments"
+      ],
+      "heap_options_optimization_levels": [
+        "O0",
+        "O3"
+      ],
+      "production_startup_capacity_cases": 3,
+      "real_cap_bytes": 8388608,
+      "allocation_loop_bound": 256,
+      "allocation_bytes_per_iteration": 262144,
+      "automatic_collection_before_first_catch": false,
+      "explicit_collection_recovery": true,
+      "minimum_capacity_after_ten_collections": true,
+      "log.sha256": {
+        "workspace/heap-options/mac-tests.log": "967b9253c58a192228c16b56ddbb9a371467a01909baefde9112dadd50c48635",
+        "workspace/heap-options/mac-tests-final.log": "2f097349ae825a139d5f9d6fbe8ff74094a5948f356a989f1f5d51149ff85587",
+        "workspace/heap-options/mac-engine-heap.log": "4752a0788f37c7d5444d6ac622f964c7425144712bd4f23c7865957a74c5e4d8"
+      }
+    },
+    "linux-arm64": {
+      "execution": "native arm64 Linux VM",
+      "configuration.sha256": "eed183624b892901f669a27d6a87290b98b49c8d969dde4bf6eccaa5df016c76",
+      "focused_compiler_selectors_passed": [
+        "GC native SDK profiles bind exact configurations and system inputs",
+        "Milestone 1 program still lowers to typed IR",
+        "process arguments reach main as UTF-16 Strings",
+        "native heap options bound real exhaustion and preserve application arguments"
+      ],
+      "heap_options_optimization_levels": [
+        "O0",
+        "O3"
+      ],
+      "production_startup_capacity_cases": 3,
+      "real_cap_bytes": 8388608,
+      "allocation_loop_bound": 256,
+      "allocation_bytes_per_iteration": 262144,
+      "automatic_collection_before_first_catch": false,
+      "explicit_collection_recovery": true,
+      "minimum_capacity_after_ten_collections": true,
+      "log.sha256": {
+        "workspace/heap-options/linux-arm64-tests-utf8.log": "8d291bfd668a49013d1fd669a91bd54453a88b2be96ca7b8f5bb3cdbb6cab931",
+        "workspace/heap-options/linux-arm64-engine.log": "a158a32e9979be9156b34558e7cb718cedfb3be5d8ca50bf6fef587ac81eec2d"
+      }
+    },
+    "linux-x86_64": {
+      "execution": "Linux x86-64 through Rosetta",
+      "configuration.sha256": "46ef258aa87eaf5c12809774a55ef37ff37ec0515f0a022d0cf8f39c776462ba",
+      "focused_compiler_selectors_passed": [
+        "GC native SDK profiles bind exact configurations and system inputs",
+        "Milestone 1 program still lowers to typed IR",
+        "process arguments reach main as UTF-16 Strings",
+        "native heap options bound real exhaustion and preserve application arguments"
+      ],
+      "heap_options_optimization_levels": [
+        "O0",
+        "O3"
+      ],
+      "production_startup_capacity_cases": 3,
+      "real_cap_bytes": 8388608,
+      "allocation_loop_bound": 256,
+      "allocation_bytes_per_iteration": 262144,
+      "automatic_collection_before_first_catch": false,
+      "explicit_collection_recovery": true,
+      "minimum_capacity_after_ten_collections": true,
+      "log.sha256": {
+        "workspace/heap-options/linux-x86_64-tests-utf8.log": "98f2334b8d1548109ce370519a2a91e0b5ea9ec1998764a2f3bc3967244e5789",
+        "workspace/heap-options/linux-x86_64-engine.log": "a158a32e9979be9156b34558e7cb718cedfb3be5d8ca50bf6fef587ac81eec2d"
+      }
+    }
+  },
+  "additional_checks": {
+    "mac-integrated": {
+      "passed_children": 14,
+      "results.sha256": "45ee5266ffe4324ecfbee2fb1499980cfb7c2a5b1a9ef96780f0f0605f63bec4"
+    },
+    "input-checks": {
+      "passed_children": 16,
+      "results.sha256": "76e233d641b8a47ca41e31c2ee029f6a97a487862c18929cb2d0f4a47d589075"
+    },
+    "bridge-objects": {
+      "passed_children": 3,
+      "results.sha256": "fd22e839b1c0c1f08d2fc2452dd3fccd12b8ff43c9dd67c4bac96a2c2f1c8250"
+    },
+    "performance": {
+      "passed_children": 40,
+      "results.sha256": "4c2a8dc8f2bb1b021e93f8bd4de82dbd59a19697b0c4d605aa2ee6151aa63479"
+    },
+    "allocator_O3": {
+      "ironwood_allocate": {
+        "identical_normalized_O3_instructions": true,
+        "before.sha256": "6bee58ab29ba2060f0ba823928fdc26bcdfa1f91d42a54bad478bccaebe8fd19",
+        "after.sha256": "6bee58ab29ba2060f0ba823928fdc26bcdfa1f91d42a54bad478bccaebe8fd19"
+      },
+      "ironwood_allocate_array": {
+        "identical_normalized_O3_instructions": true,
+        "before.sha256": "d4cd3993ed235692d1a019c0a6e8fd4ab991cc28d84f6e8c8ea85696f0a55169",
+        "after.sha256": "d4cd3993ed235692d1a019c0a6e8fd4ab991cc28d84f6e8c8ea85696f0a55169"
+      }
+    }
+  },
+  "formatted_fixture_followup": "Source compilation passed after whitespace-only formatting.",
+  "source.sha256": {
+    "runtime/src/ironwood_runtime.c": "dc3b0b7aed49ad9bd48b107e2c651ad56762c945eab323dea379fc5844b18397",
+    "runtime/include/ironwood_runtime.h": "076a7dcd6b00497e5de3f93b72830457d86dc17719c2f02fefeb0bfdb193d0da",
+    "runtime/src/ironwood_gc_engine.c": "8120fa04dca04477515c9c33ae9815c7c323c40d4fb6f982b87bac44457dc628",
+    "runtime/include/ironwood_gc_engine.h": "079195bc4d15413a33fed9927ea71ebd4c74d0e1be0303a480b2487e21849510",
+    "compiler/src/main/java/ironwood/compiler/backend/LlvmEmitter.java": "339114b27ccd62fc3599f45c889c504807af0b10679da07121d5d6696a3992eb",
+    "compiler/src/test/java/ironwood/compiler/CompilerTests.java": "b4b1dc25d3b932735d0ed8a1c0eef99b294ede57a0af6808c1a4f859436b198f",
+    "integration-tests/cases/gc5_heap_options.iron": "60fc49793a89f5f6384ef53113a0a3cf3077351f72af0c462b925046fce01c9c",
+    "integration-tests/runtime/heap_options.c": "a469757513bfff8443c8f08a481dc455f113bbe2d6baa2ecc0fe6d4c2a56a916",
+    "integration-tests/native/gc_engine_probe.c": "4efb8e8727fd2e73f1c6866796a8d8a7592b531bf9bb2897fe84783ba8edda6d",
+    "scripts/test-gc-engine.py": "e18c1573cb12d6a15b343b6314c07a90ed5e2669b4ac3d19f5c5df4d574a9ed3",
+    "packaging/bdwgc-qualified.properties": "bb12009ec89191abe0b0b2dfc9ec95fad00a797d5095644a309003df0a23e50c"
+  },
+  "residual_ledger_scope": "Affected entries retain their existing reviewed dispositions with updated content hashes and line offsets. Unrelated baseline drift remains in LANGUAGE_SPECS and API documentation entries.",
+  "self_hosting_attempted": false
+}

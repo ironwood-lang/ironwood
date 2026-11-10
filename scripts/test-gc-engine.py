@@ -71,7 +71,7 @@ def main():
     manifest, flags = gc.verify(sdk, llvm, args.target)
     builds = [builder.build(sdk, llvm, args.target, out / 'probe'),
               builder.build(sdk, llvm, args.target, out / 'image', image=True)]
-    results = [run([str(out / 'probe'), case], raw, case) for case in ('policy', 'accounting', 'domains')]
+    results = [run([str(out / 'probe'), case], raw, case) for case in ('policy', 'accounting', 'domains', 'heap')]
     results.append(run([str(out / 'probe'), 'environment'], raw, 'environment', {'GC_DONT_GC': '1'}))
     # A relocated SDK, verified with network access forbidden at the download API.
     relocated = out / 'relocated SDK'

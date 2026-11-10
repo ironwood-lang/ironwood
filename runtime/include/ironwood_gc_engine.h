@@ -79,6 +79,9 @@ struct iw_gc_snapshot {
  * GC_* environment overrides are refused, rather than changing this profile.
  */
 int iw_gc_init(const char *configuration_sha256, size_t max_heap, unsigned retries);
+/* Cold startup reservation, rounded by the caller to 64 KiB. Capacity remains
+ * collector-owned across collections, even when unused pages return to the OS. */
+int iw_gc_reserve(size_t minimum_heap);
 const char *iw_gc_configuration(void);
 void *iw_gc_allocate(enum iw_gc_fixture_kind kind, size_t bytes);
 

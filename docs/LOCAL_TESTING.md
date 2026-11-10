@@ -37,6 +37,13 @@ backlog or an alternate mode. Diagnostic primary/related spans remain tested.
 
 ## GC native selections
 
+`./scripts/test.sh --test 'native heap options bound real exhaustion and preserve application arguments'`
+tests `-Xms`/`-Xmx` at O0 and O3, including real bounded `OutOfMemoryError`,
+explicit recovery, size grammar and argument boundaries. Select
+`'process arguments reach main as UTF-16 Strings'` for the existing argument
+contract. `test-gc-engine.py` also checks initial reservation, cap rejection and
+capacity retention across repeated explicit collections.
+
 All drivers below require explicit --sdk, --llvm-home, --java-home and a new
 --output directory. They guard each child at 16 GiB and 60 seconds. Select only
 cases/levels relevant to the change; do not run all drivers as a substitute for

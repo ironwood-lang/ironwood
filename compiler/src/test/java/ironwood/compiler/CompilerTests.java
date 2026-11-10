@@ -991,6 +991,8 @@ public final class CompilerTests {
                 this::ironJarRejectsMalformedArchives);
         test("Milestone 1 native executable still works", this::milestoneOneNativeExecutableWorks);
         test("process arguments reach main as UTF-16 Strings", this::processArgumentsReachMain);
+        test("native heap options bound real exhaustion and preserve application arguments",
+                this::nativeHeapOptions);
         test("methods and control flow run natively", this::methodsAndControlFlowRunNatively);
         test("overloads and constructor delegation run natively", this::overloadsRunNatively);
         test("objects run through the bootstrap runtime natively", this::objectsRunNatively);
@@ -1305,6 +1307,11 @@ public final class CompilerTests {
                 "define i32 @main(i32 %argc, ptr %argv)", "native entry point");
         assertContains(artifact.llvmIr().orElseThrow(),
                 "call ptr addrspace(1) @ironwood_process_arguments", "process argument construction");
+        assertContains(artifact.llvmIr().orElseThrow(),
+                "%application.argc = call i32 @ironwood_runtime_options(i32 %argc, ptr %argv)",
+                "cold native startup options");
+        assertContains(artifact.llvmIr().orElseThrow(),
+                "@ironwood_run(i32 %application.argc, ptr %argv)", "filtered argument count");
         assertContains(artifact.llvmIr().orElseThrow(), "ret i32 42", "LLVM return instruction");
     }
 
@@ -9979,6 +9986,66 @@ public final class CompilerTests {
         compileAndRunFixtureWithOutput("command_line_arguments.iron", 3,
                 "first\ntwo words\nIronwood 🌲\n",
                 "first", "two words", "Ironwood 🌲");
+    }
+
+    private void nativeHeapOptions() throws Exception {
+        Path root = Files.createTempDirectory("ironwood-heap-options-");
+        try {
+            Path classes = root.resolve("classes");
+            assertMainRun(new String[]{"integration-tests/cases/gc5_heap_options.iron", "-d", classes.toString()},
+                    0, "heap option fixture compilation");
+            for (int level : List.of(0, 3)) {
+                Path executable = root.resolve("program-O" + level);
+                assertMainRun(new String[]{"--link", "-cp", classes.toString(), "--main-class", "Gc5HeapOptions",
+                        "-o", executable.toString(), "-O" + level}, 0, "heap option fixture link");
+                for (String[] options : List.of(
+                        new String[]{"-Xms4m", "-Xmx8m", "oom"},
+                        new String[]{"-Xmx8M", "-Xms4096K", "oom"},
+                        new String[]{"-Xms8388608", "-Xmx8192k", "oom"},
+                        new String[]{"-Xmx1g", "-Xmx8m", "-Xms4m", "oom"},
+                        new String[]{"-Xms1G", "-Xms4m", "-Xmx8m", "oom"})) {
+                    NativeResult result = runNative(executable, root, Map.of(), options);
+                    assertEquals(0, result.exit(), "real heap exhaustion at O" + level + ": " + result.stderr());
+                    assertEquals("heap exhaustion caught twice; explicit collection recovered\n", result.stdout(),
+                            "catch and recovery at O" + level);
+                }
+                for (String[] options : List.of(new String[]{}, new String[]{"-Xmx8m"},
+                        new String[]{"-Xms1025k", "-Xmx2049k"})) {
+                    NativeResult result = runNative(executable, root, Map.of(), options);
+                    assertEquals(0, result.exit(), "empty application arguments: " + result.stderr());
+                    assertEquals("0\n", result.stdout(), "runtime flags stripped");
+                }
+                NativeResult boundary = runNative(executable, root, Map.of(), "-Xmx8m", "two words", "-Xmsbad");
+                assertEquals(0, boundary.exit(), "application boundary");
+                assertEquals("2\ntwo words\n-Xmsbad\n", boundary.stdout(), "arguments after boundary");
+                NativeResult escaped = runNative(executable, root, Map.of(), "--", "-Xmxinvalid", "Ironwood 🌲");
+                assertEquals(0, escaped.exit(), "explicit application boundary");
+                assertEquals("2\n-Xmxinvalid\nIronwood 🌲\n", escaped.stdout(), "literal runtime-looking arguments");
+                for (String[] options : List.of(
+                        new String[]{"-Xmx"}, new String[]{"-Xms"}, new String[]{"-Xmx0"},
+                        new String[]{"-Xms0"}, new String[]{"-Xmx1m"}, new String[]{"-Xms1k"},
+                        new String[]{"-Xmx-8m"}, new String[]{"-Xmx+8m"}, new String[]{"-Xmx8mb"},
+                        new String[]{"-Xmx8t"}, new String[]{"-Xmx8388609"},
+                        new String[]{"-Xmx99999999999999999999999999999"},
+                        new String[]{"-Xmx9223372036854775807g"},
+                        new String[]{"-Xms16m", "-Xmx8m"}, new String[]{"-Xmx8m", "-Xms16m"})) {
+                    NativeResult result = runNative(executable, root, Map.of(), options);
+                    assertEquals(1, result.exit(), "invalid options " + List.of(options));
+                    assertEquals("", result.stdout(), "invalid options must not reach source main");
+                    assertContains(result.stderr(), "ironwood:", "startup option diagnostic");
+                }
+            }
+            Path probe = root.resolve("startup-capacity");
+            LlvmToolchain toolchain = LlvmToolchain.discover(null).toolchain().orElseThrow();
+            ironwood.compiler.backend.RuntimeHarnessBuild.build(toolchain, "heap_options.c", root, probe);
+            for (String[] options : List.of(
+                    new String[]{"-Xms4m", "-Xmx8m", "4194304", "8388608"},
+                    new String[]{"-Xms8m", "-Xmx8m", "8388608", "8388608"},
+                    new String[]{"-Xms2049k", "-Xmx2049k", "2162688", "2162688"})) {
+                NativeResult result = runNative(probe, root, Map.of(), options);
+                assertEquals(0, result.exit(), "actual startup capacity: " + result.stderr());
+            }
+        } finally { deleteTree(root); }
     }
 
     private void methodsAndControlFlowRunNatively() throws Exception {

@@ -915,10 +915,11 @@ public final class LlvmEmitter {
         }
         TraceScope traceScope = tracePlan.nativeEntryScope();
         output.append("define i32 @main(i32 %argc, ptr %argv) noinline uwtable \"disable-tail-calls\"=\"true\" \"gc-leaf-function\" {\nentry:\n")
+                .append("  %application.argc = call i32 @ironwood_runtime_options(i32 %argc, ptr %argv)\n")
                 .append("  call void @ironwood_gc_start()\n")
                 .append("  call void @ironwood_gc_bind_layouts()\n")
                 .append("  call void @ironwood_gc_start_roots(ptr @main, ptr addrspace(1) ").append(allocationFailureName()).append(")\n")
-                .append("  %status = call i32 @ironwood_run(i32 %argc, ptr %argv)\n  ret i32 %status\n}\n")
+                .append("  %status = call i32 @ironwood_run(i32 %application.argc, ptr %argv)\n  ret i32 %status\n}\n")
                 .append("define internal i32 @ironwood_run(i32 %argc, ptr %argv) noinline uwtable \"disable-tail-calls\"=\"true\" gc \"statepoint-example\" ")
                 .append("personality ptr @__gxx_personality_v0 !dbg !")
                 .append(traceScope.subprogramMetadata()).append(" {\n")
@@ -2537,6 +2538,7 @@ public final class LlvmEmitter {
         output.append("@iw_gc_root_abi = hidden constant i32 ").append(foreignImage ? 3 : 2).append('\n')
                 .append("@iw_gc_owner_requirements = hidden constant i32 ").append(foreignImage ? 15 : 7).append('\n')
                 .append("declare i32 @iw_gc_bind_type(ptr, ptr) \"gc-leaf-function\"\n")
+                .append("declare i32 @ironwood_runtime_options(i32, ptr) \"gc-leaf-function\"\n")
                 .append("declare void @ironwood_gc_start() \"gc-leaf-function\"\n")
                 .append("declare void @ironwood_gc_start_roots(ptr, ptr addrspace(1)) \"gc-leaf-function\"\n")
                 .append("declare void @ironwood_gc_invalid_layout() noreturn \"gc-leaf-function\"\n")

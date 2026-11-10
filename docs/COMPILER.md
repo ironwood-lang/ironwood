@@ -26,6 +26,11 @@ use the same convention. These options do not change LLVM compilation or the
 native runtime. See the [configuration template](../conf/jvm.options) for syntax
 and examples.
 
+Generated native executables independently accept leading `-Xms`/`-Xmx` options.
+Native `main` parses and validates them before starting the collector, then passes
+only application arguments to source `main`. These options add no allocation-path
+bookkeeping and never trigger collection. See [native heap sizes](MEMORY.md#native-heap-sizes).
+
 ## Current pipeline
 
 ```text

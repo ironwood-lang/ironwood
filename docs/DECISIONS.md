@@ -12935,3 +12935,31 @@ occurrence order. If no
 - **Scope:** These checks remain release-only. Local translated x86 execution
   is recorded separately from physical x86 qualification. D328's evidence bounds
   and D329's separate self-hosting requirement remain in force.
+
+## D332 - Configure native managed heap capacity at startup
+
+- **Status:** Accepted.
+- **Context:** Explicit-only collection needs a bounded way to exercise real
+  allocator exhaustion without relying on OS memory pressure or diagnostic
+  allocation-count hooks. Java programmers expect familiar heap-size options.
+- **Decision:** Standalone executables accept leading `-Xms` and `-Xmx` decimal
+  byte sizes with binary k/m/g suffixes. Validate at startup, remove consumed
+  arguments, and stop parsing at the first application argument or `--`.
+  Last duplicates win. Require whole KiB, minimum 1 MiB initial and 2 MiB maximum,
+  round up to 64 KiB allocator capacity, and reject initial greater than maximum.
+  `-Xms` reserves initial/minimum collector-owned capacity, independently of
+  whether unused physical pages are resident. `-Xmx` caps that capacity through
+  the existing allocator. Omitted flags retain the existing defaults.
+- **Failure:** Invalid options and failed initial reservation prevent source
+  startup. Ordinary allocation exhaustion throws `OutOfMemoryError`, without
+  collecting or retrying collection. Explicit `Memory.collect()` remains the
+  only reclamation point. The managed heap limit is not a process-memory limit.
+- **Boundaries:** Parse once in the standalone native entry point. Do not add
+  per-allocation counters or checks, change exact root/owner ABIs, interpret JVM
+  arguments in bridge images, or weaken SDK content verification. Rebuild SDKs
+  and refresh their exact identities when runtime inputs change.
+- **Validation:** Paired valid/invalid option cases, argument boundaries, O0/O3
+  real heap exhaustion and explicit recovery, and collector reservation/retention
+  tests. Keep translated x86 execution distinct from matching-hardware evidence.
+- **Supersession:** None. This extends D320/D322 without changing their
+  explicit-only collection or foreign-image contracts, and preserves D132/D133.

@@ -45,6 +45,8 @@ The isolated bootstrap runtime exposes these C ABI functions:
 - `ironwood_string_concat`, which consumes compiler-emitted typed operands,
   computes and validates their exact converted UTF-16 length, and creates one
   immutable ordinary String without a hidden builder or backing allocation;
+- `ironwood_runtime_options`, which parses standalone `-Xms`/`-Xmx` options
+  before collector initialization and removes the leading runtime options;
 - `ironwood_process_arguments`, which excludes the executable name, decodes
   native UTF-8 arguments into immutable UTF-16 Strings, and returns the typed
   `String[]` passed to the source entry method;

@@ -85,6 +85,7 @@ void *ironwood_string_from_character(uint16_t value, const void *string_type,
         void *allocation_failure);
 void *ironwood_string_concat(const struct ironwood_string_concat_part *parts,
         int32_t count, const void *string_type, void *allocation_failure);
+int32_t ironwood_runtime_options(int32_t argc, char **argv);
 void *ironwood_process_arguments(int32_t argc, const char *const *argv,
         const void *string_type, const void *string_array_type);
 void ironwood_system_arraycopy(const void *source, int32_t source_position,

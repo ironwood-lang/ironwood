@@ -54,6 +54,46 @@ clears preparation state and throws OutOfMemoryError without partial collection.
 Corruption and exhausted emergency delivery capacity remain fatal. Emergency
 exception delivery and secondary occurrences use bounded fixed storage.
 
+## Native heap sizes
+
+Pass `-Xms` and `-Xmx` directly to a generated executable, before application
+arguments. For example, `./app -Xms16m -Xmx256m input.txt` reserves an initial
+16 MiB managed heap and caps its capacity at 256 MiB. These are runtime options,
+not compiler/linker options. They never enable automatic collection.
+
+Sizes are decimal byte counts, optionally suffixed with `k`/`K`, `m`/`M` or
+`g`/`G` for binary KiB, MiB or GiB. Values must be whole KiB; `-Xms` requires
+at least 1 MiB and `-Xmx` at least 2 MiB. Capacities round up to 64 KiB allocator
+granularity. The last occurrence of each option wins. The effective initial
+size must not exceed the effective maximum. Malformed, overflowing or conflicting
+options fail before source execution with a startup diagnostic and exit status 1.
+Failure to reserve the initial heap also prevents startup.
+
+`-Xms` sets initial and minimum collector-owned capacity. Collection can return
+unused physical pages to the OS without losing that reusable capacity; it is
+not a resident-memory guarantee. Without `-Xms`, the collector uses its small
+default initial capacity. Without `-Xmx`, no practical application heap cap is
+configured, preserving existing behavior. Unlike JVM heap ergonomics, Ironwood
+does not choose a maximum from available machine memory.
+
+Ordinary managed allocation at the cap throws catchable `OutOfMemoryError`,
+without first collecting garbage. After leaving the catch, discard unwanted
+references and call `Memory.collect()` explicitly to recover storage. The cap
+includes collector heap storage for objects, sidecars and heap administration;
+usable object bytes are smaller because of headers, fragmentation and rounding.
+It does not cap native scratch, stacks, libraries, collector metadata outside
+the heap or total process RSS. An oversized limit or external memory pressure
+can still cause an OS-level failure. Startup argument construction and exhausted
+emergency exception delivery are outside an ordinary source catch boundary.
+
+Leading runtime options are removed from `main(String[] args)`. Parsing ends at
+the first application argument or at `--`; the delimiter itself is removed.
+For example, `./app -Xmx8m -- -Xmxliteral` passes only `-Xmxliteral` to `main`.
+Options following an application argument are ordinary application arguments.
+Managed bridge images retain their private defaults and do not interpret the
+hosting JVM's heap flags. See D332 and the focused heap-option tests in
+[local testing](LOCAL_TESTING.md).
+
 ## Removed reclamation forms
 
 `free value;`, `defer free value;`, source `destructor { ... }`, `--unfreed`,

@@ -1208,6 +1208,64 @@ void *ironwood_allocate_array(int32_t length, size_t element_size, uint32_t elem
     return array;
 }
 
+static size_t initial_heap_size;
+static size_t maximum_heap_size = SIZE_MAX / 2;
+
+static _Noreturn void heap_option_error(const char *reason, const char *option) {
+    fprintf(stderr, "ironwood: %s: %s\n", reason, option);
+    exit(1);
+}
+
+static size_t heap_option_size(const char *option, size_t minimum) {
+    const char *cursor = option + 4;
+    size_t bytes = 0;
+    if (*cursor < '0' || *cursor > '9') heap_option_error("invalid heap size", option);
+    do {
+        unsigned digit = (unsigned)(*cursor++ - '0');
+        if (bytes > (SIZE_MAX / 2 - digit) / 10) heap_option_error("heap size overflow", option);
+        bytes = bytes * 10 + digit;
+    } while (*cursor >= '0' && *cursor <= '9');
+    size_t multiplier = 1;
+    if (*cursor != '\0') {
+        switch (*cursor++) {
+            case 'k': case 'K': multiplier = 1024; break;
+            case 'm': case 'M': multiplier = 1024 * 1024; break;
+            case 'g': case 'G': multiplier = (size_t)1024 * 1024 * 1024; break;
+            default: heap_option_error("invalid heap size suffix", option);
+        }
+        if (*cursor != '\0') heap_option_error("invalid heap size suffix", option);
+    }
+    const size_t granularity = 64 * 1024;
+    if (bytes > (SIZE_MAX / 2 - (granularity - 1)) / multiplier) {
+        heap_option_error("heap size overflow", option);
+    }
+    bytes *= multiplier;
+    if (bytes < minimum || bytes % 1024 != 0) {
+        heap_option_error("heap size must be whole KiB, at least 1 MiB for -Xms or 2 MiB for -Xmx", option);
+    }
+    return (bytes + granularity - 1) / granularity * granularity;
+}
+
+/* Only standalone main calls this, before any managed allocation. Bridge images
+ * retain their private defaults and never interpret the hosting JVM's options. */
+int32_t ironwood_runtime_options(int32_t argc, char **argv) {
+    int32_t first = 1;
+    for (; first < argc; ++first) {
+        const char *option = argv[first];
+        if (strcmp(option, "--") == 0) { ++first; break; }
+        if (strncmp(option, "-Xms", 4) == 0) initial_heap_size = heap_option_size(option, 1024 * 1024);
+        else if (strncmp(option, "-Xmx", 4) == 0) maximum_heap_size = heap_option_size(option, 2 * 1024 * 1024);
+        else break;
+    }
+    if (initial_heap_size > maximum_heap_size) {
+        heap_option_error("initial heap size exceeds maximum heap size", "-Xms > -Xmx");
+    }
+    if (first > 1) {
+        memmove(argv + 1, argv + first, (size_t)(argc - first + 1) * sizeof(*argv));
+    }
+    return argc - (first - 1);
+}
+
 void *ironwood_process_arguments(int32_t argc, const char *const *argv,
                                  const void *string_type, const void *string_array_type) {
     if (argc < 0 || string_type == NULL || string_array_type == NULL
@@ -4411,7 +4469,10 @@ _Noreturn void ironwood_gc_invalid_layout(void) {
 }
 
 void ironwood_gc_start(void) {
-    if (!iw_gc_init(iw_gc_expected_configuration, SIZE_MAX / 2, 0)) ironwood_gc_invalid_layout();
+    if (!iw_gc_init(iw_gc_expected_configuration, maximum_heap_size, 0)) ironwood_gc_invalid_layout();
+    if (!iw_gc_reserve(initial_heap_size)) {
+        heap_option_error("cannot reserve initial managed heap", "-Xms");
+    }
     static const size_t metadata_refs[] = {
         offsetof(struct ironwood_exception_metadata, primary),
         offsetof(struct ironwood_exception_metadata, first_secondary),

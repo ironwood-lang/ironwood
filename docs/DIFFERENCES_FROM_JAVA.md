@@ -27,6 +27,12 @@ Unnamed temporaries and failed constructions use the same managed lifetime as
 ordinary objects. No source destructor or temporary cleanup callback runs.
 Removed reclamation syntax and options diagnose migration.
 
+Generated executables accept leading `-Xms` and `-Xmx` options with Java-style
+size suffixes. They control [native managed heap capacity](MEMORY.md#native-heap-sizes),
+with explicit-only collection and fixed allocator rounding. There is no JVM
+heap-size ergonomics or automatic collection on exhaustion. A bounded heap makes
+ordinary exhaustion catchable as `OutOfMemoryError`; it does not cap process RSS.
+
 ## Chainable StringBuilder length changes
 
 `StringBuilder.setLength(int)` returns the same builder in Ironwood, while Java

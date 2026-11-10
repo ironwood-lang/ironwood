@@ -54,6 +54,24 @@ static void policy(void) {
            "\"deferred_reclaimed_bytes\":0,\"heap_bytes\":%zu}\n", count, after.heap_bytes);
 }
 
+static void heap_reservation(void) {
+    assert(!iw_gc_reserve(1));
+    assert(!iw_gc_reserve(64 * 1024 * 1024)); // Above the initialized 32 MiB cap.
+    assert(iw_gc_reserve(8 * 1024 * 1024));
+    size_t capacity = iw_gc_snapshot().heap_bytes;
+    assert(capacity >= 8 * 1024 * 1024 && capacity <= 32 * 1024 * 1024);
+    assert(iw_gc_reserve(8 * 1024 * 1024));
+    assert(iw_gc_snapshot().heap_bytes == capacity && iw_gc_snapshot().collections == 0);
+    // Cross the collector's idle-page unmapping threshold. Reserved capacity is
+    // still reusable; -Xms is not a promise about resident physical pages.
+    for (int round = 0; round < 10; ++round) collect(0, 0);
+    assert(iw_gc_snapshot().heap_bytes == capacity);
+    assert(iw_gc_reserve(8 * 1024 * 1024));
+    allocate(IW_GC_LEAF, 4 * 1024 * 1024);
+    assert(iw_gc_snapshot().heap_bytes == capacity && iw_gc_snapshot().collections == 10);
+    puts("{\"case\":\"heap-reservation\",\"minimum_retained\":true,\"automatic_collections\":0}");
+}
+
 static void accounting(void) {
     void **roots = calloc(4096, sizeof(*roots));
     assert(roots != NULL && iw_gc_roots(roots, 4096));
@@ -138,6 +156,7 @@ static int run(const char *mode) {
     }
     initialize();
     if (strcmp(mode, "policy") == 0) policy();
+    else if (strcmp(mode, "heap") == 0) heap_reservation();
     else if (strcmp(mode, "accounting") == 0) accounting();
     else if (strcmp(mode, "domains") == 0) domains_and_roots();
     else abort();

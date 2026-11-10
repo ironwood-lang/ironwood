@@ -148,6 +148,12 @@ int iw_gc_init(const char *configuration_sha256, size_t max_heap, unsigned retri
     return 1;
 }
 
+int iw_gc_reserve(size_t minimum_heap) {
+    if (!initialized || !GC_is_disabled() || minimum_heap % (64 * 1024) != 0) return 0;
+    size_t capacity = GC_get_heap_size() + GC_get_unmapped_bytes();
+    return capacity >= minimum_heap || GC_expand_hp(minimum_heap - capacity);
+}
+
 void *iw_gc_allocate(enum iw_gc_fixture_kind kind, size_t bytes) {
     if (!initialized || !GC_is_disabled() || (unsigned)kind >= 4
             || bytes < 2 * sizeof(void *)) return NULL;
