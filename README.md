@@ -132,38 +132,8 @@ The resulting `target/hello` is a native executable. It does not need the IDK (I
 
 ## Memory Management
 
-GC5 uses one managed model for objects, arrays, Strings and compiler-created
-heap values. Collection is explicit and synchronous:
-
-```java
-import ironwood.lang.Memory;
-
-class ManagedExample {
-    public static int main(String[] args) {
-        Object value = new Object();
-        Memory.collect();
-        return value == null ? 1 : 0;
-    }
-}
-```
-
-Reachable references survive collection, including deferred captures and pending
-returns or exceptions. There is no source `free`, destructor, implicit temporary
-destruction or managed constructor rollback. Removed syntax, `--unfreed`,
-`--explain-rejected-free` and `@SuppressUnfreed` produce migration diagnostics.
-Close files and sockets explicitly; collection never closes them. See
-[Memory management](docs/MEMORY_MANAGEMENT.md) for scheduling and reuse guidance.
-GC6 managed bridges are qualified on macOS arm64 and Linux x86-64 with explicit
-[RootHandle and listener registration lifetimes](docs/GC6_IMPLEMENTATION.md).
-The completed [GC9 qualification](docs/GC9_LINUX_X86_64_DISTRIBUTION.md) covers
-native and managed-image distribution on all three official targets, including
-matching-hardware Linux arm64 and physical Linux x86-64. arm64e remains unsupported.
-[GC7](docs/GC7_IMPLEMENTATION.md)
-completes maintained consumer migration and obsolete managed-free proof retirement.
-Intentional migration-negative fixtures and frozen historical evidence remain
-classified in its ledger. [GC10 acceptance](docs/GC10_ACCEPTANCE.md) reconciles
-the completed integration and its exact qualification limits. Self-hosting has
-not restarted; Java remains the authoritative bootstrap.
+Ironwood manages memory like Java, but you choose when to collect the garbage.
+Call `Memory.collect()` when your program has time to clean up.
 
 ## Deterministic Cleanup with `defer`
 
