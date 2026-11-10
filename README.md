@@ -135,6 +135,9 @@ The resulting `target/hello` is a native executable. It does not need the IDK (I
 Ironwood manages memory like Java, but you choose when to collect the garbage.
 Call `Memory.collect()` when your program has time to clean up.
 
+You can create garbage as needed, but aim to minimize it by pooling and reusing
+mutable instances (see [Object Pooling](#object-pooling) below).
+
 ## Deterministic Cleanup with `defer`
 
 `defer` runs cleanup when execution leaves its enclosing block (such as a method or loop body), including on return or exception, in reverse declaration order.
