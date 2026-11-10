@@ -137,7 +137,7 @@ Call `Memory.collect()` when your program has time to clean up.
 
 You can generate garbage as needed, but aim to minimize it by pooling and reusing mutable instances. Because GC overhead is concentrated entirely in the cleanup phase, it is negligible on the critical path.
 
-A performance-critical application must never create garbage on the critical path. If you create garbage in a loop and never call `Memory.collect(`)`, you will eventually get an `OutOfMemoryError`, because Ironwood never triggers GC implicitly.
+A performance-critical application must never create garbage on the critical path. If you create garbage in a loop and never call `Memory.collect()`, you will eventually get an `OutOfMemoryError`, because Ironwood never triggers GC implicitly.
 
 ## Object Pooling
 
