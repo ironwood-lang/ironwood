@@ -135,8 +135,7 @@ The resulting `target/hello` is a native executable. It does not need the IDK (I
 Ironwood manages memory like Java, but you choose when to collect the garbage.
 Call `Memory.collect()` when your program has time to clean up.
 
-You can create garbage as needed, but aim to minimize it by pooling and reusing
-mutable instances.
+You can generate garbage as needed, but aim to minimize it by pooling and reusing mutable instances. Because GC overhead is concentrated entirely in the cleanup phase, it is negligible on the critical path.
 
 ## Object Pooling
 
